@@ -1,0 +1,38 @@
+Varda, a variant database interface
+===================================
+
+Ideas for the techniques.
+
+
+REST+json server
+----------------
+
+Python
+Flask
+SQLAlchemy
+json
+
+
+HTML5 client
+------------
+
+HTML5
+Coffeescript
+jQuery
+Bootstrap
+
+
+Commandline client
+------------------
+
+Python
+requests
+
+
+http://johnpaulett.com/2008/09/20/getting-restful-with-webpy/
+http://leftnode.com/entry/modern-web-application-architecture
+https://github.com/kennethreitz/requests
+https://github.com/kennethreitz/flask-rest
+http://librelist.com/browser//flask/2010/11/9/rest-with-flask/
+https://bitbucket.org/ee_lars/gra
+https://gist.github.com/1078469
