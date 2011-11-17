@@ -7,8 +7,8 @@ from flask import request, redirect, url_for, jsonify
 
 import varda
 from varda import app, db
-from varda.models import Variant
-from varda.tasks import add_three, add_variant
+from varda.models import Variant, Population, MergedObservation
+from varda.tasks import add_variant
 
 
 @app.route('/')
@@ -18,40 +18,42 @@ def apiroot():
                    contact=varda.__contact__)
 
 
-@app.route('/variants', methods=['GET'])
-def variants_list():
-    return jsonify(variants=[v.to_dict() for v in Variant.query])
+@app.route('/populations', method=['GET'])
+def populations_list():
+    """
+    curl -i http://127.0.0.1:5000/populations
+    """
+    return jsonify(populations=[p.to_dict() for p in Population.query])
 
 
-@app.route('/variants/<id>', methods=['GET'])
-def variants_get(id):
-    return jsonify(variant=Variant.query.get(id).to_dict())
+@app.route('/populations/<id>', methods=['GET'])
+def populations_get(id):
+    """
+    curl -i http://127.0.0.1:5000/populations/2
+    """
+    return jsonify(population=Population.query.get(id).to_dict())
 
 
-@app.route('/variants', methods=['POST'])
-def variants_add():
+@app.route('/populations', methods=['POST'])
+def populations_add():
+    """
+    curl -i -d 'name=Genome of the Netherlands' -d 'size=500' http://127.0.0.1:5000/populations
+    """
     data = request.form
-    variant = Variant(data['chromosome'],
-                      data['begin'],
-                      data['end'],
-                      data['reference'],
-                      data['variant'])
-    db.session.add(variant)
+    population = Population(data['name'], int(data['size']))
+    db.session.add(population)
     db.session.commit()
-    return redirect(url_for('variants_get', id=variant.id))
+    return redirect(url_for('populations_get', id=population.id))
 
 
-@app.route('/addthree', methods=['POST'])
-def addthree():
-    data = request.form
-    result = add_three.apply_async( (int(data['number']),) )
-    return redirect(url_for('view', id=result.task_id))
+#@app.route('/populations/<id>', methods=['POST'])
+#def merged_observations_add():
+#    data = request.form
+#    result = add_merged_observations.AsyncResult(id).get(timeout=1.0)
+#    # etc
 
 
-@app.route('/view/<id>', methods=['GET'])
-def view(id):
-    result = add_three.AsyncResult(id).get(timeout=1.0)
-    return jsonify(number=result)
+# Below is testing tasks
 
 
 @app.route('/cvariants', methods=['POST'])
