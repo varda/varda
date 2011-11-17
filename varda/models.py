@@ -24,7 +24,8 @@ class Variant(db.Model):
         self.variant = variant
 
     def __repr__(self):
-        return '<Variant chr%s:%i %s>' % (self.chromosome, self.begin, self.variant)
+        return '<Variant chr%s:%i %s>' % (
+            self.chromosome, self.begin, self.variant)
 
     def to_dict(self):
         return {'id':         self.id,
@@ -35,4 +36,5 @@ class Variant(db.Model):
                 'variant':    self.variant}
 
 
-Index('index_chromosome_begin_end', Variant.chromosome, Variant.begin, Variant.end)
+Index('index_chromosome_begin_end',
+      Variant.chromosome, Variant.begin, Variant.end)

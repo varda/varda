@@ -8,6 +8,7 @@ from flask import request, redirect, url_for, jsonify
 import varda
 from varda import app, db
 from varda.models import Variant
+from varda.tasks import add_three
 
 
 @app.route('/')
@@ -38,3 +39,16 @@ def variants_add():
     db.session.add(variant)
     db.session.commit()
     return redirect(url_for('variants_get', id=variant.id))
+
+
+@app.route('/addthree', methods=['POST'])
+def addthree():
+    data = request.form
+    result = add_three.apply_async( (int(data['number']),) )
+    return redirect(url_for('view', id=result.task_id))
+
+
+@app.route('/view/<id>', methods=['GET'])
+def view(id):
+    result = add_three.AsyncResult(id).get(timeout=1.0)
+    return jsonify(number=result)
