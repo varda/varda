@@ -2,6 +2,15 @@
 """
 Run the Varda REST server.
 
+To setup the database:
+
+    create database varda;
+    create database vardacelery;
+    create database vardaresults;
+    grant all privileges on varda.* to varda@localhost identified by 'varda';
+    grant all privileges on vardacelery.* to varda@localhost identified by 'varda';
+    grant all privileges on vardaresults.* to varda@localhost identified by 'varda';
+
 To reset the database:
 
     from varda import db
