@@ -17,6 +17,11 @@ To reset the database:
     db.drop_all()
     db.create_all()
 
+To start Varda server:
+
+    manage.py celeryd
+    manage.py runserver
+
 """
 
 
