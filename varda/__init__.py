@@ -36,11 +36,14 @@ __homepage__ = 'http://www.humgen.nl'
 
 API_VERSION = 1
 
+# Variant database
 SQLALCHEMY_DATABASE_URI = 'mysql://varda:varda@localhost/varda'
 
+# Celery results
 CELERY_RESULT_BACKEND = 'database'
 CELERY_RESULT_DBURI = 'mysql://varda:varda@localhost/vardaresults'
 
+# Celery broker
 BROKER_TRANSPORT = 'sqlalchemy'
 BROKER_HOST = 'mysql://varda:varda@localhost/vardacelery'
 
@@ -51,4 +54,5 @@ db = SQLAlchemy(app)
 celery = Celery(app)
 
 
+# Views must always be imported last
 import varda.views
