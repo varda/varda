@@ -45,10 +45,6 @@ BROKER_TRANSPORT = 'sqlalchemy'
 BROKER_HOST = 'mysql://varda:varda@localhost/vardacelery'
 
 
-#def create_app():
-#    return Flask(__name__)
-
-
 app = Flask(__name__)
 app.config.from_object(__name__)
 db = SQLAlchemy(app)
