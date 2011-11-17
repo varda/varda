@@ -18,7 +18,7 @@ def apiroot():
                    contact=varda.__contact__)
 
 
-@app.route('/populations', method=['GET'])
+@app.route('/populations', methods=['GET'])
 def populations_list():
     """
     curl -i http://127.0.0.1:5000/populations
