@@ -8,8 +8,12 @@ REST+json server
 ----------------
 
 Python
+MySQL
 Flask
 SQLAlchemy
+Celery
+Flask-SQLAlchemy
+Flask-Celery
 json
 
 
@@ -36,3 +40,5 @@ https://github.com/kennethreitz/flask-rest
 http://librelist.com/browser//flask/2010/11/9/rest-with-flask/
 https://bitbucket.org/ee_lars/gra
 https://gist.github.com/1078469
+https://github.com/okfn/datahub
+https://github.com/sean-/flask-skeleton

@@ -4,7 +4,7 @@ Varda, a variant database interface.
 
 
 from flask import Flask
-app = Flask(__name__)
+from flaskext.sqlalchemy import SQLAlchemy
 
 
 # On the event of a new release, we update the __version_info__ and __date__
@@ -31,6 +31,14 @@ __version__ = '.'.join(__version_info__)
 __author__ = 'Leiden University Medical Center'
 __contact__ = 'humgen@lumc.nl'
 __homepage__ = 'http://www.humgen.nl'
+
+
+API_VERSION = 1
+
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://varda:varda@localhost/varda'
+db = SQLAlchemy(app)
 
 
 import varda.views
