@@ -46,13 +46,17 @@ Twitter's [Bootstrap] [6] toolkit and uses [Less] [7] stylesheets. Javascript
 code is compiled from [Coffeescript] [8] and will probably use at least
 [jQuery] [9].
 
+Apart from this, there could also be a simple mobile web app, for example for
+use on the iPhone.
+
 Git clone url: https://humgenprojects.lumc.nl/git/varda-web.git
 
 
 Authentication
 --------------
 
-Todo.
+Probably use some kind of API keys, of which server-side only a hash is stored
+using bcrypt.
 
 
 And then...
@@ -70,12 +74,12 @@ Just as a reference, some relevant links:
 * [SQLAlchemy usage recipes](http://www.sqlalchemy.org/trac/wiki/UsageRecipes)
 
 
-[1] http://flask.pocoo.org/
-[2] http://www.sqlalchemy.org/
-[3] http://en.wikipedia.org/wiki/Representational_state_transfer
-[4] http://celeryproject.org/
-[5] http://python-requests.org
-[6] http://twitter.github.com/bootstrap/
-[7] http://lesscss.org/
-[8] http://jashkenas.github.com/coffee-script/
-[9] http://jquery.com/
+[1]: http://flask.pocoo.org/
+[2]: http://www.sqlalchemy.org/
+[3]: http://en.wikipedia.org/wiki/Representational_state_transfer
+[4]: http://celeryproject.org/
+[5]: http://python-requests.org
+[6]: http://twitter.github.com/bootstrap/
+[7]: http://lesscss.org/
+[8]: http://jashkenas.github.com/coffee-script/
+[9]: http://jquery.com/
