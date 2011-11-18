@@ -97,3 +97,58 @@ class MergedObservation(db.Model):
         return {'population': self.population.id,
                 'variant':    self.variant.id,
                 'support':    self.support}
+
+
+class Sample(db.Model):
+    """
+    Sample.
+
+    Todo: do we still need a poolSize in Sample now that we split population
+    studies to a separate model?
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    threshold = db.Column(db.Integer)
+    added = db.Column(db.Date)
+    comment = db.Column(db.String(200))
+
+    def __init__(self, threshold=None, comment=None):
+        self.threshold = threshold
+        self.comment = comment
+        self.added = date.today()
+
+    def __repr__(self):
+        return '<Sample %r>' % self.id
+
+    def to_dict(self):
+        return {'id':        self.id,
+                'threshold': self.threshold,
+                'added':     str(self.added),
+                'comment':   self.comment}
+
+
+class Observation(db.Model):
+    """
+    Observation in a sample
+    """
+    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'), primary_key=True)
+    variant_id = db.Column(db.Integer, db.ForeignKey('variant.id'), primary_key=True)
+    coverage = db.Column(db.Integer)
+    support = db.Column(db.Integer)
+
+    sample = db.relationship(Sample, backref=db.backref('observations', lazy='dynamic'))
+    variant = db.relationship(Variant, backref=db.backref('observations', lazy='dynamic'))
+
+    def __init__(self, sample, variant, coverage=None, support=None):
+        self.sample = sample
+        self.variant = variant
+        self.coverage = coverage
+        self.support = support
+
+    def __repr__(self):
+        return '<Observation %i %r %i %i>' % (self.sample.id, self.variant, self.coverage, self.support)
+
+    def to_dict(self):
+        return {'sample':   self.sample.id,
+                'variant':  self.variant.id,
+                'coverage': self.coverage,
+                'support':  self.support}
