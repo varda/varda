@@ -19,8 +19,8 @@ To reset the database:
 
 To start Varda server:
 
-    manage.py celeryd
-    manage.py runserver
+    ./manage.py celeryd
+    ./manage.py runserver
 
 """
 

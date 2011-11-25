@@ -59,6 +59,43 @@ Probably use some kind of API keys, of which server-side only a hash is stored
 using bcrypt.
 
 
+Using virtualenv
+----------------
+
+Since this is my first time using [virtualenv] [11], I document some things
+here. It is easier to work with using [virtualenvwrapper] [10].
+
+    sudo easy_install pip
+    sudo pip install virtualenv
+    sudo pip install virtualenvwrapper
+    mkdir ~/.virtualenvs
+
+Add to ~/.bashrc:
+
+    export WORKON_HOME=~/.virtualenvs
+    source /usr/local/bin/virtualenvwrapper.sh
+    export PIP_VIRTUALENV_BASE=$WORKON_HOME
+    export PIP_REQUIRE_VIRTUALENV=true
+    export PIP_RESPECT_VIRTUALENV=true
+
+For easy development, we always want to have a IPython installed:
+
+    echo 'pip install ipython' >> $WORKON_HOME/postmkvirtualenv
+
+Now, create an environment:
+
+    mkvirtualenv --no-site-packages varda-server
+
+Activate the environment with:
+
+    workon varda-server
+
+To install mysql-python, we need a development package:
+
+    sudo aptitude build-dep mysql-python  #libmysqlclient-dev
+    pip install MySQL-python
+
+
 And then...
 -----------
 
@@ -83,3 +120,5 @@ Just as a reference, some relevant links:
 [7]: http://lesscss.org/
 [8]: http://jashkenas.github.com/coffee-script/
 [9]: http://jquery.com/
+[10]: http://www.virtualenv.org/
+[11]: http://www.doughellmann.com/docs/virtualenvwrapper/
