@@ -36,6 +36,10 @@ __homepage__ = 'http://www.humgen.nl'
 
 API_VERSION = 1
 
+
+# Directory to store uploaded files
+FILES_DIR = '/tmp/varda'
+
 # Variant database
 SQLALCHEMY_DATABASE_URI = 'mysql://varda:varda@localhost/varda'
 

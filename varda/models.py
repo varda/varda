@@ -29,8 +29,8 @@ class Variant(db.Model):
         self.variant = variant
 
     def __repr__(self):
-        return '<Variant chr%s:%i %s>' % (
-            self.chromosome, self.begin, self.variant)
+        return '<Variant %s at chr%s:%i-%i>' % (
+            self.variant, self.chromosome, self.begin, self.end)
 
     def to_dict(self):
         return {'id':         self.id,
@@ -48,82 +48,28 @@ Index('index_variant_unique',
       Variant.reference, Variant.variant, unique=True)
 
 
-class Population(db.Model):
-    """
-    Population study.
-    """
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100))
-    added = db.Column(db.Date)
-    size = db.Column(db.Integer)
-
-    def __init__(self, name, size=0):
-        self.name = name
-        self.size = size
-        self.added = date.today()
-
-    def __repr__(self):
-        return '<Population %r>' % self.name
-
-    def to_dict(self):
-        return {'id':    self.id,
-                'name':  self.name,
-                'added': str(self.added),
-                'size':  self.size}
-
-
-class MergedObservation(db.Model):
-    """
-    Observation in a population.
-
-    Todo: Add genotype.
-    """
-    population_id = db.Column(db.Integer, db.ForeignKey('population.id'), primary_key=True)
-    variant_id = db.Column(db.Integer, db.ForeignKey('variant.id'), primary_key=True)
-    support = db.Column(db.Integer)
-
-    population = db.relationship(Population, backref=db.backref('merged_observations', lazy='dynamic'))
-    variant = db.relationship(Variant, backref=db.backref('merged_observations', lazy='dynamic'))
-
-    def __init__(self, population, variant, support=0):
-        self.population = population
-        self.variant = variant
-        self.support = support
-
-    def __repr__(self):
-        return '<MergedObservation %s %r %i>' % (self.population.name, self.variant, self.support)
-
-    def to_dict(self):
-        return {'population': self.population.id,
-                'variant':    self.variant.id,
-                'support':    self.support}
-
-
 class Sample(db.Model):
     """
     Sample.
-
-    Todo: do we still need a poolSize in Sample now that we split population
-    studies to a separate model?
     """
     id = db.Column(db.Integer, primary_key=True)
-    threshold = db.Column(db.Integer)
+    name = db.Column(db.String(100))
+    pool_size = db.Column(db.Integer)
     added = db.Column(db.Date)
-    comment = db.Column(db.String(200))
 
-    def __init__(self, threshold=None, comment=None):
-        self.threshold = threshold
-        self.comment = comment
+    def __init__(self, name, pool_size=1):
+        self.name = name
+        self.pool_size = pool_size
         self.added = date.today()
 
     def __repr__(self):
-        return '<Sample %r>' % self.id
+        return '<Sample %s of %i>' % (self.name, self.pool_size)
 
     def to_dict(self):
         return {'id':        self.id,
-                'threshold': self.threshold,
-                'added':     str(self.added),
-                'comment':   self.comment}
+                'name':      self.name,
+                'pool_size': self.pool_size,
+                'added':     str(self.added)}
 
 
 class Observation(db.Model):
@@ -132,23 +78,84 @@ class Observation(db.Model):
     """
     sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'), primary_key=True)
     variant_id = db.Column(db.Integer, db.ForeignKey('variant.id'), primary_key=True)
-    coverage = db.Column(db.Integer)
-    support = db.Column(db.Integer)
+
+    # Depending on the type of sample, the following 3 fields may or not
+    # have data. If we have no data, we store None.
+    total_coverage = db.Column(db.Integer)
+    variant_coverage = db.Column(db.Integer)
+    support = db.Column(db.Integer)  # Number of individuals for pooled sample
 
     sample = db.relationship(Sample, backref=db.backref('observations', lazy='dynamic'))
     variant = db.relationship(Variant, backref=db.backref('observations', lazy='dynamic'))
 
-    def __init__(self, sample, variant, coverage=None, support=None):
+    def __init__(self, sample, variant, total_coverage=None, variant_coverage=None, support=None):
         self.sample = sample
         self.variant = variant
-        self.coverage = coverage
+        self.total_coverage = total_coverage
+        self.variant_coverage = variant_coverage
         self.support = support
 
     def __repr__(self):
-        return '<Observation %i %r %i %i>' % (self.sample.id, self.variant, self.coverage, self.support)
+        return '<Observation %r on %r>' % (self.variant, self.sample)
 
     def to_dict(self):
-        return {'sample':   self.sample.id,
-                'variant':  self.variant.id,
-                'coverage': self.coverage,
-                'support':  self.support}
+        return {'sample':           self.sample.id,
+                'variant':          self.variant.id,
+                'total_coverage':   self.total_coverage,
+                'variant_coverage': self.variant_coverage,
+                'support':          self.support}
+
+
+class Region(db.Model):
+    """
+    Covered region for a sample.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'), primary_key=True)
+    chromosome = db.Column(db.String(2))
+    begin = db.Column(db.Integer)
+    end = db.Column(db.Integer)
+    bin = db.Column(db.Integer)
+
+    sample = db.relationship(Sample, backref=db.backref('regions', lazy='dynamic'))
+
+    def __init__(self, sample, chromosome, begin, end):
+        self.sample = sample
+        self.chromosome = chromosome
+        self.begin = begin
+        self.end = end
+        self.bin = 14  # Todo
+
+    def __repr__(self):
+        return '<Region for %r at chr%s:%i-%i>' % (self.sample, self.chromosome, self.begin, self.end)
+
+    def to_dict(self):
+        return {'sample':     self.sample.id,
+                'chromosome': self.chromosome,
+                'begin':      self.begin,
+                'end':        self.end}
+
+
+Index('region_begin',
+      Region.chromosome, Region.begin)
+Index('region_end',
+      Region.chromosome, Region.end)
+
+
+class DataSource(db.Model):
+    """
+    Data source (probably uploaded as a file). E.g. VCF file to be iported, or
+    a list of variants to be annotated.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    added = db.Column(db.Date)
+
+    def __init__(self):
+        self.added = date.today()
+
+    def __repr__(self):
+        return '<DataSource added %s>' % str(self.added)
+
+    def to_dict(self):
+        return {'id':    self.id,
+                'added': str(self.added)}
