@@ -92,7 +92,7 @@ Activate the environment with:
 
 To install mysql-python, we need a development package:
 
-    sudo aptitude build-dep mysql-python  #libmysqlclient-dev
+    sudo aptitude install libmysqlclient-dev
     pip install MySQL-python
 
 
