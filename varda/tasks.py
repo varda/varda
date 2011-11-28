@@ -3,17 +3,32 @@ Celery tasks.
 """
 
 
-from varda import celery, db
-from varda.models import Variant, Population, MergedObservation
+import os
+
+from varda import app, db, celery
+from varda.models import Variant, Sample, Observation, DataSource
 
 
 @celery.task
-def import_merged_vcf(population_id, vcf_file, use_genotypes=True):
+def import_merged_vcf(sample_id, data_source_id, use_genotypes=True):
     """
     Import merged variants from VCF file.
 
-    @todo: make proper use of session commit.
+    @todo: Make proper use of session commit.
+    @todo: Check if it has already been imported.
+    @todo: Use custom state to report progress:
+        http://docs.celeryproject.org/en/latest/userguide/tasks.html#custom-states
+
+    @note: Uncommitted writes to MySQL seem to be cached in memory by SQLAlchemy
+        since MySQL does not have commit/rollback functionality. The unpleasant
+        side-effect is that we need tons of memory if we only commit after the
+        entire VCF file is imported. So we commit after each variant.
+        Unfortunately, this looses the most obvious way to do error recovery by
+        doing a rollback on all variants imported thus far.
     """
+    data_source = DataSource.query.get(data_source_id)
+    vcf_file = os.path.join(app.config['FILES_DIR'], data_source.filename)
+
     vcf = open(vcf_file)
 
     header = vcf.readline()
@@ -22,9 +37,9 @@ def import_merged_vcf(population_id, vcf_file, use_genotypes=True):
         #sys.exit(1)
         return
 
-    population = Population.query.get(population_id)
+    sample = Sample.query.get(sample_id)
 
-    if not population:
+    if not sample:
         #sys.stderr.write('No sample with sample id %d\n' % sample_id)
         #sys.exit(1)
         return
@@ -68,7 +83,7 @@ def import_merged_vcf(population_id, vcf_file, use_genotypes=True):
                 #sys.exit(1)
                 continue
             #db.addObservation(variant_id, sample_id, pool_size, support)
-            observation = MergedObservation(population, variant, support)
+            observation = Observation(sample, variant, data_source, support=support)
             db.session.add(observation)
             db.session.commit()
     db.session.commit()

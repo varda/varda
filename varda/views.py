@@ -7,10 +7,11 @@ import os
 import uuid
 
 from flask import abort, request, redirect, url_for, jsonify
+from celery.exceptions import TimeoutError
 
 import varda
 from varda import app, db
-from varda.models import Variant, Population, MergedObservation
+from varda.models import Variant, Sample, Observation, DataSource
 from varda.tasks import import_merged_vcf
 
 
@@ -21,79 +22,94 @@ def apiroot():
                    contact=varda.__contact__)
 
 
-@app.route('/populations', methods=['GET'])
-def populations_list():
+@app.route('/samples', methods=['GET'])
+def samples_list():
     """
-    curl -i http://127.0.0.1:5000/populations
+    curl -i http://127.0.0.1:5000/samples
     """
-    return jsonify(populations=[p.to_dict() for p in Population.query])
+    return jsonify(samples=[s.to_dict() for s in Sample.query])
 
 
-@app.route('/populations/<id>', methods=['GET'])
-def populations_get(id):
+@app.route('/samples/<id>', methods=['GET'])
+def samples_get(id):
     """
-    curl -i http://127.0.0.1:5000/populations/2
+    curl -i http://127.0.0.1:5000/samples/2
     """
-    return jsonify(population=Population.query.get(id).to_dict())
+    return jsonify(sample=Sample.query.get(id).to_dict())
 
 
-@app.route('/populations', methods=['POST'])
-def populations_add():
+@app.route('/samples', methods=['POST'])
+def samples_add():
     """
-    curl -i -d 'name=Genome of the Netherlands' -d 'size=500' http://127.0.0.1:5000/populations
+    curl -i -d 'name=Genome of the Netherlands' -d 'pool_size=500' http://127.0.0.1:5000/samples
     """
     data = request.form
-    population = Population(data['name'], int(data['size']))
-    db.session.add(population)
+    sample = Sample(data['name'], int(data['pool_size']))
+    db.session.add(sample)
     db.session.commit()
-    return redirect(url_for('populations_get', id=population.id))
+    return redirect(url_for('samples_get', id=sample.id))
 
 
-@app.route('/populations/<population_id>/observations', methods=['POST'])
-def merged_observations_add(population_id):
+@app.route('/samples/<sample_id>/observations', methods=['POST'])
+def observations_add(sample_id):
     """
-    curl -i -d 'file=296748de-44ed-4e53-904f-80d181aaaa53' http://127.0.0.1:5000/populations/1/observations
+    curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/observations
     """
     data = request.form
-    #population = Population.query.get(id)
-    result = import_merged_vcf.apply_async( [population_id, os.path.join(app.config['FILES_DIR'], data['file'])] )
+    result = import_merged_vcf.delay(sample_id, data['data_source'])
     # Todo: check if call could be scheduled by celery
-    return redirect(url_for('populations_get', id=population_id))
+    return redirect(url_for('observations_get', sample_id=sample_id, task_id=result.task_id))
 
 
-@app.route('/files', methods=['GET'])
-def files_list():
+@app.route('/samples/<sample_id>/observations/<task_id>', methods=['GET'])
+def observations_get(sample_id, task_id):
+    """
+    Check status of import observations task.
+    """
+    try:
+        result = import_merged_vcf.AsyncResult(task_id).get(timeout=1)
+    except TimeoutError:
+        abort(404)
+    return jsonify(observations={'task_id': task_id, 'status': result.status})
+
+
+@app.route('/data_sources', methods=['GET'])
+def data_sources_list():
     """
     List all uploaded files.
     """
-    return jsonify(files=map(lambda id: {'id': id},
-                             filter(lambda id: os.path.isfile(os.path.join(app.config['FILES_DIR'], id)),
-                                    os.listdir(app.config['FILES_DIR']))))
+    return jsonify(data_sources=[d.to_dict() for d in DataSource.query])
 
 
-@app.route('/files/<id>', methods=['GET'])
-def files_get(id):
+@app.route('/data_sources/<id>', methods=['GET'])
+def data_sources_get(id):
     """
     Get an uploaded file id.
     """
+    data_source = DataSource.query.get(id)
     try:
-        with open(os.path.join(app.config['FILES_DIR'], id)) as file:
+        with open(os.path.join(app.config['FILES_DIR'], data_source.filename)) as file:
             data = file.read()
     except IOError:
         abort(404)
-    return jsonify(file={'id': id, 'data': data})
+    data_dict = data_source.as_dict()
+    data_dict['data'] = data
+    return jsonify(data_source=data_dict)
 
 
-@app.route('/files', methods=['POST'])
-def files_add():
+@app.route('/data_sources', methods=['POST'])
+def data_sources_add():
     """
-    Upload VCF file.
+    Upload VCF or BED file.
     """
-    file = request.files['file']
-    if file:
-        id = str(uuid.uuid4())
-        file.save(os.path.join(app.config['FILES_DIR'], id))
-        return redirect(url_for('files_get', id=id))
+    data = request.files['data']
+    if data:
+        filename = str(uuid.uuid4())
+        data.save(os.path.join(app.config['FILES_DIR'], filename))
+        data_source = DataSource(request.form['name'], filename)
+        db.session.add(data_source)
+        db.session.commit()
+        return redirect(url_for('data_sources_get', id=data_source.id))
 
 
 #@app.route('/populations/<id>', methods=['POST'])

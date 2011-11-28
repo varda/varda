@@ -8,6 +8,31 @@ from datetime import date
 from sqlalchemy import Index
 
 from varda import db
+from varda.region_binning import assign_bin
+
+
+class DataSource(db.Model):
+    """
+    Data source (probably uploaded as a file). E.g. VCF file to be imported, or
+    BED track from which Region entries are created.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200))
+    filename = db.Column(db.String(50))
+    added = db.Column(db.Date)
+
+    def __init__(self, name, filename):
+        self.name = name
+        self.filename = filename
+        self.added = date.today()
+
+    def __repr__(self):
+        return '<DataSource %s added %s>' % (self.name, str(self.added))
+
+    def to_dict(self):
+        return {'id':    self.id,
+                'name':  self.name,
+                'added': str(self.added)}
 
 
 class Variant(db.Model):
@@ -53,7 +78,7 @@ class Sample(db.Model):
     Sample.
     """
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100))
+    name = db.Column(db.String(200))
     pool_size = db.Column(db.Integer)
     added = db.Column(db.Date)
 
@@ -78,6 +103,7 @@ class Observation(db.Model):
     """
     sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'), primary_key=True)
     variant_id = db.Column(db.Integer, db.ForeignKey('variant.id'), primary_key=True)
+    data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
 
     # Depending on the type of sample, the following 3 fields may or not
     # have data. If we have no data, we store None.
@@ -87,10 +113,12 @@ class Observation(db.Model):
 
     sample = db.relationship(Sample, backref=db.backref('observations', lazy='dynamic'))
     variant = db.relationship(Variant, backref=db.backref('observations', lazy='dynamic'))
+    data_source = db.relationship(DataSource, backref=db.backref('observations', lazy='dynamic'))
 
-    def __init__(self, sample, variant, total_coverage=None, variant_coverage=None, support=None):
+    def __init__(self, sample, variant, data_source, total_coverage=None, variant_coverage=None, support=None):
         self.sample = sample
         self.variant = variant
+        self.data_source = data_source
         self.total_coverage = total_coverage
         self.variant_coverage = variant_coverage
         self.support = support
@@ -101,6 +129,7 @@ class Observation(db.Model):
     def to_dict(self):
         return {'sample':           self.sample.id,
                 'variant':          self.variant.id,
+                'data_source':      self.data_source.id,
                 'total_coverage':   self.total_coverage,
                 'variant_coverage': self.variant_coverage,
                 'support':          self.support}
@@ -111,51 +140,36 @@ class Region(db.Model):
     Covered region for a sample.
     """
     id = db.Column(db.Integer, primary_key=True)
-    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'), primary_key=True)
+    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
+    data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
     chromosome = db.Column(db.String(2))
     begin = db.Column(db.Integer)
     end = db.Column(db.Integer)
     bin = db.Column(db.Integer)
 
     sample = db.relationship(Sample, backref=db.backref('regions', lazy='dynamic'))
+    data_source = db.relationship(DataSource, backref=db.backref('regions', lazy='dynamic'))
 
-    def __init__(self, sample, chromosome, begin, end):
+    def __init__(self, sample, data_source, chromosome, begin, end):
         self.sample = sample
+        self.data_source = data_source
         self.chromosome = chromosome
         self.begin = begin
         self.end = end
-        self.bin = 14  # Todo
+        self.bin = assign_bin(self.begin, self.end)
 
     def __repr__(self):
         return '<Region for %r at chr%s:%i-%i>' % (self.sample, self.chromosome, self.begin, self.end)
 
     def to_dict(self):
-        return {'sample':     self.sample.id,
-                'chromosome': self.chromosome,
-                'begin':      self.begin,
-                'end':        self.end}
+        return {'sample':      self.sample.id,
+                'data_source': self.data_source.id,
+                'chromosome':  self.chromosome,
+                'begin':       self.begin,
+                'end':         self.end}
 
 
 Index('region_begin',
       Region.chromosome, Region.begin)
 Index('region_end',
       Region.chromosome, Region.end)
-
-
-class DataSource(db.Model):
-    """
-    Data source (probably uploaded as a file). E.g. VCF file to be iported, or
-    a list of variants to be annotated.
-    """
-    id = db.Column(db.Integer, primary_key=True)
-    added = db.Column(db.Date)
-
-    def __init__(self):
-        self.added = date.today()
-
-    def __repr__(self):
-        return '<DataSource added %s>' % str(self.added)
-
-    def to_dict(self):
-        return {'id':    self.id,
-                'added': str(self.added)}
