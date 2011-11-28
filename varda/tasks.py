@@ -5,16 +5,22 @@ Celery tasks.
 
 import os
 
+from sqlalchemy.exc import IntegrityError
+
 from varda import app, db, celery
 from varda.models import Variant, Sample, Observation, DataSource
 
 
-@celery.task
-def import_merged_vcf(sample_id, data_source_id, use_genotypes=True):
-    """
-    Import merged variants from VCF file.
+class TaskError(Exception):
+    pass
 
-    @todo: Make proper use of session commit.
+
+@celery.task
+def import_vcf(sample_id, data_source_id, use_genotypes=True):
+    """
+    Import observed variants from VCF file.
+
+    @todo: This only works for merged population studies at the moment.
     @todo: Check if it has already been imported.
     @todo: Use custom state to report progress:
         http://docs.celeryproject.org/en/latest/userguide/tasks.html#custom-states
@@ -27,22 +33,23 @@ def import_merged_vcf(sample_id, data_source_id, use_genotypes=True):
         doing a rollback on all variants imported thus far.
     """
     data_source = DataSource.query.get(data_source_id)
-    vcf_file = os.path.join(app.config['FILES_DIR'], data_source.filename)
+    if not data_source:
+        raise TaskError('Data source not found')
 
+    vcf_file = os.path.join(app.config['FILES_DIR'], data_source.filename)
     vcf = open(vcf_file)
 
     header = vcf.readline()
     if 'fileformat=VCFv4.1' not in header:
-        #sys.stderr.write('Expected VCF version 4.1 format\n' % line)
-        #sys.exit(1)
-        return
+        raise TaskError('Data source not in VCF version 4.1 format')
 
     sample = Sample.query.get(sample_id)
-
     if not sample:
-        #sys.stderr.write('No sample with sample id %d\n' % sample_id)
-        #sys.exit(1)
-        return
+        raise TaskError('Sample not found')
+
+    # Todo: SQLAlchemy probably has something for this, has() or any() or exists()...
+    if sample.observations.filter(data_source=data_source).count() > 1:
+        raise TaskError('Data source already imported in this sample')
 
     for line in vcf:
         if line.startswith('#'):
@@ -79,14 +86,13 @@ def import_merged_vcf(sample_id, data_source_id, use_genotypes=True):
             elif 'AC' in info:
                 support = int(info['AC'])
             else:
-                #sys.error.write('Cannot read variant support\n')
-                #sys.exit(1)
-                continue
-            #db.addObservation(variant_id, sample_id, pool_size, support)
-            observation = Observation(sample, variant, data_source, support=support)
+                raise TaskError('Cannot read variant support')
+            try:
+                observation = Observation(sample, variant, data_source, support=support)
+            except IntegrityError:
+                raise TaskError('Observation already exists')
             db.session.add(observation)
             db.session.commit()
-    db.session.commit()
     vcf.close()
 
 

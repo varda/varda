@@ -12,7 +12,7 @@ from celery.exceptions import TimeoutError
 import varda
 from varda import app, db
 from varda.models import Variant, Sample, Observation, DataSource
-from varda.tasks import import_merged_vcf
+from varda.tasks import TaskError, import_vcf
 
 
 @app.route('/')
@@ -56,7 +56,7 @@ def observations_add(sample_id):
     curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/observations
     """
     data = request.form
-    result = import_merged_vcf.delay(sample_id, data['data_source'])
+    result = import_vcf.delay(sample_id, data['data_source'])
     # Todo: check if call could be scheduled by celery
     return redirect(url_for('observations_get', sample_id=sample_id, task_id=result.task_id))
 
@@ -66,10 +66,13 @@ def observations_get(sample_id, task_id):
     """
     Check status of import observations task.
     """
+    result = import_vcf.AsyncResult(task_id)
     try:
-        result = import_merged_vcf.AsyncResult(task_id).get(timeout=1)
+        result.get(timeout=1)
+    except TaskError as e:
+        return jsonify(error=str(e))
     except TimeoutError:
-        abort(404)
+        pass
     return jsonify(observations={'task_id': task_id, 'status': result.status})
 
 
@@ -86,15 +89,14 @@ def data_sources_get(id):
     """
     Get an uploaded file id.
     """
-    data_source = DataSource.query.get(id)
-    try:
-        with open(os.path.join(app.config['FILES_DIR'], data_source.filename)) as file:
-            data = file.read()
-    except IOError:
-        abort(404)
-    data_dict = data_source.as_dict()
-    data_dict['data'] = data
-    return jsonify(data_source=data_dict)
+    #try:
+    #    with open(os.path.join(app.config['FILES_DIR'], data_source.filename)) as file:
+    #        data = file.read()
+    #except IOError:
+    #    abort(404)
+    #data_dict = data_source.to_dict()
+    #data_dict['data'] = data
+    return jsonify(data_source=DataSource.query.get(id).to_dict())
 
 
 @app.route('/data_sources', methods=['POST'])
