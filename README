@@ -96,6 +96,17 @@ To install mysql-python, we need a development package:
     pip install MySQL-python
 
 
+Todo
+----
+
+* Logging (in case of import errors, include data source id).
+* Authentication.
+* Authorization.
+* Error handling.
+* Import data source directly from URL without uploading.
+* Handle compressed data sources.
+
+
 And then...
 -----------
 
