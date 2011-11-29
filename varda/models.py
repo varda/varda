@@ -79,11 +79,13 @@ class Sample(db.Model):
     """
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
+    coverage_threshold(db.Integer)
     pool_size = db.Column(db.Integer)
     added = db.Column(db.Date)
 
-    def __init__(self, name, pool_size=1):
+    def __init__(self, name, coverage_threshold=8, pool_size=1):
         self.name = name
+        self.coverage_threshold = coverage_threshold
         self.pool_size = pool_size
         self.added = date.today()
 
@@ -91,10 +93,11 @@ class Sample(db.Model):
         return '<Sample %s of %i>' % (self.name, self.pool_size)
 
     def to_dict(self):
-        return {'id':        self.id,
-                'name':      self.name,
-                'pool_size': self.pool_size,
-                'added':     str(self.added)}
+        return {'id':                 self.id,
+                'name':               self.name,
+                'coverage_threshold': self.coverage_threshold,
+                'pool_size':          self.pool_size,
+                'added':              str(self.added)}
 
 
 class Observation(db.Model):

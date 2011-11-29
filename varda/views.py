@@ -44,7 +44,7 @@ def samples_add():
     curl -i -d 'name=Genome of the Netherlands' -d 'pool_size=500' http://127.0.0.1:5000/samples
     """
     data = request.form
-    sample = Sample(data['name'], int(data['pool_size']))
+    sample = Sample(data['name'], int(data['coverage_threshold']), int(data['pool_size']))
     db.session.add(sample)
     db.session.commit()
     return redirect(url_for('samples_get', id=sample.id))
