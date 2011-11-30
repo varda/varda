@@ -37,6 +37,9 @@ __homepage__ = 'http://www.humgen.nl'
 API_VERSION = 1
 
 
+# Addresses to send errors to
+ADMINS = ['m.vermaat.hg@lumc.nl']
+
 # Directory to store uploaded files
 FILES_DIR = '/tmp/varda'
 
@@ -56,6 +59,22 @@ app = Flask(__name__)
 app.config.from_object(__name__)
 db = SQLAlchemy(app)
 celery = Celery(app)
+
+
+# In production, send server errors to admins and log warnings to a file
+if not app.debug:
+    import logging
+    from logging import FileHandler
+    from logging.handlers import SMTPHandler
+    mail_handler = SMTPHandler('127.0.0.1', 'm.vermaat.hg@lumc.nl', ADMINS,
+                               'Varda Server Error')
+    mail_handler.setLevel(logging.ERROR)
+    file_handler = FileHandler('/tmp/varda-server.log')
+    file_handler.setLevel(logging.WARNING)
+    loggers = [app.logger, getLogger('sqlalchemy'), getLogger('celery')]
+    for logger in loggers:
+        app.logger.addHandler(mail_handler)
+        app.logger.addHandler(file_handler)
 
 
 # Views must always be imported last
