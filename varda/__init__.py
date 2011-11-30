@@ -64,7 +64,7 @@ celery = Celery(app)
 # In production, send server errors to admins and log warnings to a file
 if not app.debug:
     import logging
-    from logging import FileHandler
+    from logging import FileHandler, getLogger
     from logging.handlers import SMTPHandler
     mail_handler = SMTPHandler('127.0.0.1', 'm.vermaat.hg@lumc.nl', ADMINS,
                                'Varda Server Error')
