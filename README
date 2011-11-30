@@ -105,6 +105,8 @@ Todo
 * Error handling.
 * Import data source directly from URL without uploading.
 * Handle compressed data sources.
+* Everything must be in UTF8.
+* Use Alembic for database migrations.
 
 
 And then...
@@ -120,6 +122,12 @@ Just as a reference, some relevant links:
 * [Example: Andalucia](https://bitbucket.org/abki/andalucia/)
 * [A skeleton for Flask applications](https://github.com/sean-/flask-skeleton)
 * [SQLAlchemy usage recipes](http://www.sqlalchemy.org/trac/wiki/UsageRecipes)
+* [Dropbox API](https://www.dropbox.com/developers/reference/api)
+* [Twitter API](https://dev.twitter.com/docs/api)
+* [Amazon S3 REST API](http://docs.amazonwebservices.com/AmazonS3/latest/API/index.html?APIRest.html)
+* [Designing a Secure REST (Web) API without OAuth](http://www.thebuzzmedia.com/designing-a-secure-rest-api-without-oauth-authentication/)
+* [bitly API Documentation](http://code.google.com/p/bitly-api/wiki/ApiDocumentation)
+* [Alembic Documentation](http://packages.python.org/alembic)
 
 
 [1]: http://flask.pocoo.org/
