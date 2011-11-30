@@ -1,5 +1,7 @@
 """
 Models backed by SQL using SQLAlchemy.
+
+Todo: Perhaps add some delete cascade rules.
 """
 
 
@@ -16,6 +18,8 @@ class DataSource(db.Model):
     Data source (probably uploaded as a file). E.g. VCF file to be imported, or
     BED track from which Region entries are created.
     """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
     filename = db.Column(db.String(50))
@@ -39,6 +43,8 @@ class Variant(db.Model):
     """
     Genomic variant.
     """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
     id = db.Column(db.Integer, primary_key=True)
     chromosome = db.Column(db.String(2))
     begin = db.Column(db.Integer)
@@ -77,9 +83,11 @@ class Sample(db.Model):
     """
     Sample.
     """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
-    coverage_threshold(db.Integer)
+    coverage_threshold = db.Column(db.Integer)
     pool_size = db.Column(db.Integer)
     added = db.Column(db.Date)
 
@@ -102,10 +110,19 @@ class Sample(db.Model):
 
 class Observation(db.Model):
     """
-    Observation in a sample
+    Observation in a sample.
+
+    Note: For pooled samples (or population studies), a combination of
+        (sample_id, variant_id) may not be unique. So this cannot make the
+        primary key (as we previously had).
+        SQLAlchemy is not happy if we have no primary key at all, so we add
+        an id column.
     """
-    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'), primary_key=True)
-    variant_id = db.Column(db.Integer, db.ForeignKey('variant.id'), primary_key=True)
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
+    variant_id = db.Column(db.Integer, db.ForeignKey('variant.id'))
     data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
 
     # Depending on the type of sample, the following 3 fields may or not
@@ -142,6 +159,8 @@ class Region(db.Model):
     """
     Covered region for a sample.
     """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
     id = db.Column(db.Integer, primary_key=True)
     sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
     data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
