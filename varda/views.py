@@ -38,6 +38,40 @@ def jsonify(_status=None, *args, **kwargs):
                               mimetype='application/json', status=_status)
 
 
+class InvalidDataSource(Exception):
+    """
+    Exception thrown if data source validation failed.
+    """
+    def __init__(self, code, message):
+        self.code = code
+        self.message = message
+        super(Exception, self).__init__(code, message)
+
+    def to_dict(self):
+        return {'code':    self.code,
+                'message': self.message}
+
+
+def validate_data(filename, filetype):
+    """
+    Peek into the file and determine if it is of the given filetype.
+    """
+    def validate_bed():
+        # Todo.
+        pass
+
+    def validate_vcf():
+        # Todo.
+        pass
+
+    validators = {'bed': validate_bed,
+                  'vcf': validate_vcf}
+    try:
+        validators[filetype]()
+    except IndexError:
+        raise InvalidDataSource('unknown_filetype', 'Data source filetype is unknown')
+
+
 @app.errorhandler(400)
 def error_not_found(error):
     return jsonify(error={'code': 'bad_request',
@@ -52,9 +86,21 @@ def error_not_found(error):
                    _status=404)
 
 
+@app.errorhandler(413)
+def error_entity_too_large(error):
+    return jsonify(error={'code': 'entity_too_large',
+                          'message': 'The request entity is too large'},
+                   _status=413)
+
+
 @app.errorhandler(TaskError)
 def error_task_error(error):
     return jsonify(error=error.to_dict(), _status=500)
+
+
+@app.errorhandler(InvalidDataSource)
+def error_invalid_data_source(error):
+    return jsonify(error=error.to_dict(), _status=400)
 
 
 @app.route('/')
@@ -188,15 +234,25 @@ def data_sources_get(data_source_id):
 def data_sources_add():
     """
     Upload VCF or BED file.
+
+    Todo: It might be better to use the mimetype for filetype here instead of
+        a separate field.
     """
     try:
         name = request.form['name']
+        filetype = request.form['filetype']
         data = request.files['data']
     except IndexError:
         abort(400)
     filename = str(uuid.uuid4())
-    data.save(os.path.join(app.config['FILES_DIR'], filename))
-    data_source = DataSource(name, filename)
+    filepath = os.path.join(app.config['FILES_DIR'], filename)
+    data.save(filepath)
+    try:
+        validate_data(filepath, filetype)
+    except InvalidDataSource:
+        os.unlink(filepath)
+        raise
+    data_source = DataSource(name, filename, filetype)
     db.session.add(data_source)
     db.session.commit()
     return redirect(url_for('data_sources_get', id=data_source.id))
@@ -216,6 +272,7 @@ def annotations_get(data_source_id, annotation_id):
     Get annotated version of a data source.
 
     Todo: The data_source_id argument is kind of useless here...
+    Todo: Use flask.send_from_directory
     """
     return jsonify(annotation=Annotation.query.get_or_404(annotation_id))
 

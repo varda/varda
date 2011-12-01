@@ -43,6 +43,9 @@ ADMINS = ['m.vermaat.hg@lumc.nl']
 # Directory to store uploaded files
 FILES_DIR = '/tmp/varda'
 
+# Maximum size for uploaded files
+MAX_CONTENT_LENGTH = 1024 * 1024 * 1024  # 1 gigabyte
+
 # Variant database
 SQLALCHEMY_DATABASE_URI = 'mysql://varda:varda@localhost/varda'
 

@@ -13,6 +13,10 @@ from varda import db
 from varda.region_binning import assign_bin
 
 
+# Todo: Use the types for which we have validators
+DATA_SOURCE_FILETYPES = ('bed', 'vcf')
+
+
 class DataSource(db.Model):
     """
     Data source (probably uploaded as a file). E.g. VCF file to be imported, or
@@ -23,20 +27,23 @@ class DataSource(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
     filename = db.Column(db.String(50))
+    filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES))
     added = db.Column(db.Date)
 
-    def __init__(self, name, filename):
+    def __init__(self, name, filename, filetype):
         self.name = name
         self.filename = filename
+        self.filetype = filetype
         self.added = date.today()
 
     def __repr__(self):
-        return '<DataSource %s added %s>' % (self.name, str(self.added))
+        return '<DataSource %s as %s added %s>' % (self.name, self.filetype, str(self.added))
 
     def to_dict(self):
-        return {'id':    self.id,
-                'name':  self.name,
-                'added': str(self.added)}
+        return {'id':       self.id,
+                'name':     self.name,
+                'filetype': self.filetype,
+                'added':    str(self.added)}
 
 
 class Annotation(db.Model):
