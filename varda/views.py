@@ -141,7 +141,7 @@ def samples_add():
     sample = Sample(name, coverage_threshold, pool_size)
     db.session.add(sample)
     db.session.commit()
-    return redirect(url_for('samples_get', id=sample.id))
+    return redirect(url_for('samples_get', sample_id=sample.id))
 
 
 @app.route('/samples/<sample_id>/observations/wait/<task_id>', methods=['GET'])
@@ -255,7 +255,7 @@ def data_sources_add():
     data_source = DataSource(name, filename, filetype)
     db.session.add(data_source)
     db.session.commit()
-    return redirect(url_for('data_sources_get', id=data_source.id))
+    return redirect(url_for('data_sources_get', data_source_id=data_source.id))
 
 
 @app.route('/data_sources/<data_source_id>/annotations', methods=['GET'])
