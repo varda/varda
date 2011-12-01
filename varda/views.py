@@ -68,7 +68,7 @@ def validate_data(filename, filetype):
                   'vcf': validate_vcf}
     try:
         validators[filetype]()
-    except IndexError:
+    except KeyError:
         raise InvalidDataSource('unknown_filetype', 'Data source filetype is unknown')
 
 
@@ -136,7 +136,7 @@ def samples_add():
         name = data['name']
         coverage_threshold = int(data.get('coverage_threshold', 8))
         pool_size = int(data.get('pool_size', 1))
-    except (IndexError, ValueError):
+    except (KeyError, ValueError):
         abort(400)
     sample = Sample(name, coverage_threshold, pool_size)
     db.session.add(sample)
@@ -173,7 +173,7 @@ def observations_add(sample_id):
     try:
         sample_id = int(sample_id)
         data_source_id = int(data['data_source'])
-    except (IndexError, ValueError):
+    except (KeyError, ValueError):
         abort(400)
     Sample.query.get_or_404(sample_id)
     DataSource.query.get_or_404(data_source_id)
@@ -208,7 +208,7 @@ def regions_add(sample_id):
     try:
         sample_id = int(sample_id)
         data_source_id = int(data['data_source'])
-    except (IndexError, ValueError):
+    except (KeyError, ValueError):
         abort(400)
     result = import_bed.delay(sample_id, data_source_id)
     return redirect(url_for('regions_wait', sample_id=sample_id, task_id=result.task_id))
@@ -242,7 +242,7 @@ def data_sources_add():
         name = request.form['name']
         filetype = request.form['filetype']
         data = request.files['data']
-    except IndexError:
+    except KeyError:
         abort(400)
     filename = str(uuid.uuid4())
     filepath = os.path.join(app.config['FILES_DIR'], filename)
