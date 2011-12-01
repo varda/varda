@@ -39,6 +39,33 @@ class DataSource(db.Model):
                 'added': str(self.added)}
 
 
+class Annotation(db.Model):
+    """
+    Annotated data source.
+    """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
+    filename = db.Column(db.String(50))
+    added = db.Column(db.Date)
+
+    data_source = db.relationship(DataSource, backref=db.backref('annotations', lazy='dynamic'))
+
+    def __init__(self, data_source, filename):
+        self.data_source = data_source
+        self.filename = filename
+        self.added = date.today()
+
+    def __repr__(self):
+        return '<Annotation for %r added %s>' % (self.data_source, str(self.added))
+
+    def to_dict(self):
+        return {'id':          self.id,
+                'data_source': self.data_source_id,
+                'added':       str(self.added)}
+
+
 class Variant(db.Model):
     """
     Genomic variant.

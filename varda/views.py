@@ -200,3 +200,55 @@ def data_sources_add():
     db.session.add(data_source)
     db.session.commit()
     return redirect(url_for('data_sources_get', id=data_source.id))
+
+
+@app.route('/data_sources/<data_source_id>/annotations', methods=['GET'])
+def annotations_list(data_source_id):
+    """
+    Get annotated versions of a data source.
+    """
+    return jsonify(annotations=[a.to_dict() for a in DataSource.query.get_or_404(data_source_id).annotations])
+
+
+@app.route('/data_sources/<data_source_id>/annotations/<annotation_id>', methods=['GET'])
+def annotations_get(data_source_id, annotation_id):
+    """
+    Get annotated version of a data source.
+
+    Todo: The data_source_id argument is kind of useless here...
+    """
+    return jsonify(annotation=Annotation.query.get_or_404(annotation_id))
+
+
+@app.route('/data_sources/<data_source_id>/annotations/wait/<task_id>', methods=['GET'])
+def annotations_wait(data_source_id, task_id):
+    """
+    Wait for annotated version of a data source.
+
+    Todo: The data_source_id argument is kind of useless here...
+    """
+    result = annotate_vcf.AsyncResult(task_id)
+    try:
+        # This re-raises a possible TaskError, handled by the error_task_error
+        # errorhandler above.
+        annotation_id = result.get(timeout=3)
+    except TimeoutError:
+        return jsonify(annotation={'task_id': task_id, 'ready': False})
+    return redirect(url_for('annotations_get', data_source_id=data_source_id, annotation_id=annotation_id))
+
+
+@app.route('/data_sources/<data_source_id>/annotations', methods=['POST'])
+def annotations_add(data_source_id):
+    """
+    Annotate a data source.
+
+    Todo: More parameters for annotation.
+    Todo: Support other formats than VCF.
+    """
+    data = request.form
+    try:
+        data_source_id = int(data_source_id)
+    except ValueError:
+        abort(400)
+    result = annotate_vcf.delay(data_source_id)
+    return redirect(url_for('annotations_wait', data_source_id=data_source_id, task_id=result.task_id))
