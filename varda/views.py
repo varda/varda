@@ -17,7 +17,7 @@ from celery.exceptions import TimeoutError
 import varda
 from varda import app, db
 from varda.models import Variant, Sample, Observation, DataSource
-from varda.tasks import TaskError, import_vcf, import_bed
+from varda.tasks import TaskError, import_vcf, import_bed, annotate_vcf
 
 
 def jsonify(_status=None, *args, **kwargs):
@@ -284,14 +284,15 @@ def annotations_wait(data_source_id, task_id):
 
     Todo: The data_source_id argument is kind of useless here...
     """
+    annotation = {'task_id': task_id}
     result = annotate_vcf.AsyncResult(task_id)
     try:
         # This re-raises a possible TaskError, handled by the error_task_error
         # errorhandler above.
-        annotation_id = result.get(timeout=3)
+        annotation.update({'ready': True, 'annotation_id': result.get(timeout=3)})
     except TimeoutError:
-        return jsonify(annotation={'task_id': task_id, 'ready': False})
-    return redirect(url_for('annotations_get', data_source_id=data_source_id, annotation_id=annotation_id))
+        annotation['ready'] = False
+    return jsonify(annotation=annotation)
 
 
 @app.route('/data_sources/<data_source_id>/annotations', methods=['POST'])

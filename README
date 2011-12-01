@@ -107,6 +107,7 @@ Todo
 * Handle compressed data sources.
 * Everything must be in UTF8.
 * Use Alembic for database migrations.
+* Data source hashing?
 
 
 And then...

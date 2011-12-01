@@ -4,6 +4,7 @@ Celery tasks.
 
 
 import os
+import uuid
 from contextlib import contextmanager
 
 from sqlalchemy.exc import IntegrityError
@@ -72,7 +73,7 @@ def import_bed(sample_id, data_source_id):
         sample.regions.filter_by(data_source=data_source).delete()
 
     # Todo: This (multiple context managers) is a Python 2.7 feature
-    with task_context(cleanup=delete_regions) as _, open(bed_file) as bed:
+    with database_task(cleanup=delete_regions) as _, open(bed_file) as bed:
 
         for line in bed:
             fields = line.split()
@@ -119,7 +120,7 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
         sample.observations.filter_by(data_source=data_source).delete()
 
     # Todo: This (multiple context managers) is a Python 2.7 feature
-    with task_context(cleanup=delete_observations), open(vcf_file) as vcf:
+    with database_task(cleanup=delete_observations), open(vcf_file) as vcf:
 
         header = vcf.readline()
         if 'fileformat=VCFv4.1' not in header:
@@ -168,3 +169,58 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
                     raise TaskError('data_source_imported', 'Observation already exists')
                 db.session.add(observation)
                 db.session.commit()
+
+
+@celery.task
+def annotate_vcf(data_source_id):
+    """
+    Annotate variants in VCF file.
+    """
+    data_source = DataSource.query.get(data_source_id)
+    if not data_source:
+        raise TaskError('data_source_not_found', 'Data source not found')
+
+    vcf_file = os.path.join(app.config['FILES_DIR'], data_source.filename)
+
+    annotation_filename = str(uuid.uuid4())
+    annotation_file = os.path.join(app.config['FILES_DIR'], annotation_filename)
+
+    # Todo: This (multiple context managers) is a Python 2.7 feature
+    # Todo: Use context manager that deletes annotation file on error
+    with open(vcf_file) as vcf, open(annotation_file, 'w') as annotation:
+
+        header = vcf.readline()
+        if 'fileformat=VCFv4.1' not in header:
+            raise TaskError('data_source_invalid', 'Data source not in VCF version 4.1 format')
+
+        annotation.write('## Number of samples in database: %i\n' % Sample.query.all().count())
+        annotation.write('#CHROM\tPOS\tREF\tALT\tObservations\n')
+
+        # Note: Below is all Todo!
+
+        for line in vcf:
+            if line.startswith('#'):
+                annotation.write(line)
+                continue
+            fields = line.split()
+            info = dict(field.split('=') if '=' in field else (field, None) for field in fields[7].split(';'))
+            chromosome, position, _, reference, variant = fields[:5]
+            if use_genotypes:
+                genotypes = [genotype.split(':')[0] for genotype in fields[9:]]
+            for index, allele in enumerate(variant.split(',')):
+                if 'SV' in info:
+                    # SV deletion (in 1KG)
+                    # Todo: For now we ignore these, reference is likely to be
+                    # larger than the maximum of 200 by the database schema.
+                    #end = int(position) + len(reference) - 1
+                    #allele = ''
+                    continue
+                elif ('SVTYPE' in info and info['SVTYPE'] == 'DEL') or \
+                     ('INDEL' in info and len(reference) >= len(allele)):
+                    # Deletion
+                    end = int(position) + len(reference) - 1
+                else:
+                    # SNP or insertion.
+                    end = position
+                variant = Variant.query.filter_by(chromosome=chromosome, begin=position, end=end, reference=reference, variant=allele).first()
+                if not variant:
