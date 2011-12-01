@@ -98,11 +98,12 @@ def samples_add():
     return redirect(url_for('samples_get', id=sample.id))
 
 
-@app.route('/samples/<sample_id>/observations/<task_id>', methods=['GET'])
-def observations_get(sample_id, task_id):
+@app.route('/samples/<sample_id>/observations/wait/<task_id>', methods=['GET'])
+def observations_wait(sample_id, task_id):
     """
     Check status of import observations task.
 
+    Note: The sample_id argument is pretty useless here...
     Note: For a non-existing task_id, AsyncResult just returns a result with
         status PENDING.
     """
@@ -111,9 +112,10 @@ def observations_get(sample_id, task_id):
         # This re-raises a possible TaskError, handled by the error_task_error
         # errorhandler above.
         result.get(timeout=3)
+        ready = True
     except TimeoutError:
-        pass
-    return jsonify(observations={'task_id': task_id, 'ready': result.ready()})
+        ready = False
+    return jsonify(observations={'task_id': task_id, 'ready': ready})
 
 
 @app.route('/samples/<sample_id>/observations', methods=['POST'])
@@ -130,22 +132,25 @@ def observations_add(sample_id):
     Sample.query.get_or_404(sample_id)
     DataSource.query.get_or_404(data_source_id)
     result = import_vcf.delay(sample_id, data_source_id)
-    return redirect(url_for('observations_get', sample_id=sample_id, task_id=result.task_id))
+    return redirect(url_for('observations_wait', sample_id=sample_id, task_id=result.task_id))
 
 
-@app.route('/samples/<sample_id>/regions/<task_id>', methods=['GET'])
-def regions_get(sample_id, task_id):
+@app.route('/samples/<sample_id>/regions/wait/<task_id>', methods=['GET'])
+def regions_wait(sample_id, task_id):
     """
     Check status of import regions task.
+
+    Note: The sample_id argument is pretty useless here...
     """
     result = import_bed.AsyncResult(task_id)
     try:
         # This re-raises a possible TaskError, handled by the error_task_error
         # errorhandler above.
         result.get(timeout=3)
+        ready = True
     except TimeoutError:
-        pass
-    return jsonify(regions={'task_id': task_id, 'ready': result.ready()})
+        ready = False
+    return jsonify(regions={'task_id': task_id, 'ready': ready})
 
 
 @app.route('/samples/<sample_id>/regions', methods=['POST'])
@@ -160,7 +165,7 @@ def regions_add(sample_id):
     except (IndexError, ValueError):
         abort(400)
     result = import_bed.delay(sample_id, data_source_id)
-    return redirect(url_for('regions_get', sample_id=sample_id, task_id=result.task_id))
+    return redirect(url_for('regions_wait', sample_id=sample_id, task_id=result.task_id))
 
 
 @app.route('/data_sources', methods=['GET'])
