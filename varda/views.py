@@ -16,7 +16,7 @@ from celery.exceptions import TimeoutError
 
 import varda
 from varda import app, db
-from varda.models import Variant, Sample, Observation, DataSource
+from varda.models import Variant, Sample, Observation, DataSource, Annotation
 from varda.tasks import TaskError, import_vcf, import_bed, annotate_vcf
 
 
@@ -274,7 +274,10 @@ def annotations_get(data_source_id, annotation_id):
     Todo: The data_source_id argument is kind of useless here...
     Todo: Use flask.send_from_directory
     """
-    return jsonify(annotation=Annotation.query.get_or_404(annotation_id))
+    #return jsonify(annotation=Annotation.query.get_or_404(annotation_id).to_dict())
+    a = Annotation.query.get_or_404(annotation_id)
+    f = open(os.path.join(app.config['FILES_DIR'], a.filename))
+    return f.read()
 
 
 @app.route('/data_sources/<data_source_id>/annotations/wait/<task_id>', methods=['GET'])
@@ -289,7 +292,7 @@ def annotations_wait(data_source_id, task_id):
     try:
         # This re-raises a possible TaskError, handled by the error_task_error
         # errorhandler above.
-        annotation.update({'ready': True, 'annotation_id': result.get(timeout=3)})
+        annotation.update({'ready': True, 'id': result.get(timeout=3)})
     except TimeoutError:
         annotation['ready'] = False
     return jsonify(annotation=annotation)
@@ -310,3 +313,25 @@ def annotations_add(data_source_id):
         abort(400)
     result = annotate_vcf.delay(data_source_id)
     return redirect(url_for('annotations_wait', data_source_id=data_source_id, task_id=result.task_id))
+
+
+@app.route('/check_variant', methods=['POST'])
+def check_variant():
+    """
+    Check a variant.
+    """
+    data = request.form
+    try:
+        chromosome = data['chromosome']
+        begin = int(data['begin'])
+        end = int(data['end'])
+        reference = data['reference']
+        alternate = data['alternate']
+    except (KeyError, ValueError):
+        abort(400)
+    variant = Variant.query.filter_by(chromosome=chromosome, begin=begin, end=end, reference=reference, variant=alternate).first()
+    if variant:
+        observations = variant.observations.count()
+    else:
+        observations = 0
+    return jsonify(observations=observations)

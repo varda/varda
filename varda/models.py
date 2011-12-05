@@ -14,7 +14,7 @@ from varda.region_binning import assign_bin
 
 
 # Todo: Use the types for which we have validators
-DATA_SOURCE_FILETYPES = ('bed', 'vcf')
+DATA_SOURCE_FILETYPES = ('bed', 'vcf', 'annotation')
 
 
 class DataSource(db.Model):

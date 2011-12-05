@@ -1,5 +1,7 @@
 """
 Celery tasks.
+
+Todo: Chromosomes starting with 'chr' and mitochondrial genome.
 """
 
 
@@ -10,7 +12,7 @@ from contextlib import contextmanager
 from sqlalchemy.exc import IntegrityError
 
 from varda import app, db, celery
-from varda.models import Variant, Sample, Observation, DataSource
+from varda.models import Variant, Sample, Observation, DataSource, Annotation
 
 
 class TaskError(Exception):
@@ -73,7 +75,9 @@ def import_bed(sample_id, data_source_id):
         sample.regions.filter_by(data_source=data_source).delete()
 
     # Todo: This (multiple context managers) is a Python 2.7 feature
-    with database_task(cleanup=delete_regions) as _, open(bed_file) as bed:
+    #with database_task(cleanup=delete_regions), open(bed_file) as bed:
+    with database_task(cleanup=delete_regions):
+      with open(bed_file) as bed:
 
         for line in bed:
             fields = line.split()
@@ -120,7 +124,9 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
         sample.observations.filter_by(data_source=data_source).delete()
 
     # Todo: This (multiple context managers) is a Python 2.7 feature
-    with database_task(cleanup=delete_observations), open(vcf_file) as vcf:
+    #with database_task(cleanup=delete_observations), open(vcf_file) as vcf:
+    with database_task(cleanup=delete_observations):
+      with open(vcf_file) as vcf:
 
         header = vcf.readline()
         if 'fileformat=VCFv4.1' not in header:
@@ -176,9 +182,10 @@ def annotate_vcf(data_source_id):
     """
     Annotate variants in VCF file.
     """
+    data_source_id = data_source_id -1
     data_source = DataSource.query.get(data_source_id)
     if not data_source:
-        raise TaskError('data_source_not_found', 'Data source not found')
+        raise TaskError('data_source_not_found', 'Data source not found: %s (%s)' % (data_source_id, type(data_source_id)))
 
     vcf_file = os.path.join(app.config['FILES_DIR'], data_source.filename)
 
@@ -187,27 +194,24 @@ def annotate_vcf(data_source_id):
 
     # Todo: This (multiple context managers) is a Python 2.7 feature
     # Todo: Use context manager that deletes annotation file on error
-    with open(vcf_file) as vcf, open(annotation_file, 'w') as annotation:
+    #with open(vcf_file) as vcf, open(annotation_file, 'w') as annotation:
+    with open(vcf_file) as vcf:
+      with open(annotation_file, 'w') as annotation:
 
         header = vcf.readline()
         if 'fileformat=VCFv4.1' not in header:
             raise TaskError('data_source_invalid', 'Data source not in VCF version 4.1 format')
 
-        annotation.write('## Number of samples in database: %i\n' % Sample.query.all().count())
+        #annotation.write('## Number of samples in database: %i\n' % Sample.query.all().count())
         annotation.write('#CHROM\tPOS\tREF\tALT\tObservations\n')
-
-        # Note: Below is all Todo!
 
         for line in vcf:
             if line.startswith('#'):
-                annotation.write(line)
                 continue
             fields = line.split()
             info = dict(field.split('=') if '=' in field else (field, None) for field in fields[7].split(';'))
             chromosome, position, _, reference, variant = fields[:5]
-            if use_genotypes:
-                genotypes = [genotype.split(':')[0] for genotype in fields[9:]]
-            for index, allele in enumerate(variant.split(',')):
+            for allele in variant.split(','):
                 if 'SV' in info:
                     # SV deletion (in 1KG)
                     # Todo: For now we ignore these, reference is likely to be
@@ -223,4 +227,13 @@ def annotate_vcf(data_source_id):
                     # SNP or insertion.
                     end = position
                 variant = Variant.query.filter_by(chromosome=chromosome, begin=position, end=end, reference=reference, variant=allele).first()
-                if not variant:
+                if variant:
+                    observations = variant.observations.count()
+                else:
+                    observations = 0
+                annotation.write('\t'.join([chromosome, position, reference, allele, str(observations)]) + '\n')
+
+    annotation = Annotation(data_source, annotation_filename)
+    db.session.commit()
+
+    return annotation.id
