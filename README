@@ -95,6 +95,23 @@ To install mysql-python, we need a development package:
     sudo aptitude install libmysqlclient-dev
     pip install MySQL-python
 
+Install all required packages at once (Python 2.6) with:
+
+    pip install -r requirements.txt
+
+Or (Python 2.7):
+
+    pip install -r requirements-2.7.txt
+
+Unfortunately, there's a bug in the packaging of some Flask extensions. Go
+to the site-packages dir in your virtual environment and move some things
+around:
+
+    cd ~/.virtualenvs/varda-server/lib/python2.7/site-packages
+    mv flask_celery.py flaskext/celery.py
+    mv flask_celery.pyc flaskext/celery.pyc
+    rm flask_script.py*
+
 
 Todo
 ----
