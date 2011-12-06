@@ -10,6 +10,7 @@ Todo: For POST requests, we currently issue a 302 redirect to the view url of
 
 import os
 import uuid
+from functools import wraps
 
 from flask import abort, request, redirect, url_for, json
 from celery.exceptions import TimeoutError
@@ -38,25 +39,25 @@ def jsonify(_status=None, *args, **kwargs):
                               mimetype='application/json', status=_status)
 
 
+def check_auth(login, password):
+    """
+    Check if login and password are correct.
+    """
+    user = User.query.filter_by(login=login).first()
+    return user is not None and user.check_password(password)
+
+
 def require_user(handler, validation=None):
     """
     Todo.
     """
+    @wraps(handler)
     def secure_handler(*args, **kwargs):
-        data = request.values
-        try:
-            login = data['login']
-            password = data['password']
-            # Todo: IndexError is not raised, but 400 returned...
-        except IndexError:
-            abort(401)
-        user = User.query.filter_by(login=login).first()
-        if user is None:
-            abort(401)
-        if not user.check_password(password):
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
             abort(401)
         if validation is not None:
-            if not validation(*args, **kwargs):
+            if not validation(user, *args, **kwargs):
                 abort(403)
         return handler(*args, **kwargs)
     return secure_handler
@@ -149,10 +150,11 @@ def apiroot():
 
 
 @app.route('/samples', methods=['GET'])
+#@require_user(validation=is_admin)
 @require_user
 def samples_list():
     """
-    curl -i http://127.0.0.1:5000/samples
+    curl -i -u pietje:pi3tje http://127.0.0.1:5000/samples
     """
     return jsonify(samples=[s.to_dict() for s in Sample.query])
 
@@ -161,6 +163,9 @@ def samples_list():
 def samples_get(sample_id):
     """
     curl -i http://127.0.0.1:5000/samples/2
+
+    Todo: Use <int:sample_id> and check what the error handling of Flask
+        will do.
     """
     return jsonify(sample=Sample.query.get_or_404(sample_id).to_dict())
 
@@ -306,7 +311,7 @@ def annotations_list(data_source_id):
 
 
 @app.route('/data_sources/<data_source_id>/annotations/<annotation_id>', methods=['GET'])
-@require_user #(validation=owns_data_source)
+#@require_user #(validation=owns_data_source)
 def annotations_get(data_source_id, annotation_id):
     """
     Get annotated version of a data source.
