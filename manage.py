@@ -51,8 +51,10 @@ def createdb():
     """
     db.drop_all()
     db.create_all()
-    pietje = User('Pietje Puk', 'pietje', 'pi3tje')
+    pietje = User('Pietje Puk', 'pietje', 'pi3tje', roles=['admin'])
+    karel = User('Karel Koek', 'karel', 'k4rel', roles=[])
     db.session.add(pietje)
+    db.session.add(karel)
     db.session.commit()
 
 

@@ -12,7 +12,7 @@ import os
 import uuid
 from functools import wraps
 
-from flask import abort, request, redirect, url_for, json
+from flask import g, abort, request, redirect, url_for, json
 from celery.exceptions import TimeoutError
 
 import varda
@@ -39,28 +39,60 @@ def jsonify(_status=None, *args, **kwargs):
                               mimetype='application/json', status=_status)
 
 
-def check_auth(login, password):
+def get_user(login, password):
     """
-    Check if login and password are correct.
+    Check if login and password are correct and return the user if so, else
+    return None.
     """
     user = User.query.filter_by(login=login).first()
-    return user is not None and user.check_password(password)
+    if user is not None and user.check_password(password):
+        return user
 
 
-def require_user(handler, validation=None):
+def require_user(rule): #rule, validation=None):
     """
     Todo.
     """
-    @wraps(handler)
-    def secure_handler(*args, **kwargs):
+    @wraps(rule)
+    def secure_rule(*args, **kwargs):
         auth = request.authorization
-        if not auth or not check_auth(auth.username, auth.password):
+        if not auth:
             abort(401)
-        if validation is not None:
-            if not validation(user, *args, **kwargs):
+        user = get_user(auth.username, auth.password)
+        if user is None:
+            abort(401)
+        g.user = user
+        return rule(*args, **kwargs)
+    return secure_rule
+
+
+def ensure(condition):
+    """
+    Todo: Think of a short way to specify what rule arguments should be passed
+        to the condition function. For example, to only pass the second argument
+        (variant_id here):
+
+        >>> @app.route('/samples/<sample_id>/variants/<variant_id>', methods=['GET'])
+        >>> @require_user
+        >>> ensure(owns_variant, args=[1])
+        >>> def get_variant(sample_id, variant_id):
+        ...     pass
+
+        So the args keyword could be a list of argument indices, defaulting to
+        [0, 1, 2, ...] to give all arguments in the original order.
+    """
+    def ensure_condition(rule):
+        @wraps(rule)
+        def ensured_rule(*args, **kwargs):
+            if not condition(*args, **kwargs):
                 abort(403)
-        return handler(*args, **kwargs)
-    return secure_handler
+            return rule(*args, **kwargs)
+        return ensured_rule
+    return ensure_condition
+
+
+def is_admin():
+    return 'admin' in g.user.roles()
 
 
 class InvalidDataSource(Exception):
@@ -150,8 +182,8 @@ def apiroot():
 
 
 @app.route('/samples', methods=['GET'])
-#@require_user(validation=is_admin)
 @require_user
+@ensure(is_admin)
 def samples_list():
     """
     curl -i -u pietje:pi3tje http://127.0.0.1:5000/samples
@@ -311,7 +343,6 @@ def annotations_list(data_source_id):
 
 
 @app.route('/data_sources/<data_source_id>/annotations/<annotation_id>', methods=['GET'])
-#@require_user #(validation=owns_data_source)
 def annotations_get(data_source_id, annotation_id):
     """
     Get annotated version of a data source.
