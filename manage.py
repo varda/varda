@@ -37,6 +37,7 @@ from flaskext.script import Manager
 from flaskext.celery import install_commands as install_celery_commands
 
 from varda import app, db
+from varda.models import User
 
 
 manager = Manager(app)
@@ -50,6 +51,9 @@ def createdb():
     """
     db.drop_all()
     db.create_all()
+    pietje = User('Pietje Puk', 'pietje', 'pi3tje')
+    db.session.add(pietje)
+    db.session.commit()
 
 
 if __name__ == '__main__':

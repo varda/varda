@@ -5,6 +5,7 @@ Todo: Perhaps add some delete cascade rules.
 """
 
 
+import bcrypt
 from datetime import date
 
 from sqlalchemy import Index
@@ -15,6 +16,37 @@ from varda.region_binning import assign_bin
 
 # Todo: Use the types for which we have validators
 DATA_SOURCE_FILETYPES = ('bed', 'vcf', 'annotation')
+
+
+class User(db.Model):
+    """
+    User in the system.
+    """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200))
+    login = db.Column(db.String(200), unique=True)
+    password_hash = db.Column(db.String(200))
+    added = db.Column(db.Date)
+
+    def __init__(self, name, login, password):
+        self.name = name
+        self.login = login
+        self.password_hash = bcrypt.hashpw(password, bcrypt.gensalt())
+        self.added = date.today()
+
+    def __repr__(self):
+        return '<User %s identified by %s added %s>' % (self.name, self.login, str(self.added))
+
+    def to_dict(self):
+        return {'id':       self.id,
+                'name':     self.name,
+                'login':    self.login,
+                'added':    str(self.added)}
+
+    def check_password(self, password):
+        return bcrypt.hashpw(password, self.password_hash) == self.password_hash
 
 
 class DataSource(db.Model):

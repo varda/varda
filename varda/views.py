@@ -16,7 +16,7 @@ from celery.exceptions import TimeoutError
 
 import varda
 from varda import app, db
-from varda.models import Variant, Sample, Observation, DataSource, Annotation
+from varda.models import Variant, Sample, Observation, DataSource, Annotation, User
 from varda.tasks import TaskError, import_vcf, import_bed, annotate_vcf
 
 
@@ -36,6 +36,30 @@ def jsonify(_status=None, *args, **kwargs):
     """
     return app.response_class(json.dumps(dict(*args, **kwargs), indent=None if request.is_xhr else 2),
                               mimetype='application/json', status=_status)
+
+
+def require_user(handler, validation=None):
+    """
+    Todo.
+    """
+    def secure_handler(*args, **kwargs):
+        data = request.values
+        try:
+            login = data['login']
+            password = data['password']
+            # Todo: IndexError is not raised, but 400 returned...
+        except IndexError:
+            abort(401)
+        user = User.query.filter_by(login=login).first()
+        if user is None:
+            abort(401)
+        if not user.check_password(password):
+            abort(401)
+        if validation is not None:
+            if not validation(*args, **kwargs):
+                abort(403)
+        return handler(*args, **kwargs)
+    return secure_handler
 
 
 class InvalidDataSource(Exception):
@@ -73,10 +97,24 @@ def validate_data(filename, filetype):
 
 
 @app.errorhandler(400)
-def error_not_found(error):
+def error_bad_request(error):
     return jsonify(error={'code': 'bad_request',
                           'message': 'The request could not be understood due to malformed syntax'},
                    _status=400)
+
+
+@app.errorhandler(401)
+def error_unauthorized(error):
+    return jsonify(error={'code': 'unauthorized',
+                          'message': 'The request requires user authentication'},
+                   _status=401)
+
+
+@app.errorhandler(403)
+def error_forbidden(error):
+    return jsonify(error={'code': 'forbidden',
+                          'message': 'Not allowed to make this request'},
+                   _status=403)
 
 
 @app.errorhandler(404)
@@ -111,6 +149,7 @@ def apiroot():
 
 
 @app.route('/samples', methods=['GET'])
+@require_user
 def samples_list():
     """
     curl -i http://127.0.0.1:5000/samples
@@ -267,6 +306,7 @@ def annotations_list(data_source_id):
 
 
 @app.route('/data_sources/<data_source_id>/annotations/<annotation_id>', methods=['GET'])
+@require_user #(validation=owns_data_source)
 def annotations_get(data_source_id, annotation_id):
     """
     Get annotated version of a data source.
@@ -319,6 +359,8 @@ def annotations_add(data_source_id):
 def check_variant():
     """
     Check a variant.
+
+    Todo: Make this a GET request?
     """
     data = request.form
     try:
