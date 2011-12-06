@@ -95,6 +95,11 @@ To install mysql-python, we need a development package:
     sudo aptitude install libmysqlclient-dev
     pip install MySQL-python
 
+Same for psycopg2:
+
+    sudo aptitude install libpq-dev
+    pip install psycopg2
+
 Install all required packages at once (Python 2.6) with:
 
     pip install -r requirements.txt

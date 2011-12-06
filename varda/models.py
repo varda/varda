@@ -27,7 +27,7 @@ class DataSource(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
     filename = db.Column(db.String(50))
-    filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES))
+    filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES, name='filetype'))
     added = db.Column(db.Date)
 
     def __init__(self, name, filename, filetype):

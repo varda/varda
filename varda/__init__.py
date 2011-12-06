@@ -47,15 +47,18 @@ FILES_DIR = '/tmp/varda'
 MAX_CONTENT_LENGTH = 1024 * 1024 * 1024  # 1 gigabyte
 
 # Variant database
-SQLALCHEMY_DATABASE_URI = 'mysql://varda:varda@localhost/varda'
+#SQLALCHEMY_DATABASE_URI = 'mysql://varda:varda@localhost/varda'
+SQLALCHEMY_DATABASE_URI = 'postgresql://varda:varda@localhost/varda'
 
 # Celery results
 CELERY_RESULT_BACKEND = 'database'
-CELERY_RESULT_DBURI = 'mysql://varda:varda@localhost/vardaresults'
+#CELERY_RESULT_DBURI = 'mysql://varda:varda@localhost/vardaresults'
+CELERY_RESULT_DBURI = 'postgresql://varda:varda@localhost/vardaresults'
 
 # Celery broker
 BROKER_TRANSPORT = 'sqlalchemy'
-BROKER_HOST = 'mysql://varda:varda@localhost/vardacelery'
+#BROKER_HOST = 'mysql://varda:varda@localhost/vardacelery'
+BROKER_HOST = 'postgresql://varda:varda@localhost/vardacelery'
 
 
 app = Flask(__name__)

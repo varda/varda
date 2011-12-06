@@ -2,7 +2,7 @@
 """
 Run the Varda REST server.
 
-To setup the database:
+To setup the database (MySQL):
 
     create database varda;
     create database vardacelery;
@@ -10,6 +10,14 @@ To setup the database:
     grant all privileges on varda.* to varda@localhost identified by 'varda';
     grant all privileges on vardacelery.* to varda@localhost identified by 'varda';
     grant all privileges on vardaresults.* to varda@localhost identified by 'varda';
+
+Or (PostgreSQL):
+
+    sudo -u postgres createuser --superuser $USER
+    createuser --pwprompt --encrypted --no-adduser --no-createdb varda
+    createdb --encoding=UNICODE --owner=varda varda
+    createdb --encoding=UNICODE --owner=varda vardacelery
+    createdb --encoding=UNICODE --owner=varda vardaresults
 
 To reset the database:
 
