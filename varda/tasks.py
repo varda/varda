@@ -182,7 +182,6 @@ def annotate_vcf(data_source_id):
     """
     Annotate variants in VCF file.
     """
-    data_source_id = data_source_id -1
     data_source = DataSource.query.get(data_source_id)
     if not data_source:
         raise TaskError('data_source_not_found', 'Data source not found: %s (%s)' % (data_source_id, type(data_source_id)))
