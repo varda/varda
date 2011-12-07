@@ -49,9 +49,20 @@ def get_user(login, password):
         return user
 
 
-def require_user(rule): #rule, validation=None):
+def require_user(rule):
     """
-    Todo.
+    Decorator for user authentication.
+
+    The app.route decorator should always be first, for example:
+
+        >>> @app.route('/samples/<sample_id>', methods=['GET'])
+        >>> @require_user
+        >>> def get_sample(sample_id):
+        ...     return 'sample'
+
+    If authentication was successful, the authenticated user instance can be
+    accessed through g.user. Otherwise, the request is aborted with a 401
+    response code.
     """
     @wraps(rule)
     def secure_rule(*args, **kwargs):
@@ -66,33 +77,129 @@ def require_user(rule): #rule, validation=None):
     return secure_rule
 
 
-def ensure(condition):
+def ensure(*conditions, **options):
     """
-    Todo: Think of a short way to specify what rule arguments should be passed
-        to the condition function. For example, to only pass the second argument
-        (variant_id here):
+    Decorator to ensure some given conditions are met.
 
+    The conditions arguments are functions returning True on success and False
+    otherwise. If the any keyword argument is True, it is ensured that at
+    least one of the given conditions is met, otherwise all given conditions
+    must be met.
+
+    Typical conditions may depend on the authorized user. In that case, use
+    the require_user decorator first, for example:
+
+        >>> def is_admin():
+        ...     return 'admin' in g.user.roles()
+        ...
+        >>> @app.route('/samples', methods=['GET'])
+        >>> @require_user
+        >>> ensure(is_admin)
+        >>> def list_variants():
+        ...     return []
+
+    To specify which keyword arguments to pass to the condition functions as
+    positional and keyword arguments, use the args and kwargs keyword
+    arguments, respectively.
+
+    The args keyword argument lists the rule keyword arguments by name that
+    should be passed as positional arguments to the condition functions, in
+    that order. For example, to pass the 'variant_id' argument:
+
+        >>> def owns_variant(variant):
+        ...     return True
+        ...
         >>> @app.route('/samples/<sample_id>/variants/<variant_id>', methods=['GET'])
         >>> @require_user
-        >>> ensure(owns_variant, args=[1])
+        >>> ensure(owns_variant, args=['variant_id'])
         >>> def get_variant(sample_id, variant_id):
-        ...     pass
+        ...     return 'variant'
 
-        So the args keyword could be a list of argument indices, defaulting to
-        [0, 1, 2, ...] to give all arguments in the original order.
+    The kwargs keyword argument maps condition function keyword arguments to
+    their respective rule keyword arguments. For example, to pass the
+    'sample_id' and 'variant_id' rule arguments as 'sample' and 'variant'
+    keyword arguments to the condition functions:
+
+        >>> def owns_sample_and_variant(variant=None, sample=None):
+        ...     return True
+        ...
+        >>> @app.route('/samples/<sample_id>/variants/<variant_id>', methods=['GET'])
+        >>> @require_user
+        >>> ensure(owns_sample_and_variant, kwargs={'sample': 'sample_id', 'variant': 'variant_id'})
+        >>> def get_variant(sample_id, variant_id):
+        ...     return 'variant'
+
+    By default, the condition functions are passed all rule keyword arguments.
+    This makes it easy to use conditions that use the same names for keyword
+    arguments as the decorated rule without the need for the args or kwargs
+    arguments:
+
+        >>> def owns_variant(variant_id, **_):
+        ...     return True
+        ...
+        >>> @app.route('/samples/<sample_id>/variants/<variant_id>', methods=['GET'])
+        >>> @require_user
+        >>> ensure(owns_variant)
+        >>> def get_variant(sample_id, variant_id):
+        ...     return 'variant'
+
+    Note that since all keyword arguments are passed here, the condition
+    function has to accept all of them and not just the one it uses. The
+    pattern **_ as shown here captures any additional keyword arguments. If
+    you want to explicitely don't pass any keyword arguments, use kwargs={}.
+
+    Finally, an example with multiple conditions where at least one of them
+    must be met:
+
+        >>> @app.route('/samples/<int:sample_id>', methods=['GET'])
+        >>> @require_user
+        >>> @ensure(is_admin, owns_sample, any=True)
+        >>> def get_samples(sample_id):
+        ...     return 'variant'
+
+    Note: The main limitation here is that only one argument scheme can be
+        given, which is used for all condition functions. Therefore it is
+        useful to have consistent argument naming in your condition functions.
     """
-    def ensure_condition(rule):
+    any_one = options.pop('any', False)
+    args = options.pop('args', [])
+    kwargs = options.pop('kwargs', None)
+
+    def ensure_conditions(rule):
         @wraps(rule)
-        def ensured_rule(*args, **kwargs):
-            if not condition(*args, **kwargs):
+        def ensured_rule(*rule_args, **rule_kwargs):
+            condition_args = [rule_kwargs.get(arg) for arg in args]
+            if kwargs is None:
+                condition_kwargs = rule_kwargs
+            else:
+                # Todo: If we switch to Python 2.7, use a dictionary
+                #     comprehension here.
+                condition_kwargs = dict([(name, rule_kwargs.get(value))
+                                         for name, value in kwargs.items()])
+            combinator = any if any_one else all
+            if not combinator(c(*condition_args, **condition_kwargs) for c in conditions):
                 abort(403)
-            return rule(*args, **kwargs)
+            return rule(*rule_args, **rule_kwargs)
         return ensured_rule
-    return ensure_condition
+    return ensure_conditions
 
 
-def is_admin():
+def is_admin(**_):
+    """
+    Note: We add the keyword arguments wildcard **_ so this function can be
+        easily used as condition argument to the ensure decorator even if
+        there are unrelated keyword arguments for the decorated rule.
+    """
     return 'admin' in g.user.roles()
+
+
+def owns_sample(sample_id, **_):
+    """
+    Note: We add the keyword arguments wildcard **_ so this function can be
+        easily used as condition argument to the ensure decorator even if
+        there are unrelated keyword arguments for the decorated rule.
+    """
+    return True
 
 
 class InvalidDataSource(Exception):
@@ -192,12 +299,14 @@ def samples_list():
 
 
 @app.route('/samples/<sample_id>', methods=['GET'])
+@require_user
+@ensure(is_admin, owns_sample, any=True)
 def samples_get(sample_id):
     """
     curl -i http://127.0.0.1:5000/samples/2
 
     Todo: Use <int:sample_id> and check what the error handling of Flask
-        will do.
+        will do. Update: it will give a 404 not found.
     """
     return jsonify(sample=Sample.query.get_or_404(sample_id).to_dict())
 
