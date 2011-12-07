@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from sqlalchemy.exc import IntegrityError
 
 from varda import app, db, celery
-from varda.models import Variant, Sample, Observation, DataSource, Annotation
+from varda.models import DataUnavailable, Variant, Sample, Observation, DataSource, Annotation
 
 
 class TaskError(Exception):
@@ -55,6 +55,7 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
         reader.
     """
     header = vcf.readline()
+    # Todo: This validation is already done at upload time...
     if 'fileformat=VCFv4.1' not in header:
         raise TaskError('data_source_invalid', 'Data source not in VCF version 4.1 format')
 
@@ -109,6 +110,7 @@ def write_annotation(vcf, annotation):
         reader.
     """
     header = vcf.readline()
+    # Todo: This validation is already done at upload time...
     if 'fileformat=VCFv4.1' not in header:
         raise TaskError('data_source_invalid', 'Data source not in VCF version 4.1 format')
 
@@ -161,12 +163,10 @@ def import_bed(sample_id, data_source_id):
     if sample.regions.filter_by(data_source=data_source).count() > 1:
         raise TaskError('data_source_imported', 'Data source already imported in this sample')
 
-    bed_file = os.path.join(app.config['FILES_DIR'], data_source.filename)
-
     try:
-        bed = open(bed_file)
-    except EnvironmentError:
-        raise TaskError('data_source_not_cached', 'Data source is not cached')
+        bed = data_source.data()
+    except DataUnavailable as e:
+        raise TaskError(e.code, e.message)
 
     # Note: Since we are dealing with huge numbers of entries here, we commit
     # after each INSERT and manually rollback. Using builtin session rollback
@@ -175,8 +175,8 @@ def import_bed(sample_id, data_source_id):
         sample.regions.filter_by(data_source=data_source).delete()
 
     # Note: If we switch to Python 2.7 we can use multiple context managers in
-    #     one switch statement.
-    with bed:
+    #     one switch statement. Or use contextlib.nested in 2.6.
+    with bed as bed:
         with database_task(cleanup=delete_regions):
             for line in bed:
                 fields = line.split()
@@ -214,12 +214,10 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
     if sample.observations.filter_by(data_source=data_source).count() > 1:
         raise TaskError('data_source_imported', 'Data source already imported in this sample')
 
-    vcf_file = os.path.join(app.config['FILES_DIR'], data_source.filename)
-
     try:
-        vcf = open(vcf_file)
-    except EnvironmentError:
-        raise TaskError('data_source_not_cached', 'Data source is not cached')
+        vcf = data_source.data()
+    except DataUnavailable as e:
+        raise TaskError(e.code, e.message)
 
     # Note: Since we are dealing with huge numbers of entries here, we commit
     # after each INSERT and manually rollback. Using builtin session rollback
@@ -228,8 +226,8 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
         sample.observations.filter_by(data_source=data_source).delete()
 
     # Note: If we switch to Python 2.7 we can use multiple context managers in
-    #     one switch statement.
-    with vcf:
+    #     one switch statement. Or use contextlib.nested in 2.6.
+    with vcf as vcf:
         with database_task(cleanup=delete_observations):
             # Todo: Create some sort of abstracted variant reader from the vcf
             #     file and pass that to import_variants.
@@ -245,26 +243,26 @@ def annotate_vcf(data_source_id):
     if not data_source:
         raise TaskError('data_source_not_found', 'Data source not found')
 
-    vcf_file = os.path.join(app.config['FILES_DIR'], data_source.filename)
-
     try:
-        vcf = open(vcf_file)
-    except EnvironmentError:
-        raise TaskError('data_source_not_cached', 'Data source is not cached')
+        vcf = data_source.data()
+    except DataUnavailable as e:
+        raise TaskError(e.code, e.message)
 
-    annotation_filename = str(uuid.uuid4())
-    annotation_file = os.path.join(app.config['FILES_DIR'], annotation_filename)
+    annotation = Annotation(data_source)
+    annotation_data = annotation.data_writer()
 
     # Note: If we switch to Python 2.7 we can use multiple context managers in
-    #     one switch statement.
+    #     one switch statement. Or use contextlib.nested in 2.6.
     # Todo: Use context manager that deletes annotation file on error.
-    with vcf:
-        with open(annotation_file, 'w') as annotation:
+    # Todo: In these kind of situations, maybe we also need to make sure that
+    #    the Annotation instance is deleted?
+    with vcf as vcf:
+        with annotation_data as annotation_data:
             # Todo: Create some sort of abstracted variant reader from the vcf
             #     file and pass that to annotate_variants.
-            write_annotation(vcf, annotation)
+            write_annotation(vcf, annotation_data)
 
-    annotation = Annotation(data_source, annotation_filename)
+    db.session.add(annotation)
     db.session.commit()
 
     return annotation.id

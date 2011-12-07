@@ -12,12 +12,12 @@ import os
 import uuid
 from functools import wraps
 
-from flask import g, abort, request, redirect, url_for, json
+from flask import g, abort, request, redirect, url_for, json, send_from_directory
 from celery.exceptions import TimeoutError
 
 import varda
 from varda import app, db
-from varda.models import Variant, Sample, Observation, DataSource, Annotation, User
+from varda.models import InvalidDataSource, Variant, Sample, Observation, DataSource, Annotation, User
 from varda.tasks import TaskError, import_vcf, import_bed, annotate_vcf
 
 
@@ -200,40 +200,6 @@ def owns_sample(sample_id, **_):
         there are unrelated keyword arguments for the decorated rule.
     """
     return True
-
-
-class InvalidDataSource(Exception):
-    """
-    Exception thrown if data source validation failed.
-    """
-    def __init__(self, code, message):
-        self.code = code
-        self.message = message
-        super(Exception, self).__init__(code, message)
-
-    def to_dict(self):
-        return {'code':    self.code,
-                'message': self.message}
-
-
-def validate_data(filename, filetype):
-    """
-    Peek into the file and determine if it is of the given filetype.
-    """
-    def validate_bed():
-        # Todo.
-        pass
-
-    def validate_vcf():
-        # Todo.
-        pass
-
-    validators = {'bed': validate_bed,
-                  'vcf': validate_vcf}
-    try:
-        validators[filetype]()
-    except KeyError:
-        raise InvalidDataSource('unknown_filetype', 'Data source filetype is unknown')
 
 
 @app.errorhandler(400)
@@ -423,18 +389,12 @@ def data_sources_add():
     try:
         name = request.form['name']
         filetype = request.form['filetype']
-        data = request.files['data']
     except KeyError:
         abort(400)
-    filename = str(uuid.uuid4())
-    filepath = os.path.join(app.config['FILES_DIR'], filename)
-    data.save(filepath)
-    try:
-        validate_data(filepath, filetype)
-    except InvalidDataSource:
-        os.unlink(filepath)
-        raise
-    data_source = DataSource(name, filename, filetype)
+    gzipped = request.form.get('gzipped') == 'true'
+    data = request.files.get('data')
+    local_path = request.form.get('local_path')
+    data_source = DataSource(name, filetype, upload=data, local_path=local_path, gzipped=gzipped)
     db.session.add(data_source)
     db.session.commit()
     return redirect(url_for('data_sources_get', data_source_id=data_source.id))
@@ -454,12 +414,12 @@ def annotations_get(data_source_id, annotation_id):
     Get annotated version of a data source.
 
     Todo: The data_source_id argument is kind of useless here...
-    Todo: Use flask.send_from_directory
     """
-    #return jsonify(annotation=Annotation.query.get_or_404(annotation_id).to_dict())
-    a = Annotation.query.get_or_404(annotation_id)
-    f = open(os.path.join(app.config['FILES_DIR'], a.filename))
-    return f.read()
+    annotation = Annotation.query.get_or_404(annotation_id)
+    #with annotation.data() as data:
+    #    return data.read()
+    mimetype = 'application/x-gzip' if annotation.gzipped else 'text/plain'
+    return send_from_directory(*os.path.split(annotation.local_path()), mimetype=mimetype)
 
 
 @app.route('/data_sources/<int:data_source_id>/annotations/wait/<task_id>', methods=['GET'])

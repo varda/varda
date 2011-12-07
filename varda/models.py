@@ -5,18 +5,52 @@ Todo: Perhaps add some delete cascade rules.
 """
 
 
-import bcrypt
+import os
+import gzip
+import uuid
 from datetime import date
+from contextlib import closing
 
+import bcrypt
 from sqlalchemy import Index
 
-from varda import db
+from varda import app, db
 from varda.region_binning import assign_bin
 
 
 # Todo: Use the types for which we have validators
 DATA_SOURCE_FILETYPES = ('bed', 'vcf', 'annotation')
 USER_ROLES = ('admin')
+
+
+class InvalidDataSource(Exception):
+    """
+    Exception thrown if data source validation failed.
+    """
+    def __init__(self, code, message):
+        self.code = code
+        self.message = message
+        super(Exception, self).__init__(code, message)
+
+    def to_dict(self):
+        return {'code':    self.code,
+                'message': self.message}
+
+
+class DataUnavailable(Exception):
+    """
+    Exception thrown if reading from a data source which data is not cached
+    anymore (in case of local storage) or does not exist anymore (in case of
+    a URL resource.
+    """
+    def __init__(self, code, message):
+        self.code = code
+        self.message = message
+        super(Exception, self).__init__(code, message)
+
+    def to_dict(self):
+        return {'code':    self.code,
+                'message': self.message}
 
 
 class User(db.Model):
@@ -66,6 +100,9 @@ class DataSource(db.Model):
     """
     Data source (probably uploaded as a file). E.g. VCF file to be imported, or
     BED track from which Region entries are created.
+
+    Todo: We can now provide data as an uploaded file or as a path to a local
+        file. We also want to be able to give a link to a internet resource.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
@@ -73,13 +110,35 @@ class DataSource(db.Model):
     name = db.Column(db.String(200))
     filename = db.Column(db.String(50))
     filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES, name='filetype'))
+    gzipped = db.Column(db.Boolean)
     added = db.Column(db.Date)
 
-    def __init__(self, name, filename, filetype):
+    def __init__(self, name, filetype, upload=None, local_path=None, gzipped=False):
+        if not filetype in DATA_SOURCE_FILETYPES:
+            raise InvalidDataSource('unknown_filetype', 'Data source filetype is unknown')
+
         self.name = name
-        self.filename = filename
+        self.filename = str(uuid.uuid4())
         self.filetype = filetype
+        self.gzipped = gzipped
         self.added = date.today()
+
+        filepath = os.path.join(app.config['FILES_DIR'], self.filename)
+
+        if upload is not None:
+            if gzipped:
+                upload.save(filepath)
+            else:
+                data = gzip.open(filepath, 'wb')
+                data.write(upload.read())
+                data.close()
+            self.gzipped = True
+        elif local_path is not None:
+            os.symlink(local_path, filepath)
+
+        if not self.is_valid():
+            os.unlink(filepath)
+            raise InvalidDataSource('invalid_data', 'Data source cannot be read')
 
     def __repr__(self):
         return '<DataSource %s as %s added %s>' % (self.name, self.filetype, str(self.added))
@@ -88,7 +147,46 @@ class DataSource(db.Model):
         return {'id':       self.id,
                 'name':     self.name,
                 'filetype': self.filetype,
+                'gzipped':  self.gzipped,
                 'added':    str(self.added)}
+
+    def data(self):
+        """
+        Be sure to close after calling this.
+        """
+        filepath = os.path.join(app.config['FILES_DIR'], self.filename)
+        try:
+            if self.gzipped:
+                # Todo: The closing wrapper is not needed in Python 2.7
+                return closing(gzip.open(filepath))
+            else:
+                open(filepath)
+        except EnvironmentError:
+            raise DataUnavailable('data_source_not_cached', 'Data source is not in the cache')
+
+    def local_path(self):
+        """
+        Get a local filepath for the data.
+        """
+        return os.path.join(app.config['FILES_DIR'], self.filename)
+
+    def is_valid(self):
+        """
+        Peek into the file and determine if it is of the given filetype.
+        """
+        data = self.data()
+
+        def is_bed():
+            # Todo.
+            return True
+
+        def is_vcf():
+            return 'fileformat=VCFv4.1' in data.readline()
+
+        validators = {'bed': is_bed,
+                      'vcf': is_vcf}
+        with data as data:
+            return validators[self.filetype]()
 
 
 class Annotation(db.Model):
@@ -104,9 +202,9 @@ class Annotation(db.Model):
 
     data_source = db.relationship(DataSource, backref=db.backref('annotations', lazy='dynamic'))
 
-    def __init__(self, data_source, filename):
+    def __init__(self, data_source):
         self.data_source = data_source
-        self.filename = filename
+        self.filename = str(uuid.uuid4())
         self.added = date.today()
 
     def __repr__(self):
@@ -115,7 +213,30 @@ class Annotation(db.Model):
     def to_dict(self):
         return {'id':          self.id,
                 'data_source': self.data_source_id,
+                'gzipped':     self.gzipped,
                 'added':       str(self.added)}
+
+    def data(self):
+        """
+        Be sure to close after calling this.
+        """
+        filepath = os.path.join(app.config['FILES_DIR'], self.filename)
+        # Todo: The closing wrapper is not needed in Python 2.7
+        return closing(gzip.open(filepath))
+
+    def data_writer(self):
+        """
+        Be sure to close after calling this.
+        """
+        filepath = os.path.join(app.config['FILES_DIR'], self.filename)
+        # Todo: The closing wrapper is not needed in Python 2.7
+        return closing(gzip.open(filepath, 'wb'))
+
+    def local_path(self):
+        """
+        Get a local filepath for the data.
+        """
+        return os.path.join(app.config['FILES_DIR'], self.filename)
 
 
 class Variant(db.Model):
