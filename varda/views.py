@@ -151,7 +151,7 @@ def ensure(*conditions, **options):
     Finally, an example with multiple conditions where at least one of them
     must be met:
 
-        >>> @app.route('/samples/<int:sample_id>', methods=['GET'])
+        >>> @app.route('/samples/<sample_id>', methods=['GET'])
         >>> @require_user
         >>> @ensure(is_admin, owns_sample, any=True)
         >>> def get_samples(sample_id):
@@ -298,15 +298,12 @@ def samples_list():
     return jsonify(samples=[s.to_dict() for s in Sample.query])
 
 
-@app.route('/samples/<sample_id>', methods=['GET'])
+@app.route('/samples/<int:sample_id>', methods=['GET'])
 @require_user
 @ensure(is_admin, owns_sample, any=True)
 def samples_get(sample_id):
     """
     curl -i http://127.0.0.1:5000/samples/2
-
-    Todo: Use <int:sample_id> and check what the error handling of Flask
-        will do. Update: it will give a 404 not found.
     """
     return jsonify(sample=Sample.query.get_or_404(sample_id).to_dict())
 
@@ -329,7 +326,7 @@ def samples_add():
     return redirect(url_for('samples_get', sample_id=sample.id))
 
 
-@app.route('/samples/<sample_id>/observations/wait/<task_id>', methods=['GET'])
+@app.route('/samples/<int:sample_id>/observations/wait/<task_id>', methods=['GET'])
 def observations_wait(sample_id, task_id):
     """
     Check status of import observations task.
@@ -349,7 +346,7 @@ def observations_wait(sample_id, task_id):
     return jsonify(observations={'task_id': task_id, 'ready': ready})
 
 
-@app.route('/samples/<sample_id>/observations', methods=['POST'])
+@app.route('/samples/<int:sample_id>/observations', methods=['POST'])
 def observations_add(sample_id):
     """
     curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/observations
@@ -366,7 +363,7 @@ def observations_add(sample_id):
     return redirect(url_for('observations_wait', sample_id=sample_id, task_id=result.task_id))
 
 
-@app.route('/samples/<sample_id>/regions/wait/<task_id>', methods=['GET'])
+@app.route('/samples/<int:sample_id>/regions/wait/<task_id>', methods=['GET'])
 def regions_wait(sample_id, task_id):
     """
     Check status of import regions task.
@@ -384,7 +381,7 @@ def regions_wait(sample_id, task_id):
     return jsonify(regions={'task_id': task_id, 'ready': ready})
 
 
-@app.route('/samples/<sample_id>/regions', methods=['POST'])
+@app.route('/samples/<int:sample_id>/regions', methods=['POST'])
 def regions_add(sample_id):
     """
     curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/regions
@@ -407,7 +404,7 @@ def data_sources_list():
     return jsonify(data_sources=[d.to_dict() for d in DataSource.query])
 
 
-@app.route('/data_sources/<data_source_id>', methods=['GET'])
+@app.route('/data_sources/<int:data_source_id>', methods=['GET'])
 def data_sources_get(data_source_id):
     """
     Get an uploaded file id.
@@ -443,7 +440,7 @@ def data_sources_add():
     return redirect(url_for('data_sources_get', data_source_id=data_source.id))
 
 
-@app.route('/data_sources/<data_source_id>/annotations', methods=['GET'])
+@app.route('/data_sources/<int:data_source_id>/annotations', methods=['GET'])
 def annotations_list(data_source_id):
     """
     Get annotated versions of a data source.
@@ -451,7 +448,7 @@ def annotations_list(data_source_id):
     return jsonify(annotations=[a.to_dict() for a in DataSource.query.get_or_404(data_source_id).annotations])
 
 
-@app.route('/data_sources/<data_source_id>/annotations/<annotation_id>', methods=['GET'])
+@app.route('/data_sources/<int:data_source_id>/annotations/<int:annotation_id>', methods=['GET'])
 def annotations_get(data_source_id, annotation_id):
     """
     Get annotated version of a data source.
@@ -465,7 +462,7 @@ def annotations_get(data_source_id, annotation_id):
     return f.read()
 
 
-@app.route('/data_sources/<data_source_id>/annotations/wait/<task_id>', methods=['GET'])
+@app.route('/data_sources/<int:data_source_id>/annotations/wait/<task_id>', methods=['GET'])
 def annotations_wait(data_source_id, task_id):
     """
     Wait for annotated version of a data source.
@@ -483,7 +480,7 @@ def annotations_wait(data_source_id, task_id):
     return jsonify(annotation=annotation)
 
 
-@app.route('/data_sources/<data_source_id>/annotations', methods=['POST'])
+@app.route('/data_sources/<int:data_source_id>/annotations', methods=['POST'])
 def annotations_add(data_source_id):
     """
     Annotate a data source.
