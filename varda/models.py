@@ -20,7 +20,9 @@ from varda.region_binning import assign_bin
 
 # Todo: Use the types for which we have validators
 DATA_SOURCE_FILETYPES = ('bed', 'vcf', 'annotation')
-USER_ROLES = ('admin')
+
+# Note: Add new roles at the end
+USER_ROLES = ('admin', 'importer')
 
 
 class InvalidDataSource(Exception):
@@ -58,8 +60,11 @@ class User(db.Model):
     User in the system.
 
     For the roles column we use a bitstring where the leftmost role in the
-    USER_ROLES tuple is defined by the most-significant bit. Essentially, this
-    creates a set of roles.
+    USER_ROLES tuple is defined by the least-significant bit. Essentially,
+    this creates a set of roles.
+
+    Todo: The bitstring encoding/decoding can probably be implemented more
+        efficiently.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
@@ -74,7 +79,8 @@ class User(db.Model):
         self.name = name
         self.login = login
         self.password_hash = bcrypt.hashpw(password, bcrypt.gensalt())
-        self.roles_bitstring = 1 if 'admin' in roles else 0  # Todo: Implement bitstring
+        self.roles_bitstring = sum(pow(2, i) for i, role in enumerate(USER_ROLES)
+                                   if role in roles)
         self.added = date.today()
 
     def __repr__(self):
@@ -89,11 +95,12 @@ class User(db.Model):
     def check_password(self, password):
         return bcrypt.hashpw(password, self.password_hash) == self.password_hash
 
-
     def roles(self):
-        # Todo: Implement bitstring
-        # Todo: If we choose Python 2.7, use {'admin'} set syntax
-        return set(['admin']) if self.roles_bitstring == 1 else set()
+        """
+        Todo: If we choose Python 2.7, use {'admin'} set syntax
+        """
+        return set(role for i, role in enumerate(USER_ROLES)
+                   if self.roles_bitstring & pow(2, i))
 
 
 class DataSource(db.Model):
