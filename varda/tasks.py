@@ -11,7 +11,7 @@ from contextlib import contextmanager
 
 from sqlalchemy.exc import IntegrityError
 
-from varda import app, db, celery, log
+from varda import app, db, celery
 from varda.models import DataUnavailable, Variant, Sample, Observation, DataSource, Annotation
 
 
@@ -23,7 +23,6 @@ class TaskError(Exception):
         self.code = code
         self.message = message
         super(Exception, self).__init__(code, message)
-        log.error('Error during task execution: %s %s' % (code, message))
 
     def to_dict(self):
         return {'code':    self.code,
@@ -146,7 +145,8 @@ def import_bed(sample_id, data_source_id):
     """
     Import regions from BED file.
     """
-    log.info('Started task: import_bed(%d, %d)', sample_id, data_source_id)
+    logger = import_bed.get_logger()
+    logger.info('Started task: import_bed(%d, %d)', sample_id, data_source_id)
 
     sample = Sample.query.get(sample_id)
     if not sample:
@@ -189,7 +189,7 @@ def import_bed(sample_id, data_source_id):
                 db.session.add(region)
                 db.session.commit()
 
-    log.info('Finished task: import_bed(%d, %d)', sample_id, data_source_id)
+    logger.info('Finished task: import_bed(%d, %d)', sample_id, data_source_id)
 
 
 @celery.task
@@ -201,7 +201,8 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
     @todo: Use custom state to report progress:
         http://docs.celeryproject.org/en/latest/userguide/tasks.html#custom-states
     """
-    log.info('Started task: import_vcf(%d, %d)', sample_id, data_source_id)
+    logger = import_vcf.get_logger()
+    logger.info('Started task: import_vcf(%d, %d)', sample_id, data_source_id)
 
     sample = Sample.query.get(sample_id)
     if not sample:
@@ -234,7 +235,7 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
             #     file and pass that to import_variants.
             import_variants(vcf, sample, data_source, use_genotypes)
 
-    log.info('Finished task: import_vcf(%d, %d)', sample_id, data_source_id)
+    logger.info('Finished task: import_vcf(%d, %d)', sample_id, data_source_id)
 
 
 @celery.task
@@ -242,7 +243,8 @@ def annotate_vcf(data_source_id):
     """
     Annotate variants in VCF file.
     """
-    log.info('Started task: annotate_vcf(%d)', data_source_id)
+    logger = annotate_vcf.get_logger()
+    logger.info('Started task: annotate_vcf(%d)', data_source_id)
 
     data_source = DataSource.query.get(data_source_id)
     if not data_source:
@@ -270,5 +272,5 @@ def annotate_vcf(data_source_id):
     db.session.add(annotation)
     db.session.commit()
 
-    log.info('Finished task: annotate_vcf(%d)', data_source_id)
+    logger.info('Finished task: annotate_vcf(%d)', data_source_id)
     return annotation.id

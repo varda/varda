@@ -333,7 +333,7 @@ def observations_add(sample_id):
     Sample.query.get_or_404(sample_id)
     DataSource.query.get_or_404(data_source_id)
     result = import_vcf.delay(sample_id, data_source_id)
-    log.info('Called task: import_vcf(%d, %d)', sample_id, data_source_id)
+    log.info('Called task: import_vcf(%d, %d) %s', sample_id, data_source_id, result.task_id)
     return redirect(url_for('observations_wait', sample_id=sample_id, task_id=result.task_id))
 
 
@@ -367,7 +367,7 @@ def regions_add(sample_id):
     except (KeyError, ValueError):
         abort(400)
     result = import_bed.delay(sample_id, data_source_id)
-    log.info('Called task: import_bed(%d, %d)', sample_id, data_source_id)
+    log.info('Called task: import_bed(%d, %d) %s', sample_id, data_source_id, result.task_id)
     return redirect(url_for('regions_wait', sample_id=sample_id, task_id=result.task_id))
 
 
@@ -463,7 +463,7 @@ def annotations_add(data_source_id):
     except ValueError:
         abort(400)
     result = annotate_vcf.delay(data_source_id)
-    log.info('Called task: annotate_vcf(%d)', data_source_id)
+    log.info('Called task: annotate_vcf(%d) %s', data_source_id, result.task_id)
     return redirect(url_for('annotations_wait', data_source_id=data_source_id, task_id=result.task_id))
 
 

@@ -46,6 +46,15 @@ FILES_DIR = '/tmp/varda'
 # Maximum size for uploaded files
 MAX_CONTENT_LENGTH = 1024 * 1024 * 1024  # 1 gigabyte
 
+# Location of server log file
+SERVER_LOG_FILE = '/tmp/varda-server.log'
+
+# Location of Celery log file
+#CELERYD_LOG_FILE = '/tmp/varda-celeryd.log'
+
+# Todo: Look into this configuration option
+#CELERYD_HIJACK_ROOT_LOGGER = False
+
 # Variant database
 #SQLALCHEMY_DATABASE_URI = 'mysql://varda:varda@localhost/varda'
 SQLALCHEMY_DATABASE_URI = 'postgresql://varda:varda@localhost/varda'
@@ -87,7 +96,7 @@ Message:
 
 %(message)s
 """))
-    file_handler = FileHandler('/tmp/varda-server.log')
+    file_handler = FileHandler(SERVER_LOG_FILE)
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(Formatter('%(asctime)s %(levelname)s: %(message)s'))
     loggers = [app.logger, getLogger('sqlalchemy'), getLogger('celery')]
