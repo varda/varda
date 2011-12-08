@@ -167,7 +167,7 @@ class DataSource(db.Model):
                 # Todo: The closing wrapper is not needed in Python 2.7
                 return closing(gzip.open(filepath))
             else:
-                open(filepath)
+                return open(filepath)
         except EnvironmentError:
             raise DataUnavailable('data_source_not_cached', 'Data source is not in the cache')
 
