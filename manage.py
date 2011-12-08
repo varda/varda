@@ -39,8 +39,8 @@ To start Varda server:
 """
 
 
-from flaskext.script import Manager
-from flaskext.celery import install_commands as install_celery_commands
+from flask_script import Manager
+from flask_celery import install_commands as install_celery_commands
 
 from varda import app, db
 from varda.models import User

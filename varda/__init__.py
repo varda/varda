@@ -5,7 +5,7 @@ Varda, a variant database interface.
 
 from flask import Flask
 from flaskext.sqlalchemy import SQLAlchemy
-from flaskext.celery import Celery
+from flask_celery import Celery
 
 
 # On the event of a new release, we update the __version_info__ and __date__
