@@ -226,6 +226,15 @@ def owns_data_source(data_source_id, **_):
     return data_source is not None and data_source.user is g.user
 
 
+def has_login(login, **_):
+    """
+    Note: We add the keyword arguments wildcard **_ so this function can be
+        easily used as condition argument to the ensure decorator even if
+        there are unrelated keyword arguments for the decorated rule.
+    """
+    return g.user.login == login
+
+
 @app.before_request
 def before_request():
     """
@@ -286,6 +295,53 @@ def apiroot():
     return jsonify(api='ok',
                    version=varda.API_VERSION,
                    contact=varda.__contact__)
+
+
+@app.route('/users', methods=['GET'])
+@require_user
+@ensure(has_role('admin'))
+def users_list():
+    """
+    curl -i -u pietje:pi3tje http://127.0.0.1:5000/users
+    """
+    return jsonify(users=[s.to_dict() for s in User.query])
+
+
+@app.route('/users/<login>', methods=['GET'])
+@require_user
+@ensure(has_role('admin'), has_login, satisfy=any)
+def users_get(login):
+    """
+    curl -i http://127.0.0.1:5000/users/pietje
+    """
+    user = User.query.filter_by(login=login).first()
+    if user is None:
+        abort(404)
+    return jsonify(user=user.to_dict())
+
+
+@app.route('/users', methods=['POST'])
+@require_user
+@ensure(has_role('admin'))
+def users_add():
+    """
+    Roles must be listed in a string separated by a comma.
+
+    Todo: Check for duplicate login.
+    """
+    data = request.form
+    try:
+        name = data.get('name', data['login'])
+        login = data['login']
+        password = data['password']
+        roles = data['roles'].split(',')
+    except KeyError:
+        abort(400)
+    user = User(name, login, password, roles)
+    db.session.add(user)
+    db.session.commit()
+    log.info('Added user: %r', user)
+    return redirect(url_for('users_get', login=user.login))
 
 
 @app.route('/samples', methods=['GET'])
@@ -449,7 +505,7 @@ def data_sources_add():
         filetype = request.form['filetype']
     except KeyError:
         abort(400)
-    gzipped = request.form.get('gzipped') == 'true'
+    gzipped = request.form.get('gzipped', '').lower() == 'true'
     data = request.files.get('data')
     local_path = request.form.get('local_path')
     data_source = DataSource(g.user, name, filetype, upload=data, local_path=local_path, gzipped=gzipped)

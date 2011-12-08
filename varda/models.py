@@ -84,13 +84,14 @@ class User(db.Model):
         self.added = date.today()
 
     def __repr__(self):
-        return '<User %s identified by %s added %s>' % (self.name, self.login, str(self.added))
+        return '<User %s identified by %s added %s is %s>' % (self.name, self.login, str(self.added), ', '.join(self.roles()))
 
     def to_dict(self):
-        return {'id':       self.id,
-                'name':     self.name,
-                'login':    self.login,
-                'added':    str(self.added)}
+        return {'id':    self.id,
+                'name':  self.name,
+                'login': self.login,
+                'roles': list(self.roles()),
+                'added': str(self.added)}
 
     def check_password(self, password):
         return bcrypt.hashpw(password, self.password_hash) == self.password_hash
@@ -156,7 +157,7 @@ class DataSource(db.Model):
 
     def to_dict(self):
         return {'id':       self.id,
-                'user':     self.user_id,
+                'user':     self.user.login,
                 'name':     self.name,
                 'filetype': self.filetype,
                 'gzipped':  self.gzipped,
@@ -318,7 +319,7 @@ class Sample(db.Model):
 
     def to_dict(self):
         return {'id':                 self.id,
-                'user':               self.user_id,
+                'user':               self.user.login,
                 'name':               self.name,
                 'coverage_threshold': self.coverage_threshold,
                 'pool_size':          self.pool_size,
