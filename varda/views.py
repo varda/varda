@@ -77,9 +77,11 @@ def ensure(*conditions, **options):
     Decorator to ensure some given conditions are met.
 
     The conditions arguments are functions returning True on success and False
-    otherwise. If the any keyword argument is True, it is ensured that at
-    least one of the given conditions is met, otherwise all given conditions
-    must be met.
+    otherwise. By default, all conditions must be met. A custom scheme can be
+    specified with the satisfy keyword argument, which must be a function
+    consuming an iterable and returning a boolean. For example, satisfy=any
+    uses the standard library function any to ensure that at least one of the
+    conditions is met.
 
     Typical conditions may depend on the authorized user. In that case, use
     the require_user decorator first, for example:
@@ -148,7 +150,7 @@ def ensure(*conditions, **options):
 
         >>> @app.route('/samples/<sample_id>', methods=['GET'])
         >>> @require_user
-        >>> @ensure(is_admin, owns_sample, any=True)
+        >>> @ensure(is_admin, owns_sample, satisfy=any)
         >>> def get_samples(sample_id):
         ...     return 'variant'
 
@@ -156,7 +158,7 @@ def ensure(*conditions, **options):
         given, which is used for all condition functions. Therefore it is
         useful to have consistent argument naming in your condition functions.
     """
-    any_one = options.pop('any', False)
+    satisfy = options.pop('satisfy', all)
     args = options.pop('args', [])
     kwargs = options.pop('kwargs', None)
 
@@ -171,8 +173,7 @@ def ensure(*conditions, **options):
                 #     comprehension here.
                 condition_kwargs = dict([(name, rule_kwargs.get(value))
                                          for name, value in kwargs.items()])
-            combinator = any if any_one else all
-            if not combinator(c(*condition_args, **condition_kwargs) for c in conditions):
+            if not satisfy(c(*condition_args, **condition_kwargs) for c in conditions):
                 abort(403)
             return rule(*rule_args, **rule_kwargs)
         return ensured_rule
@@ -299,7 +300,7 @@ def samples_list():
 
 @app.route('/samples/<int:sample_id>', methods=['GET'])
 @require_user
-@ensure(has_role('admin'), owns_sample, any=True)
+@ensure(has_role('admin'), owns_sample, satisfy=any)
 def samples_get(sample_id):
     """
     curl -i http://127.0.0.1:5000/samples/2
@@ -309,7 +310,7 @@ def samples_get(sample_id):
 
 @app.route('/samples', methods=['POST'])
 @require_user
-@ensure(has_role('admin'), has_role('importer'), any=True)
+@ensure(has_role('admin'), has_role('importer'), satisfy=any)
 def samples_add():
     """
     curl -i -d 'name=Genome of the Netherlands' -d 'pool_size=500' http://127.0.0.1:5000/samples
@@ -330,7 +331,7 @@ def samples_add():
 
 @app.route('/samples/<int:sample_id>/observations/wait/<task_id>', methods=['GET'])
 @require_user
-@ensure(has_role('admin'), owns_sample, any=True)
+@ensure(has_role('admin'), owns_sample, satisfy=any)
 def observations_wait(sample_id, task_id):
     """
     Check status of import observations task.
@@ -355,7 +356,7 @@ def observations_wait(sample_id, task_id):
 
 @app.route('/samples/<int:sample_id>/observations', methods=['POST'])
 @require_user
-@ensure(has_role('admin'), owns_sample, any=True)
+@ensure(has_role('admin'), owns_sample, satisfy=any)
 def observations_add(sample_id):
     """
     curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/observations
@@ -375,7 +376,7 @@ def observations_add(sample_id):
 
 @app.route('/samples/<int:sample_id>/regions/wait/<task_id>', methods=['GET'])
 @require_user
-@ensure(has_role('admin'), owns_sample, any=True)
+@ensure(has_role('admin'), owns_sample, satisfy=any)
 def regions_wait(sample_id, task_id):
     """
     Check status of import regions task.
@@ -398,7 +399,7 @@ def regions_wait(sample_id, task_id):
 
 @app.route('/samples/<int:sample_id>/regions', methods=['POST'])
 @require_user
-@ensure(has_role('admin'), owns_sample, any=True)
+@ensure(has_role('admin'), owns_sample, satisfy=any)
 def regions_add(sample_id):
     """
     curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/regions
@@ -426,7 +427,7 @@ def data_sources_list():
 
 @app.route('/data_sources/<int:data_source_id>', methods=['GET'])
 @require_user
-@ensure(has_role('admin'), owns_data_source, any=True)
+@ensure(has_role('admin'), owns_data_source, satisfy=any)
 def data_sources_get(data_source_id):
     """
     Get an uploaded file id.
@@ -460,7 +461,7 @@ def data_sources_add():
 
 @app.route('/data_sources/<int:data_source_id>/annotations', methods=['GET'])
 @require_user
-@ensure(has_role('admin'), owns_data_source, any=True)
+@ensure(has_role('admin'), owns_data_source, satisfy=any)
 def annotations_list(data_source_id):
     """
     Get annotated versions of a data source.
@@ -470,7 +471,7 @@ def annotations_list(data_source_id):
 
 @app.route('/data_sources/<int:data_source_id>/annotations/<int:annotation_id>', methods=['GET'])
 @require_user
-@ensure(has_role('admin'), owns_data_source, any=True)
+@ensure(has_role('admin'), owns_data_source, satisfy=any)
 def annotations_get(data_source_id, annotation_id):
     """
     Get annotated version of a data source.
@@ -485,7 +486,7 @@ def annotations_get(data_source_id, annotation_id):
 
 @app.route('/data_sources/<int:data_source_id>/annotations/wait/<task_id>', methods=['GET'])
 @require_user
-@ensure(has_role('admin'), owns_data_source, any=True)
+@ensure(has_role('admin'), owns_data_source, satisfy=any)
 def annotations_wait(data_source_id, task_id):
     """
     Wait for annotated version of a data source.
@@ -505,12 +506,14 @@ def annotations_wait(data_source_id, task_id):
 
 @app.route('/data_sources/<int:data_source_id>/annotations', methods=['POST'])
 @require_user
-# Todo: This should be: admin OR (annotator AND owns_data_source)
-#     How do we implement this? Custom satisfy=combinator kwarg?
-@ensure(has_role('admin'), has_role('annotator'), owns_data_source, any=True)
+@ensure(has_role('admin'), has_role('annotator'), owns_data_source,
+        satisfy=lambda conditions: next(conditions) or all(conditions))
 def annotations_add(data_source_id):
     """
     Annotate a data source.
+
+    Note: The satisfy keyword argument used here in the ensure decorator means
+        that we ensure: admin OR (annotator AND owns_data_source).
 
     Todo: More parameters for annotation.
     Todo: Support other formats than VCF.
@@ -527,7 +530,7 @@ def annotations_add(data_source_id):
 
 @app.route('/check_variant', methods=['POST'])
 @require_user
-@ensure(has_role('admin'), has_role('annotator'), any=True)
+@ensure(has_role('admin'), has_role('annotator'), satisfy=any)
 def check_variant():
     """
     Check a variant.
