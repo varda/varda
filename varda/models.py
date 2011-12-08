@@ -22,7 +22,7 @@ from varda.region_binning import assign_bin
 DATA_SOURCE_FILETYPES = ('bed', 'vcf', 'annotation')
 
 # Note: Add new roles at the end
-USER_ROLES = ('admin', 'importer')
+USER_ROLES = ('admin', 'importer', 'annotator')
 
 
 class InvalidDataSource(Exception):
@@ -114,16 +114,20 @@ class DataSource(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     name = db.Column(db.String(200))
     filename = db.Column(db.String(50))
     filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES, name='filetype'))
     gzipped = db.Column(db.Boolean)
     added = db.Column(db.Date)
 
-    def __init__(self, name, filetype, upload=None, local_path=None, gzipped=False):
+    user = db.relationship(User, backref=db.backref('data_sources', lazy='dynamic'))
+
+    def __init__(self, user, name, filetype, upload=None, local_path=None, gzipped=False):
         if not filetype in DATA_SOURCE_FILETYPES:
             raise InvalidDataSource('unknown_filetype', 'Data source filetype is unknown')
 
+        self.user = user
         self.name = name
         self.filename = str(uuid.uuid4())
         self.filetype = filetype
@@ -148,10 +152,11 @@ class DataSource(db.Model):
             raise InvalidDataSource('invalid_data', 'Data source cannot be read')
 
     def __repr__(self):
-        return '<DataSource %s as %s added %s>' % (self.name, self.filetype, str(self.added))
+        return '<DataSource %s as %s added %s by %r>' % (self.name, self.filetype, str(self.added), self.user)
 
     def to_dict(self):
         return {'id':       self.id,
+                'user':     self.user_id,
                 'name':     self.name,
                 'filetype': self.filetype,
                 'gzipped':  self.gzipped,
@@ -293,22 +298,27 @@ class Sample(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     name = db.Column(db.String(200))
     coverage_threshold = db.Column(db.Integer)
     pool_size = db.Column(db.Integer)
     added = db.Column(db.Date)
 
-    def __init__(self, name, coverage_threshold=8, pool_size=1):
+    user = db.relationship(User, backref=db.backref('samples', lazy='dynamic'))
+
+    def __init__(self, user, name, coverage_threshold=8, pool_size=1):
+        self.user = user
         self.name = name
         self.coverage_threshold = coverage_threshold
         self.pool_size = pool_size
         self.added = date.today()
 
     def __repr__(self):
-        return '<Sample %s of %i>' % (self.name, self.pool_size)
+        return '<Sample %s of %i added %s by %r>' % (self.name, self.pool_size, str(self.added), self.user)
 
     def to_dict(self):
         return {'id':                 self.id,
+                'user':               self.user_id,
                 'name':               self.name,
                 'coverage_threshold': self.coverage_threshold,
                 'pool_size':          self.pool_size,

@@ -176,16 +176,33 @@ def ensure(*conditions, **options):
                 abort(403)
             return rule(*rule_args, **rule_kwargs)
         return ensured_rule
+
     return ensure_conditions
 
 
-def is_admin(**_):
+def has_role(role):
     """
+    Given a role, return a function that can be used as a condition argument
+    for the ensure decorator.
+
+    Example:
+
+        >>> @app.route('/samples', methods=['GET'])
+        >>> @require_user
+        >>> ensure(has_role('admin'))
+        >>> def list_variants():
+        ...     return []
+
+    The resulting condition returns True if there is an authenticated user and
+    it has the requested role, False otherwise.
+
     Note: We add the keyword arguments wildcard **_ so this function can be
         easily used as condition argument to the ensure decorator even if
         there are unrelated keyword arguments for the decorated rule.
     """
-    return 'admin' in g.user.roles()
+    def condition(**_):
+        return g.user is not None and role in g.user.roles()
+    return condition
 
 
 def owns_sample(sample_id, **_):
@@ -194,7 +211,18 @@ def owns_sample(sample_id, **_):
         easily used as condition argument to the ensure decorator even if
         there are unrelated keyword arguments for the decorated rule.
     """
-    return True
+    sample = Sample.query.get(sample_id)
+    return sample is not None and sample.user is g.user
+
+
+def owns_data_source(data_source_id, **_):
+    """
+    Note: We add the keyword arguments wildcard **_ so this function can be
+        easily used as condition argument to the ensure decorator even if
+        there are unrelated keyword arguments for the decorated rule.
+    """
+    data_source = DataSource.query.get(data_source_id)
+    return data_source is not None and data_source.user is g.user
 
 
 @app.before_request
@@ -261,7 +289,7 @@ def apiroot():
 
 @app.route('/samples', methods=['GET'])
 @require_user
-@ensure(is_admin)
+@ensure(has_role('admin'))
 def samples_list():
     """
     curl -i -u pietje:pi3tje http://127.0.0.1:5000/samples
@@ -271,7 +299,7 @@ def samples_list():
 
 @app.route('/samples/<int:sample_id>', methods=['GET'])
 @require_user
-@ensure(is_admin, owns_sample, any=True)
+@ensure(has_role('admin'), owns_sample, any=True)
 def samples_get(sample_id):
     """
     curl -i http://127.0.0.1:5000/samples/2
@@ -281,6 +309,7 @@ def samples_get(sample_id):
 
 @app.route('/samples', methods=['POST'])
 @require_user
+@ensure(has_role('admin'), has_role('importer'), any=True)
 def samples_add():
     """
     curl -i -d 'name=Genome of the Netherlands' -d 'pool_size=500' http://127.0.0.1:5000/samples
@@ -292,7 +321,7 @@ def samples_add():
         pool_size = int(data.get('pool_size', 1))
     except (KeyError, ValueError):
         abort(400)
-    sample = Sample(name, coverage_threshold, pool_size)
+    sample = Sample(g.user, name, coverage_threshold, pool_size)
     db.session.add(sample)
     db.session.commit()
     log.info('Added sample: %r', sample)
@@ -300,10 +329,15 @@ def samples_add():
 
 
 @app.route('/samples/<int:sample_id>/observations/wait/<task_id>', methods=['GET'])
+@require_user
+@ensure(has_role('admin'), owns_sample, any=True)
 def observations_wait(sample_id, task_id):
     """
     Check status of import observations task.
 
+    Note: The ensure decorator we use does not guarantee that the user has
+        initiated this task, but we cannot check that. This is not too bad
+        though, since you cannot guess task_id so it is kind of private.
     Note: The sample_id argument is pretty useless here...
     Note: For a non-existing task_id, AsyncResult just returns a result with
         status PENDING.
@@ -320,6 +354,8 @@ def observations_wait(sample_id, task_id):
 
 
 @app.route('/samples/<int:sample_id>/observations', methods=['POST'])
+@require_user
+@ensure(has_role('admin'), owns_sample, any=True)
 def observations_add(sample_id):
     """
     curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/observations
@@ -338,10 +374,15 @@ def observations_add(sample_id):
 
 
 @app.route('/samples/<int:sample_id>/regions/wait/<task_id>', methods=['GET'])
+@require_user
+@ensure(has_role('admin'), owns_sample, any=True)
 def regions_wait(sample_id, task_id):
     """
     Check status of import regions task.
 
+    Note: The ensure decorator we use does not guarantee that the user has
+        initiated this task, but we cannot check that. This is not too bad
+        though, since you cannot guess task_id so it is kind of private.
     Note: The sample_id argument is pretty useless here...
     """
     result = import_bed.AsyncResult(task_id)
@@ -356,6 +397,8 @@ def regions_wait(sample_id, task_id):
 
 
 @app.route('/samples/<int:sample_id>/regions', methods=['POST'])
+@require_user
+@ensure(has_role('admin'), owns_sample, any=True)
 def regions_add(sample_id):
     """
     curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/regions
@@ -372,6 +415,8 @@ def regions_add(sample_id):
 
 
 @app.route('/data_sources', methods=['GET'])
+@require_user
+@ensure(has_role('admin'))
 def data_sources_list():
     """
     List all uploaded files.
@@ -380,6 +425,8 @@ def data_sources_list():
 
 
 @app.route('/data_sources/<int:data_source_id>', methods=['GET'])
+@require_user
+@ensure(has_role('admin'), owns_data_source, any=True)
 def data_sources_get(data_source_id):
     """
     Get an uploaded file id.
@@ -388,6 +435,7 @@ def data_sources_get(data_source_id):
 
 
 @app.route('/data_sources', methods=['POST'])
+@require_user
 def data_sources_add():
     """
     Upload VCF or BED file.
@@ -403,7 +451,7 @@ def data_sources_add():
     gzipped = request.form.get('gzipped') == 'true'
     data = request.files.get('data')
     local_path = request.form.get('local_path')
-    data_source = DataSource(name, filetype, upload=data, local_path=local_path, gzipped=gzipped)
+    data_source = DataSource(g.user, name, filetype, upload=data, local_path=local_path, gzipped=gzipped)
     db.session.add(data_source)
     db.session.commit()
     log.info('Added data source: %r', data_source)
@@ -411,6 +459,8 @@ def data_sources_add():
 
 
 @app.route('/data_sources/<int:data_source_id>/annotations', methods=['GET'])
+@require_user
+@ensure(has_role('admin'), owns_data_source, any=True)
 def annotations_list(data_source_id):
     """
     Get annotated versions of a data source.
@@ -419,6 +469,8 @@ def annotations_list(data_source_id):
 
 
 @app.route('/data_sources/<int:data_source_id>/annotations/<int:annotation_id>', methods=['GET'])
+@require_user
+@ensure(has_role('admin'), owns_data_source, any=True)
 def annotations_get(data_source_id, annotation_id):
     """
     Get annotated version of a data source.
@@ -432,6 +484,8 @@ def annotations_get(data_source_id, annotation_id):
 
 
 @app.route('/data_sources/<int:data_source_id>/annotations/wait/<task_id>', methods=['GET'])
+@require_user
+@ensure(has_role('admin'), owns_data_source, any=True)
 def annotations_wait(data_source_id, task_id):
     """
     Wait for annotated version of a data source.
@@ -450,6 +504,10 @@ def annotations_wait(data_source_id, task_id):
 
 
 @app.route('/data_sources/<int:data_source_id>/annotations', methods=['POST'])
+@require_user
+# Todo: This should be: admin OR (annotator AND owns_data_source)
+#     How do we implement this? Custom satisfy=combinator kwarg?
+@ensure(has_role('admin'), has_role('annotator'), owns_data_source, any=True)
 def annotations_add(data_source_id):
     """
     Annotate a data source.
@@ -468,6 +526,8 @@ def annotations_add(data_source_id):
 
 
 @app.route('/check_variant', methods=['POST'])
+@require_user
+@ensure(has_role('admin'), has_role('annotator'), any=True)
 def check_variant():
     """
     Check a variant.
