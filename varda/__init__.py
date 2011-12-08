@@ -56,9 +56,10 @@ CELERY_RESULT_BACKEND = 'database'
 CELERY_RESULT_DBURI = 'postgresql://varda:varda@localhost/vardaresults'
 
 # Celery broker
-BROKER_TRANSPORT = 'sqlalchemy'
+#BROKER_TRANSPORT = 'sqlalchemy'
 #BROKER_HOST = 'mysql://varda:varda@localhost/vardacelery'
-BROKER_HOST = 'postgresql://varda:varda@localhost/vardacelery'
+#BROKER_HOST = 'postgresql://varda:varda@localhost/vardacelery'
+BROKER_URL = 'amqp://varda:varda@localhost:5672/varda'
 
 
 app = Flask(__name__)
@@ -70,13 +71,25 @@ celery = Celery(app)
 # In production, send server errors to admins and log warnings to a file
 if not app.debug:
     import logging
-    from logging import FileHandler, getLogger
+    from logging import FileHandler, getLogger, Formatter
     from logging.handlers import SMTPHandler
     mail_handler = SMTPHandler('127.0.0.1', 'm.vermaat.hg@lumc.nl', ADMINS,
                                'Varda Server Error')
     mail_handler.setLevel(logging.ERROR)
+    mail_handler.setFormatter(Formatter("""
+Message type:       %(levelname)s
+Location:           %(pathname)s:%(lineno)d
+Module:             %(module)s
+Function:           %(funcName)s
+Time:               %(asctime)s
+
+Message:
+
+%(message)s
+"""))
     file_handler = FileHandler('/tmp/varda-server.log')
-    file_handler.setLevel(logging.WARNING)
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(Formatter('%(asctime)s %(levelname)s: %(message)s'))
     loggers = [app.logger, getLogger('sqlalchemy'), getLogger('celery')]
     for logger in loggers:
         app.logger.addHandler(mail_handler)

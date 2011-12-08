@@ -14,10 +14,16 @@ To setup the database (MySQL):
 Or (PostgreSQL):
 
     sudo -u postgres createuser --superuser $USER
-    createuser --pwprompt --encrypted --no-adduser --no-createdb varda
+    createuser --pwprompt --encrypted --no-adduser --no-createdb --no-createrole varda
     createdb --encoding=UNICODE --owner=varda varda
     createdb --encoding=UNICODE --owner=varda vardacelery
     createdb --encoding=UNICODE --owner=varda vardaresults
+
+Or use RabbitMQ as message broker:
+
+    sudo rabbitmqctl add_user varda varda
+    sudo rabbitmqctl add_vhost varda
+    sudo rabbitmqctl set_permissions -p varda varda '.*' '.*' '.*'
 
 To reset the database:
 

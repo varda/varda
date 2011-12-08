@@ -16,7 +16,7 @@ from flask import g, abort, request, redirect, url_for, json, send_from_director
 from celery.exceptions import TimeoutError
 
 import varda
-from varda import app, db
+from varda import app, db, log
 from varda.models import InvalidDataSource, Variant, Sample, Observation, DataSource, Annotation, User
 from varda.tasks import TaskError, import_vcf, import_bed, annotate_vcf
 
@@ -66,13 +66,8 @@ def require_user(rule):
     """
     @wraps(rule)
     def secure_rule(*args, **kwargs):
-        auth = request.authorization
-        if not auth:
+        if g.user is None:
             abort(401)
-        user = get_user(auth.username, auth.password)
-        if user is None:
-            abort(401)
-        g.user = user
         return rule(*args, **kwargs)
     return secure_rule
 
@@ -202,6 +197,16 @@ def owns_sample(sample_id, **_):
     return True
 
 
+@app.before_request
+def before_request():
+    """
+    Make sure we add a User instance to the global objects if we have
+    authentication.
+    """
+    auth = request.authorization
+    g.user = get_user(auth.username, auth.password) if auth else None
+
+
 @app.errorhandler(400)
 def error_bad_request(error):
     return jsonify(error={'code': 'bad_request',
@@ -275,6 +280,7 @@ def samples_get(sample_id):
 
 
 @app.route('/samples', methods=['POST'])
+@require_user
 def samples_add():
     """
     curl -i -d 'name=Genome of the Netherlands' -d 'pool_size=500' http://127.0.0.1:5000/samples
@@ -289,6 +295,7 @@ def samples_add():
     sample = Sample(name, coverage_threshold, pool_size)
     db.session.add(sample)
     db.session.commit()
+    log.info('Added sample: %r', sample)
     return redirect(url_for('samples_get', sample_id=sample.id))
 
 
@@ -326,6 +333,7 @@ def observations_add(sample_id):
     Sample.query.get_or_404(sample_id)
     DataSource.query.get_or_404(data_source_id)
     result = import_vcf.delay(sample_id, data_source_id)
+    log.info('Called task: import_vcf(%d, %d)', sample_id, data_source_id)
     return redirect(url_for('observations_wait', sample_id=sample_id, task_id=result.task_id))
 
 
@@ -359,6 +367,7 @@ def regions_add(sample_id):
     except (KeyError, ValueError):
         abort(400)
     result = import_bed.delay(sample_id, data_source_id)
+    log.info('Called task: import_bed(%d, %d)', sample_id, data_source_id)
     return redirect(url_for('regions_wait', sample_id=sample_id, task_id=result.task_id))
 
 
@@ -397,6 +406,7 @@ def data_sources_add():
     data_source = DataSource(name, filetype, upload=data, local_path=local_path, gzipped=gzipped)
     db.session.add(data_source)
     db.session.commit()
+    log.info('Added data source: %r', data_source)
     return redirect(url_for('data_sources_get', data_source_id=data_source.id))
 
 
@@ -418,8 +428,7 @@ def annotations_get(data_source_id, annotation_id):
     annotation = Annotation.query.get_or_404(annotation_id)
     #with annotation.data() as data:
     #    return data.read()
-    mimetype = 'application/x-gzip' if annotation.gzipped else 'text/plain'
-    return send_from_directory(*os.path.split(annotation.local_path()), mimetype=mimetype)
+    return send_from_directory(*os.path.split(annotation.local_path()), mimetype='application/x-gzip')
 
 
 @app.route('/data_sources/<int:data_source_id>/annotations/wait/<task_id>', methods=['GET'])
@@ -454,6 +463,7 @@ def annotations_add(data_source_id):
     except ValueError:
         abort(400)
     result = annotate_vcf.delay(data_source_id)
+    log.info('Called task: annotate_vcf(%d)', data_source_id)
     return redirect(url_for('annotations_wait', data_source_id=data_source_id, task_id=result.task_id))
 
 
@@ -478,4 +488,5 @@ def check_variant():
         observations = variant.observations.count()
     else:
         observations = 0
+    log.info('Checked variant: chromosome %s, begin %d, end %d, reference %s, alternate %s', chromosome, begin, end, reference, alternate)
     return jsonify(observations=observations)
