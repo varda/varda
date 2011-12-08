@@ -112,12 +112,7 @@ Or (Python 2.7, may not be up-to-date):
 Todo
 ----
 
-* Logging (in case of import errors, include data source id).
-* Authentication.
-* Authorization.
-* Error handling.
 * Import data source directly from URL without uploading.
-* Handle compressed data sources.
 * Everything must be in UTF8.
 * Use Alembic for database migrations.
 * Data source hashing?
