@@ -243,6 +243,9 @@ def before_request():
     """
     auth = request.authorization
     g.user = get_user(auth.username, auth.password) if auth else None
+    if auth and g.user is None:
+        log.info('Unsuccessful authentication: username "%s" with password "%s"',
+                 auth.username, auth.password)
 
 
 @app.errorhandler(400)
@@ -292,9 +295,21 @@ def error_invalid_data_source(error):
 
 @app.route('/')
 def apiroot():
-    return jsonify(api='ok',
-                   version=varda.API_VERSION,
-                   contact=varda.__contact__)
+    api = {'status':  'ok',
+           'version': varda.API_VERSION,
+           'contact': varda.__contact__}
+    return jsonify(api=api)
+
+
+@app.route('/authentication')
+def authentication():
+    """
+    Return current authentication state.
+    """
+    authentication = {'authenticated': False}
+    if g.user is not None:
+        authentication.update(authenticated=True, user=g.user.to_dict())
+    return jsonify(authentication=authentication)
 
 
 @app.route('/users', methods=['GET'])
