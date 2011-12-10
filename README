@@ -92,12 +92,12 @@ Activate the environment with:
 
 To install mysql-python, we need a development package:
 
-    sudo aptitude install libmysqlclient-dev
+    sudo aptitude install python-dev libmysqlclient-dev
     pip install MySQL-python
 
 Same for psycopg2:
 
-    sudo aptitude install libpq-dev
+    sudo aptitude install python-dev libpq-dev
     pip install psycopg2
 
 Install all required packages at once (Python 2.6) with:
