@@ -102,7 +102,7 @@ Same for psycopg2:
 
 Install all required packages at once (Python 2.6) with:
 
-    pip install -r requirements.txt
+    pip install -r requirements-2.6.txt
 
 Or (Python 2.7, may not be up-to-date):
 
