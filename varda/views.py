@@ -244,6 +244,7 @@ def before_request():
     auth = request.authorization
     g.user = get_user(auth.username, auth.password) if auth else None
     if auth and g.user is None:
+        # Todo: I guess we shouldn't log the password here
         log.info('Unsuccessful authentication: username "%s" with password "%s"',
                  auth.username, auth.password)
 
