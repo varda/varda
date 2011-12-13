@@ -5,6 +5,9 @@ Todo: For POST requests, we currently issue a 302 redirect to the view url of
     the created object. An alternative would be to issue 200 success on object
     creation and include the object identifier in a json response body.
     Also, our 302 redirection pages are not json but HTML.
+Todo: In REST services, resources should be identified by a uri, in HTTP REST
+    usually a URL. Following this, we should replace (example) the 'id: 343'
+    fields in our JSON payloads by 'uri: /samples/343' fields.
 """
 
 
