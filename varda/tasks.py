@@ -72,6 +72,9 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
             continue
         elif ('SVTYPE' in entry.INFO and entry.INFO['SVTYPE'] == 'DEL') or \
              ('INDEL' in entry.INFO and len(entry.REF) >= len(entry.ALT[0])):
+            # Todo: In this condition we compare the lengths of reference and
+            #     alternate allele, so we should probably do this separately
+            #     for each allele (i.e. move this inside the loop below).
             # Deletion
             end = entry.POS + len(entry.REF) - 1
         else:
