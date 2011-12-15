@@ -10,6 +10,7 @@ import uuid
 from contextlib import contextmanager
 
 from sqlalchemy.exc import IntegrityError
+import vcf as pyvcf
 
 from varda import app, db, celery
 from varda.models import DataUnavailable, Variant, Sample, Observation, DataSource, Annotation
@@ -54,42 +55,40 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
     Todo: Instead of reading from an open VCF, read from an abstracted variant
         reader.
     """
-    vcf.readline()  # Header line
+    reader = pyvcf.VCFReader(vcf)
 
-    for line in vcf:
-        if line.startswith('#'):
-            continue
-        fields = line.split()
-        info = dict(field.split('=') if '=' in field else (field, None) for field in fields[7].split(';'))
-        chromosome, position, _, reference, variant = fields[:5]
+    for entry in reader:
+        chrom = entry.CHROM
+        if chrom.startswith('chr'):
+            chrom = chrom[3:]
         if use_genotypes:
-            genotypes = [genotype.split(':')[0] for genotype in fields[9:]]
-        for index, allele in enumerate(variant.split(',')):
-            if 'SV' in info:
-                # SV deletion (in 1KG)
-                # Todo: For now we ignore these, reference is likely to be
-                # larger than the maximum of 200 by the database schema.
-                #end = int(position) + len(reference) - 1
-                #allele = ''
-                continue
-            elif ('SVTYPE' in info and info['SVTYPE'] == 'DEL') or \
-                 ('INDEL' in info and len(reference) >= len(allele)):
-                # Deletion
-                end = int(position) + len(reference) - 1
-            else:
-                # SNP or insertion.
-                end = position
-            variant = Variant.query.filter_by(chromosome=chromosome, begin=position, end=end, reference=reference, variant=allele).first()
+            genotypes = [s['GT'] for s in entry.samples.values()]
+        if 'SV' in entry.INFO:
+            # SV deletion (in 1KG)
+            # Todo: For now we ignore these, reference is likely to be
+            # larger than the maximum of 200 by the database schema.
+            #end = int(position) + len(reference) - 1
+            #allele = ''
+            continue
+        elif ('SVTYPE' in entry.INFO and entry.INFO['SVTYPE'] == 'DEL') or \
+             ('INDEL' in entry.INFO and len(entry.REF) >= len(entry.ALT[0])):
+            # Deletion
+            end = entry.POS + len(entry.REF) - 1
+        else:
+            # SNP or insertion.
+            end = entry.POS
+        for index, allele in enumerate(entry.ALT):
+            variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=entry.REF, variant=allele).first()
             if not variant:
-                variant = Variant(chromosome, position, end, reference, allele)
+                variant = Variant(chrom, entry.POS, end, entry.REF, allele)
                 db.session.add(variant)
                 db.session.commit()
             if use_genotypes:
                 support = sum(1 for genotype in genotypes if str(index + 1) in genotype)
-            elif 'SF' in info:
-                support = len(info['SF'].split(','))
-            elif 'AC' in info:
-                support = int(info['AC'])
+            elif 'SF' in entry.INFO:
+                support = len(entry.INFO['SF'])  # Was: len(info['SF'].split(','))
+            elif 'AC' in entry.INFO:
+                support = entry.INFO['AC'][0]
             else:
                 raise TaskError('data_source_invalid', 'Cannot read variant support')
             try:
@@ -106,38 +105,36 @@ def write_annotation(vcf, annotation):
     Todo: Instead of reading from an open VCF, read from an abstracted variant
         reader.
     """
-    vcf.readline()  # Header line
+    reader = pyvcf.VCFReader(vcf)
 
     #annotation.write('## Number of samples in database: %i\n' % Sample.query.all().count())
     annotation.write('#CHROM\tPOS\tREF\tALT\tObservations\n')
 
-    for line in vcf:
-        if line.startswith('#'):
+    for entry in reader:
+        chrom = entry.CHROM
+        if chrom.startswith('chr'):
+            chrom = chrom[3:]
+        if 'SV' in entry.INFO:
+            # SV deletion (in 1KG)
+            # Todo: For now we ignore these, reference is likely to be
+            # larger than the maximum of 200 by the database schema.
+            #end = int(position) + len(reference) - 1
+            #allele = ''
             continue
-        fields = line.split()
-        info = dict(field.split('=') if '=' in field else (field, None) for field in fields[7].split(';'))
-        chromosome, position, _, reference, variant = fields[:5]
-        for allele in variant.split(','):
-            if 'SV' in info:
-                # SV deletion (in 1KG)
-                # Todo: For now we ignore these, reference is likely to be
-                # larger than the maximum of 200 by the database schema.
-                #end = int(position) + len(reference) - 1
-                #allele = ''
-                continue
-            elif ('SVTYPE' in info and info['SVTYPE'] == 'DEL') or \
-                 ('INDEL' in info and len(reference) >= len(allele)):
-                # Deletion
-                end = int(position) + len(reference) - 1
-            else:
-                # SNP or insertion.
-                end = position
-            variant = Variant.query.filter_by(chromosome=chromosome, begin=position, end=end, reference=reference, variant=allele).first()
+        elif ('SVTYPE' in entry.INFO and entry.INFO['SVTYPE'] == 'DEL') or \
+             ('INDEL' in entry.INFO and len(entry.REF) >= len(entry.ALT[0])):
+            # Deletion
+            end = entry.POS + len(entry.REF) - 1
+        else:
+            # SNP or insertion.
+            end = entry.POS
+        for index, allele in enumerate(entry.ALT):
+            variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=entry.REF, variant=allele).first()
             if variant:
                 observations = variant.observations.count()
             else:
                 observations = 0
-            annotation.write('\t'.join([chromosome, position, reference, allele, str(observations)]) + '\n')
+            annotation.write('\t'.join([chrom, str(entry.POS), entry.REF, allele, str(observations)]) + '\n')
 
 
 @celery.task
