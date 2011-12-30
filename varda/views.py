@@ -342,6 +342,7 @@ def users_add():
     Roles must be listed in a string separated by a comma.
 
     Todo: Check for duplicate login.
+    Todo: Optionally generate password.
     """
     data = request.form
     try:
