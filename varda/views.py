@@ -247,9 +247,7 @@ def before_request():
     auth = request.authorization
     g.user = get_user(auth.username, auth.password) if auth else None
     if auth and g.user is None:
-        # Todo: I guess we shouldn't log the password here
-        log.info('Unsuccessful authentication: username "%s" with password "%s"',
-                 auth.username, auth.password)
+        log.info('Unsuccessful authentication with username "%s"', auth.username)
 
 
 @app.errorhandler(400)
@@ -347,6 +345,7 @@ def users_add():
     Roles must be listed in a string separated by a comma.
 
     Todo: Check for duplicate login.
+    Todo: Optionally generate password.
     """
     data = request.form
     try:

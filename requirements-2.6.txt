@@ -21,3 +21,4 @@ py-bcrypt==0.2
 python-dateutil==1.5
 tornado==2.1.1
 wsgiref==0.1.2
+git+https://github.com/martijnvermaat/PyVCF/

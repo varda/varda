@@ -108,6 +108,11 @@ Or (Python 2.7, may not be up-to-date):
 
     pip install -r requirements-2.7.txt
 
+Update these lists with `pip freeze > requirements-2.6.txt`.
+
+For some packages that are hard to install with PIP (database drivers, pysam,
+etc), we could link to the global site packages and install these using apt.
+
 
 Todo
 ----

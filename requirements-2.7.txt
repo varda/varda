@@ -18,3 +18,4 @@ psycopg2==2.4.2
 py-bcrypt==0.2
 python-dateutil==2.0
 wsgiref==0.1.2
+git+https://github.com/martijnvermaat/PyVCF/

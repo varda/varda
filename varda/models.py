@@ -63,6 +63,7 @@ class User(db.Model):
     USER_ROLES tuple is defined by the least-significant bit. Essentially,
     this creates a set of roles.
 
+    Todo: Login should really be validated to only contain alphanums.
     Todo: The bitstring encoding/decoding can probably be implemented more
         efficiently.
     """
