@@ -3,11 +3,18 @@ REST server views.
 
 Todo: For POST requests, we currently issue a 302 redirect to the view url of
     the created object. An alternative would be to issue 200 success on object
-    creation and include the object identifier in a json response body.
-    Also, our 302 redirection pages are not json but HTML.
+    creation and include the object url in a json response body. Also, our 302
+    redirection pages are not json but HTML.
 Todo: In REST services, resources should be identified by a uri, in HTTP REST
     usually a URL. Following this, we should replace (example) the 'id: 343'
     fields in our JSON payloads by 'uri: /samples/343' fields.
+Todo: Representations of resources can sometimes be nested arbitrarily deeply.
+    One extreme would be to only represent nested resources by their URL, the
+    other extreme would be to always give the full JSON representation of the
+    nested resource (unless the nesting is infinitely deep of course). A
+    possible solution is to add a ?depth=N query parameter to view URLs, where
+    N would be how deep to expand URLs with JSON representations. A nice
+    implementation for this on the server side will require some thinking...
 """
 
 

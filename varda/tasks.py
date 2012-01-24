@@ -2,6 +2,8 @@
 Celery tasks.
 
 Todo: Chromosomes starting with 'chr' and mitochondrial genome.
+Todo: Update the import and annotation code (see SOAP-based implementation in
+    the ngs-data dvd branch.
 """
 
 
