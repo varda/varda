@@ -15,6 +15,11 @@ Todo: Representations of resources can sometimes be nested arbitrarily deeply.
     possible solution is to add a ?depth=N query parameter to view URLs, where
     N would be how deep to expand URLs with JSON representations. A nice
     implementation for this on the server side will require some thinking...
+    Also see [1].
+Todo: Correctly use HTTP verbs, see [2].
+
+[1] http://news.ycombinator.com/item?id=3491227
+[2] http://news.ycombinator.com/item?id=3514668
 """
 
 
