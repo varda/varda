@@ -121,6 +121,7 @@ Todo
 * Everything must be in UTF8.
 * Use Alembic for database migrations.
 * Data source hashing?
+* List views pagination.
 
 
 And then...

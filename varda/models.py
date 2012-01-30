@@ -344,7 +344,7 @@ class Observation(db.Model):
     variant_id = db.Column(db.Integer, db.ForeignKey('variant.id'))
     data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
 
-    # Depending on the type of sample, the following 3 fields may or not
+    # Depending on the type of sample, the following 3 fields may or may not
     # have data. If we have no data, we store None.
     total_coverage = db.Column(db.Integer)
     variant_coverage = db.Column(db.Integer)

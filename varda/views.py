@@ -622,6 +622,19 @@ def check_variant():
     Check a variant.
 
     Todo: Make this a GET request?
+
+    We also want to check frequencies. For example:
+
+        SELECT COUNT(*) FROM Observation, Sample
+        WHERE Observation.sampleId = Sample.id
+        AND Observation.variantId = %i
+        AND Sample.id > 100
+        AND Sample.id NOT IN (%s)
+
+    will be something like:
+
+        Observation.query.join(Sample).filter(Observation.variant_id == 1).\
+                                       filter(Sample.id == 1).count()
     """
     data = request.form
     try:
