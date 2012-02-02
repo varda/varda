@@ -143,6 +143,7 @@ Just as a reference, some relevant links:
 * [Designing a Secure REST (Web) API without OAuth](http://www.thebuzzmedia.com/designing-a-secure-rest-api-without-oauth-authentication/)
 * [bitly API Documentation](http://code.google.com/p/bitly-api/wiki/ApiDocumentation)
 * [Alembic Documentation](http://packages.python.org/alembic)
+* [What exactly is RESTful programming?](http://news.ycombinator.com/item?id=3538585)
 
 
 [1]: http://flask.pocoo.org/
