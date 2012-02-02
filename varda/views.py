@@ -638,6 +638,7 @@ def check_variant():
     """
     data = request.form
     try:
+        # Todo: use normalize_chromosome from tasks.py.
         chromosome = data['chromosome']
         begin = int(data['begin'])
         end = int(data['end'])

@@ -32,6 +32,17 @@ class TaskError(Exception):
                 'message': self.message}
 
 
+def normalize_chromosome(chromosome):
+    """
+    Todo: This should be in util.py or something.
+    """
+    if chromosome.startswith('NC_012920'):
+        return 'M'
+    if chromosome.startswith('chr'):
+        return chromosome[3:]
+    return chromosome
+
+
 @contextmanager
 def database_task(cleanup=None):
     """
@@ -60,9 +71,7 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
     reader = pyvcf.VCFReader(vcf)
 
     for entry in reader:
-        chrom = entry.CHROM
-        if chrom.startswith('chr'):
-            chrom = chrom[3:]
+        chrom = normalize_chromosome(entry.CHROM)
         if use_genotypes:
             genotypes = [s['GT'] for s in entry.samples.values()]
         if 'SV' in entry.INFO:
@@ -116,9 +125,7 @@ def write_annotation(vcf, annotation):
     annotation.write('#CHROM\tPOS\tREF\tALT\tObservations\n')
 
     for entry in reader:
-        chrom = entry.CHROM
-        if chrom.startswith('chr'):
-            chrom = chrom[3:]
+        chrom = normalize_chromosome(entry.CHROM)
         if 'SV' in entry.INFO:
             # SV deletion (in 1KG)
             # Todo: For now we ignore these, reference is likely to be
@@ -182,7 +189,7 @@ def import_bed(sample_id, data_source_id):
                 if len(parts) < 1 or parts[0] == 'track':
                     continue
                 try:
-                    chromosome = parts[0]
+                    chromosome = normalize_chromosome(parts[0])
                     begin = int(parts[1])
                     end = int(parts[2])
                 except (IndexError, ValueError):
