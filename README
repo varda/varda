@@ -144,6 +144,8 @@ Just as a reference, some relevant links:
 * [bitly API Documentation](http://code.google.com/p/bitly-api/wiki/ApiDocumentation)
 * [Alembic Documentation](http://packages.python.org/alembic)
 * [What exactly is RESTful programming?](http://news.ycombinator.com/item?id=3538585)
+* [General principles for good URI design for RESTful and HTTP applications](http://news.ycombinator.com/item?id=3547369)
+* [How I learned to stop worrying and love REST](http://news.ycombinator.com/item?id=3554973)
 
 
 [1]: http://flask.pocoo.org/
