@@ -2,12 +2,9 @@
 REST server views.
 
 Todo: For POST requests, we currently issue a 302 redirect to the view url of
-    the created object. An alternative would be to issue 200 success on object
-    creation and include the object url in a json response body. Also, our 302
-    redirection pages are not json but HTML.
-Todo: In REST services, resources should be identified by a uri, in HTTP REST
-    usually a URL. Following this, we should replace (example) the 'id: 343'
-    fields in our JSON payloads by 'uri: /samples/343' fields.
+    the created object. An alternative would be to issue 201 success on object
+    creation and include the object url in a json response body (or as HTTP
+    Location header). Also, our 302 redirection pages are not json but HTML.
 Todo: Representations of resources can sometimes be nested arbitrarily deeply.
     One extreme would be to only represent nested resources by their URL, the
     other extreme would be to always give the full JSON representation of the
@@ -16,10 +13,18 @@ Todo: Representations of resources can sometimes be nested arbitrarily deeply.
     N would be how deep to expand URLs with JSON representations. A nice
     implementation for this on the server side will require some thinking...
     Also see [1].
+Todo: Use caching headers whenever we can. ETag headers are good when you can
+    easily reduce a resource to a hash value. Last-Modified should indicate to
+    you that keeping around a timestamp of when resources are updated is a
+    good idea. Cache-Control and Expires should be given sensible values.
+Todo: Implement pagination for collection representations, perhaps with HTTP
+    range headers. This is related to sorting and filtering. See e.g. [3].
+Todo: Use accept HTTP headers.
 Todo: Correctly use HTTP verbs, see [2].
 
 [1] http://news.ycombinator.com/item?id=3491227
 [2] http://news.ycombinator.com/item?id=3514668
+[3] http://dojotoolkit.org/reference-guide/quickstart/rest.html
 
 Copyright (c) 2011-2012, Leiden University Medical Center <humgen@lumc.nl>
 Copyright (c) 2011-2012, Martijn Vermaat <martijn@vermaat.name>
@@ -41,6 +46,24 @@ from varda.models import InvalidDataSource, Variant, Sample, Observation, DataSo
 from varda.tasks import TaskError, import_vcf, import_bed, annotate_vcf
 
 
+# Dispatch table for the represent function below
+_representers = []
+
+
+def represents(model):
+    """
+    Decorator to specify that a function creates a representation for a
+    certain model.
+    """
+    def represents_model(representer):
+        _representers.append( (model, representer) )
+        @wraps(representer)
+        def wrapped_representer(*args, **kwargs):
+            return representer(*args, **kwargs)
+        return wrapped_representer
+    return represents_model
+
+
 def jsonify(_status=None, *args, **kwargs):
     """
     This is a temporary reimplementation of flask.jsonify that accepts a
@@ -57,6 +80,107 @@ def jsonify(_status=None, *args, **kwargs):
     """
     return app.response_class(json.dumps(dict(*args, **kwargs), indent=None if request.is_xhr else 2),
                               mimetype='application/json', status=_status)
+
+
+@represents(User)
+def represent_user(object):
+    """
+    Create a RESTfull representation of a user as dictionary.
+    """
+    return {'uri':   url_for('users_get', login=object.login),
+            'name':  object.name,
+            'login': object.login,
+            'roles': list(object.roles()),
+            'added': str(object.added)}
+
+
+@represents(DataSource)
+def represent_data_source(object):
+    """
+    Create a RESTfull representation of a data source as dictionary.
+    """
+    return {'uri':      url_for('data_sources_get', data_source_id=object.id),
+            'user':     url_for('users_get', login=object.user.login),
+            'name':     object.name,
+            'filetype': object.filetype,
+            'gzipped':  object.gzipped,
+            'added':    str(object.added)}
+
+
+@represents(Annotation)
+def represent_annotation(object):
+    """
+    Create a RESTfull representation of an annotation as dictionary.
+    """
+    return {'uri':         url_for('annotations_wait', data_source_id=object.data_source_id, annotation_id=object.id),
+            'data_source': url_for('data_sources_get', data_source_id=object.data_source_id),
+            'gzipped':     object.gzipped,
+            'added':       str(object.added)}
+
+
+@represents(Sample)
+def represent_sample(object):
+    """
+    Create a RESTfull representation of a sample as dictionary.
+    """
+    return {'uri':                url_for('samples_get', sample_id=object.id),
+            'user':               url_for('users_get', login=object.user.login),
+            'name':               object.name,
+            'coverage_threshold': object.coverage_threshold,
+            'pool_size':          object.pool_size,
+            'added':              str(object.added)}
+
+
+@represents(InvalidDataSource)
+@represents(TaskError)
+def represent_exception(object):
+    """
+    Create a RESTfull representation of an exception as dictionary.
+    """
+    return {'code':    object.code,
+            'message': object.message}
+
+
+#@represents(Variant)
+#def represent_variant(object):
+#    return {'id':         object.id,
+#            'chromosome': object.chromosome,
+#            'begin':      object.begin,
+#            'end':        object.end,
+#            'reference':  object.reference,
+#            'variant':    object.variant}
+#@represents(Observation)
+#def represent_observation(object):
+#    return {'sample':           object.sample.id,
+#            'variant':          object.variant.id,
+#            'data_source':      object.data_source.id,
+#            'total_coverage':   object.total_coverage,
+#            'variant_coverage': object.variant_coverage,
+#            'support':          object.support}
+#@represents(Region)
+#def represent_region(object):
+#    return {'sample':      object.sample.id,
+#            'data_source': object.data_source.id,
+#            'chromosome':  object.chromosome,
+#            'begin':       object.begin,
+#            'end':         object.end}
+
+
+def represent(object):
+    """
+    Create a RESTfull representation of an object as dictionary.
+
+    This function dispatches to a specific representer function depending on
+    the type of object at hand.
+
+    Note: Returns None if no representer was found.
+    Note: I don't think this construction of creating representations is
+        especially elegant, but it gets the job done and I really don't want
+        any functionality for representations in the models themselves.
+    """
+    for model, representer in _representers:
+        if isinstance(object, model):
+            return representer(object)
 
 
 def get_user(login, password):
@@ -304,19 +428,23 @@ def error_entity_too_large(error):
 
 @app.errorhandler(TaskError)
 def error_task_error(error):
-    return jsonify(error=error.to_dict(), _status=500)
+    return jsonify(error=represent(error), _status=500)
 
 
 @app.errorhandler(InvalidDataSource)
 def error_invalid_data_source(error):
-    return jsonify(error=error.to_dict(), _status=400)
+    return jsonify(error=represent(error), _status=400)
 
 
 @app.route('/')
 def apiroot():
     api = {'status':  'ok',
            'version': varda.API_VERSION,
-           'contact': varda.__contact__}
+           'contact': varda.__contact__,
+           'collections': {
+               'users':        url_for('users_list'),
+               'samples':      url_for('samples_list'),
+               'data_sources': url_for('data_sources_list')}}
     return jsonify(api=api)
 
 
@@ -327,7 +455,7 @@ def authentication():
     """
     authentication = {'authenticated': False}
     if g.user is not None:
-        authentication.update(authenticated=True, user=g.user.to_dict())
+        authentication.update(authenticated=True, user=represent(g.user))
     return jsonify(authentication=authentication)
 
 
@@ -338,7 +466,7 @@ def users_list():
     """
     curl -i -u pietje:pi3tje http://127.0.0.1:5000/users
     """
-    return jsonify(users=[s.to_dict() for s in User.query])
+    return jsonify(users=[represent(u) for u in User.query])
 
 
 @app.route('/users/<login>', methods=['GET'])
@@ -351,7 +479,7 @@ def users_get(login):
     user = User.query.filter_by(login=login).first()
     if user is None:
         abort(404)
-    return jsonify(user=user.to_dict())
+    return jsonify(user=represent(user))
 
 
 @app.route('/users', methods=['POST'])
@@ -386,7 +514,7 @@ def samples_list():
     """
     curl -i -u pietje:pi3tje http://127.0.0.1:5000/samples
     """
-    return jsonify(samples=[s.to_dict() for s in Sample.query])
+    return jsonify(samples=[represent(s) for s in Sample.query])
 
 
 @app.route('/samples/<int:sample_id>', methods=['GET'])
@@ -396,7 +524,7 @@ def samples_get(sample_id):
     """
     curl -i http://127.0.0.1:5000/samples/2
     """
-    return jsonify(sample=Sample.query.get_or_404(sample_id).to_dict())
+    return jsonify(sample=represent(Sample.query.get_or_404(sample_id)))
 
 
 @app.route('/samples', methods=['POST'])
@@ -513,7 +641,7 @@ def data_sources_list():
     """
     List all uploaded files.
     """
-    return jsonify(data_sources=[d.to_dict() for d in DataSource.query])
+    return jsonify(data_sources=[represent(d) for d in DataSource.query])
 
 
 @app.route('/data_sources/<int:data_source_id>', methods=['GET'])
@@ -523,7 +651,7 @@ def data_sources_get(data_source_id):
     """
     Get an uploaded file id.
     """
-    return jsonify(data_source=DataSource.query.get_or_404(data_source_id).to_dict())
+    return jsonify(data_source=represent(DataSource.query.get_or_404(data_source_id)))
 
 
 @app.route('/data_sources', methods=['POST'])
@@ -557,7 +685,7 @@ def annotations_list(data_source_id):
     """
     Get annotated versions of a data source.
     """
-    return jsonify(annotations=[a.to_dict() for a in DataSource.query.get_or_404(data_source_id).annotations])
+    return jsonify(annotations=[represent(a) for a in DataSource.query.get_or_404(data_source_id).annotations])
 
 
 @app.route('/data_sources/<int:data_source_id>/annotations/<int:annotation_id>', methods=['GET'])

@@ -39,10 +39,6 @@ class InvalidDataSource(Exception):
         self.message = message
         super(Exception, self).__init__(code, message)
 
-    def to_dict(self):
-        return {'code':    self.code,
-                'message': self.message}
-
 
 class DataUnavailable(Exception):
     """
@@ -54,10 +50,6 @@ class DataUnavailable(Exception):
         self.code = code
         self.message = message
         super(Exception, self).__init__(code, message)
-
-    def to_dict(self):
-        return {'code':    self.code,
-                'message': self.message}
 
 
 class User(db.Model):
@@ -91,13 +83,6 @@ class User(db.Model):
 
     def __repr__(self):
         return '<User %s identified by %s added %s is %s>' % (self.name, self.login, str(self.added), ', '.join(self.roles()))
-
-    def to_dict(self):
-        return {'id':    self.id,
-                'name':  self.name,
-                'login': self.login,
-                'roles': list(self.roles()),
-                'added': str(self.added)}
 
     def check_password(self, password):
         return bcrypt.hashpw(password, self.password_hash) == self.password_hash
@@ -161,14 +146,6 @@ class DataSource(db.Model):
     def __repr__(self):
         return '<DataSource %s as %s added %s by %r>' % (self.name, self.filetype, str(self.added), self.user)
 
-    def to_dict(self):
-        return {'id':       self.id,
-                'user':     self.user.login,
-                'name':     self.name,
-                'filetype': self.filetype,
-                'gzipped':  self.gzipped,
-                'added':    str(self.added)}
-
     def data(self):
         """
         Be sure to close after calling this.
@@ -229,12 +206,6 @@ class Annotation(db.Model):
     def __repr__(self):
         return '<Annotation for %r added %s>' % (self.data_source, str(self.added))
 
-    def to_dict(self):
-        return {'id':          self.id,
-                'data_source': self.data_source_id,
-                'gzipped':     self.gzipped,
-                'added':       str(self.added)}
-
     def data(self):
         """
         Be sure to close after calling this.
@@ -282,14 +253,6 @@ class Variant(db.Model):
         return '<Variant %s at chr%s:%i-%i>' % (
             self.variant, self.chromosome, self.begin, self.end)
 
-    def to_dict(self):
-        return {'id':         self.id,
-                'chromosome': self.chromosome,
-                'begin':      self.begin,
-                'end':        self.end,
-                'reference':  self.reference,
-                'variant':    self.variant}
-
 
 Index('index_variant_position',
       Variant.chromosome, Variant.begin, Variant.end)
@@ -322,14 +285,6 @@ class Sample(db.Model):
 
     def __repr__(self):
         return '<Sample %s of %i added %s by %r>' % (self.name, self.pool_size, str(self.added), self.user)
-
-    def to_dict(self):
-        return {'id':                 self.id,
-                'user':               self.user.login,
-                'name':               self.name,
-                'coverage_threshold': self.coverage_threshold,
-                'pool_size':          self.pool_size,
-                'added':              str(self.added)}
 
 
 class Observation(db.Model):
@@ -370,14 +325,6 @@ class Observation(db.Model):
     def __repr__(self):
         return '<Observation %r on %r>' % (self.variant, self.sample)
 
-    def to_dict(self):
-        return {'sample':           self.sample.id,
-                'variant':          self.variant.id,
-                'data_source':      self.data_source.id,
-                'total_coverage':   self.total_coverage,
-                'variant_coverage': self.variant_coverage,
-                'support':          self.support}
-
 
 class Region(db.Model):
     """
@@ -406,13 +353,6 @@ class Region(db.Model):
 
     def __repr__(self):
         return '<Region for %r at chr%s:%i-%i>' % (self.sample, self.chromosome, self.begin, self.end)
-
-    def to_dict(self):
-        return {'sample':      self.sample.id,
-                'data_source': self.data_source.id,
-                'chromosome':  self.chromosome,
-                'begin':       self.begin,
-                'end':         self.end}
 
 
 Index('region_begin',

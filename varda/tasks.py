@@ -32,10 +32,6 @@ class TaskError(Exception):
         self.message = message
         super(Exception, self).__init__(code, message)
 
-    def to_dict(self):
-        return {'code':    self.code,
-                'message': self.message}
-
 
 def normalize_chromosome(chromosome):
     """
