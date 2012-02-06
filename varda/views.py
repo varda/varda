@@ -1,10 +1,6 @@
 """
 REST server views.
 
-Todo: For POST requests, we currently issue a 302 redirect to the view url of
-    the created object. An alternative would be to issue 201 success on object
-    creation and include the object url in a json response body (or as HTTP
-    Location header). Also, our 302 redirection pages are not json but HTML.
 Todo: Representations of resources can sometimes be nested arbitrarily deeply.
     One extreme would be to only represent nested resources by their URL, the
     other extreme would be to always give the full JSON representation of the
@@ -504,7 +500,10 @@ def users_add():
     db.session.add(user)
     db.session.commit()
     log.info('Added user: %r', user)
-    return redirect(url_for('users_get', login=user.login))
+    uri = url_for('users_get', login=user.login)
+    response = jsonify(user=uri, _status=201)
+    response.location = uri
+    return response
 
 
 @app.route('/samples', methods=['GET'])
@@ -545,7 +544,10 @@ def samples_add():
     db.session.add(sample)
     db.session.commit()
     log.info('Added sample: %r', sample)
-    return redirect(url_for('samples_get', sample_id=sample.id))
+    uri = url_for('samples_get', sample_id=sample.id)
+    response = jsonify(sample=uri, _status=201)
+    response.location = uri
+    return response
 
 
 @app.route('/samples/<int:sample_id>/observations/wait/<task_id>', methods=['GET'])
@@ -590,7 +592,10 @@ def observations_add(sample_id):
     DataSource.query.get_or_404(data_source_id)
     result = import_vcf.delay(sample_id, data_source_id)
     log.info('Called task: import_vcf(%d, %d) %s', sample_id, data_source_id, result.task_id)
-    return redirect(url_for('observations_wait', sample_id=sample_id, task_id=result.task_id))
+    uri = url_for('observations_wait', sample_id=sample_id, task_id=result.task_id)
+    response = jsonify(wait=uri, _status=202)
+    response.location = uri
+    return response
 
 
 @app.route('/samples/<int:sample_id>/regions/wait/<task_id>', methods=['GET'])
@@ -631,7 +636,10 @@ def regions_add(sample_id):
         abort(400)
     result = import_bed.delay(sample_id, data_source_id)
     log.info('Called task: import_bed(%d, %d) %s', sample_id, data_source_id, result.task_id)
-    return redirect(url_for('regions_wait', sample_id=sample_id, task_id=result.task_id))
+    uri = url_for('regions_wait', sample_id=sample_id, task_id=result.task_id)
+    response = jsonify(wait=uri, _status=202)
+    response.location = uri
+    return response
 
 
 @app.route('/data_sources', methods=['GET'])
@@ -675,7 +683,10 @@ def data_sources_add():
     db.session.add(data_source)
     db.session.commit()
     log.info('Added data source: %r', data_source)
-    return redirect(url_for('data_sources_get', data_source_id=data_source.id))
+    uri = url_for('data_sources_get', data_source_id=data_source.id)
+    response = jsonify(data_source=uri, _status=201)
+    response.location = uri
+    return response
 
 
 @app.route('/data_sources/<int:data_source_id>/annotations', methods=['GET'])
@@ -744,7 +755,10 @@ def annotations_add(data_source_id):
         abort(400)
     result = annotate_vcf.delay(data_source_id)
     log.info('Called task: annotate_vcf(%d) %s', data_source_id, result.task_id)
-    return redirect(url_for('annotations_wait', data_source_id=data_source_id, task_id=result.task_id))
+    uri = url_for('annotations_wait', data_source_id=data_source_id, task_id=result.task_id)
+    response = jsonify(wait=uri, _status=202)
+    response.location = uri
+    return response
 
 
 @app.route('/check_variant', methods=['POST'])
