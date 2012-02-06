@@ -20,6 +20,11 @@ Todo: Correctly use HTTP verbs, see [2].
 
 [1] http://news.ycombinator.com/item?id=3491227
 [2] http://news.ycombinator.com/item?id=3514668
+
+Copyright (c) 2011-2012, Leiden University Medical Center <humgen@lumc.nl>
+Copyright (c) 2011-2012, Martijn Vermaat <martijn@vermaat.name>
+
+Licensed under the MIT license, see the LICENSE file.
 """
 
 

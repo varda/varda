@@ -121,7 +121,6 @@ Todo
 * Everything must be in UTF8.
 * Use Alembic for database migrations.
 * Data source hashing?
-* List views pagination.
 
 
 And then...
@@ -146,6 +145,7 @@ Just as a reference, some relevant links:
 * [What exactly is RESTful programming?](http://news.ycombinator.com/item?id=3538585)
 * [General principles for good URI design for RESTful and HTTP applications](http://news.ycombinator.com/item?id=3547369)
 * [How I learned to stop worrying and love REST](http://news.ycombinator.com/item?id=3554973)
+* [REST Done Right with Steve Klabnik podcast](http://rubyrogues.com/rest-done-right-with-steve-klabnik/)
 
 
 [1]: http://flask.pocoo.org/
@@ -159,3 +159,12 @@ Just as a reference, some relevant links:
 [9]: http://jquery.com/
 [10]: http://www.virtualenv.org/
 [11]: http://www.doughellmann.com/docs/virtualenvwrapper/
+
+
+Copyright
+---------
+
+Copyright (c) 2011-2012, Leiden University Medical Center <humgen@lumc.nl>
+Copyright (c) 2011-2012, Martijn Vermaat <martijn@vermaat.name>
+
+Licensed under the MIT license, see the LICENSE file.

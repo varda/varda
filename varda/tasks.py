@@ -4,6 +4,11 @@ Celery tasks.
 Todo: Chromosomes starting with 'chr' and mitochondrial genome.
 Todo: Update the import and annotation code (see SOAP-based implementation in
     the ngs-data dvd branch.
+
+Copyright (c) 2011-2012, Leiden University Medical Center <humgen@lumc.nl>
+Copyright (c) 2011-2012, Martijn Vermaat <martijn@vermaat.name>
+
+Licensed under the MIT license, see the LICENSE file.
 """
 
 
