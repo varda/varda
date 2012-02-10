@@ -15,6 +15,7 @@ celerymon==0.4.0
 importlib==1.0.2
 kombu==1.4.3
 kombu-sqlalchemy==1.1.0
+nose==1.1.2
 ordereddict==1.1
 psycopg2==2.4.2
 py-bcrypt==0.2
