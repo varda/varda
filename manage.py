@@ -33,8 +33,12 @@ To reset the database:
 
 To start Varda server:
 
-    ./manage.py celeryd
-    ./manage.py runserver
+    VARDA_SETTINGS=$(pwd)/settings.py ./manage.py celeryd  -l info -E
+    VARDA_SETTINGS=$(pwd)/settings.py ./manage.py runserver
+
+To run the tests:
+
+    VARDA_SETTINGS=$(pwd)/test_settings.py nosetests -v
 
 """
 
@@ -42,11 +46,11 @@ To start Varda server:
 from flask_script import Manager
 from flask_celery import install_commands as install_celery_commands
 
-from varda import app, db
+from varda import create_app, db
 from varda.models import User
 
 
-manager = Manager(app)
+manager = Manager(create_app())
 install_celery_commands(manager)
 
 

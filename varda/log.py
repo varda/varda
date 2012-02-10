@@ -9,8 +9,7 @@ Licensed under the MIT license, see the LICENSE file.
 
 
 from flask import g, request
-
-from varda import app
+from flask import current_app
 
 
 def make_logger(base):
@@ -20,11 +19,11 @@ def make_logger(base):
             header = '[ip: %s] ' % request.remote_addr
             if g.user is not None:
                 header += '[user: %s] ' % g.user.login
-        base(header + message, *args, **kwargs)
+        current_app.logger.getattr(base)(header + message, *args, **kwargs)
     return logger
 
 
-debug = make_logger(app.logger.debug)
-info = make_logger(app.logger.info)
-warning = make_logger(app.logger.warning)
-error = make_logger(app.logger.error)
+debug = make_logger('debug')
+info = make_logger('info')
+warning = make_logger('warning')
+error = make_logger('error')

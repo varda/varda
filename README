@@ -137,6 +137,7 @@ Todo
 * Everything must be in UTF8.
 * Use Alembic for database migrations.
 * Data source hashing?
+* Update Python 2.7 requirements.
 
 
 And then...

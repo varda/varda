@@ -19,7 +19,7 @@ from contextlib import contextmanager
 from sqlalchemy.exc import IntegrityError
 import vcf as pyvcf
 
-from varda import app, db, celery
+from varda import db, celery
 from varda.models import DataUnavailable, Variant, Sample, Observation, DataSource, Annotation
 
 

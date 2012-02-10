@@ -17,9 +17,10 @@ from datetime import date
 from contextlib import closing
 
 import bcrypt
+from flask import current_app
 from sqlalchemy import Index
 
-from varda import app, db
+from varda import db
 from varda.region_binning import assign_bin
 
 
@@ -126,7 +127,7 @@ class DataSource(db.Model):
         self.gzipped = gzipped
         self.added = date.today()
 
-        filepath = os.path.join(app.config['FILES_DIR'], self.filename)
+        filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
 
         if upload is not None:
             if gzipped:
@@ -150,7 +151,7 @@ class DataSource(db.Model):
         """
         Be sure to close after calling this.
         """
-        filepath = os.path.join(app.config['FILES_DIR'], self.filename)
+        filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
         try:
             if self.gzipped:
                 # Todo: The closing wrapper is not needed in Python 2.7
@@ -164,7 +165,7 @@ class DataSource(db.Model):
         """
         Get a local filepath for the data.
         """
-        return os.path.join(app.config['FILES_DIR'], self.filename)
+        return os.path.join(current_app.config['FILES_DIR'], self.filename)
 
     def is_valid(self):
         """
@@ -210,7 +211,7 @@ class Annotation(db.Model):
         """
         Be sure to close after calling this.
         """
-        filepath = os.path.join(app.config['FILES_DIR'], self.filename)
+        filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
         # Todo: The closing wrapper is not needed in Python 2.7
         return closing(gzip.open(filepath))
 
@@ -218,7 +219,7 @@ class Annotation(db.Model):
         """
         Be sure to close after calling this.
         """
-        filepath = os.path.join(app.config['FILES_DIR'], self.filename)
+        filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
         # Todo: The closing wrapper is not needed in Python 2.7
         return closing(gzip.open(filepath, 'wb'))
 
@@ -226,7 +227,7 @@ class Annotation(db.Model):
         """
         Get a local filepath for the data.
         """
-        return os.path.join(app.config['FILES_DIR'], self.filename)
+        return os.path.join(current_app.config['FILES_DIR'], self.filename)
 
 
 class Variant(db.Model):

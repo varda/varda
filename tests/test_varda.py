@@ -13,34 +13,26 @@ To make sure we have a test database with test user, run this once:
 """
 
 
-import os
-import tempfile
 from nose.tools import *
-from varda import app, db
 
-
-TESTING = True
-FILES_DIR = tempfile.mkdtemp()
-SQLALCHEMY_DATABASE_URI = 'postgresql://vardatest:vardatest@localhost/vardatest'
-CELERY_RESULT_BACKEND = 'database'
-CELERY_RESULT_DBURI = 'postgresql://vardatest:vardatest@localhost/vardatestresults'
-BROKER_URL = 'amqp://vardatest:vardatest@localhost:5672/vardatest'
+from varda import create_app, db
 
 
 class TestVarda():
     def setUp(self):
-        # Todo: This doesn't work, the db should be created after setting the
-        # config. Probably requires some refactoring in varda/__init__.py.
-        app.config.from_object(__name__)
-        self.app = app.test_client()
+        self.app = create_app()
+        ok_(self.app.config.get('TESTING'),
+            'Settings do not seem to define your *test* environment!')
+        self.client = self.app.test_client()
         # Todo: Start celeryd
-        db.create_all()
+        with self.app.test_request_context():
+            db.create_all()
 
     def tearDown(self):
-        db.drop_all()
         # Todo: Empty celery, stop celeryd
-        # Todo: Maybe delete tempdir
+        with self.app.test_request_context():
+            db.drop_all()
 
     def test_root(self):
-        r = self.app.get('/')
+        r = self.client.get('/')
         assert 'contact' in r.data

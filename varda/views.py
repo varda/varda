@@ -33,13 +33,16 @@ import os
 import uuid
 from functools import wraps
 
-from flask import g, abort, request, redirect, url_for, json, send_from_directory
+from flask import Blueprint, current_app, g, abort, request, redirect, url_for, json, send_from_directory
 from celery.exceptions import TimeoutError
 
 import varda
-from varda import app, db, log
+from varda import db, log
 from varda.models import InvalidDataSource, Variant, Sample, Observation, DataSource, Annotation, User
 from varda.tasks import TaskError, import_vcf, import_bed, annotate_vcf
+
+
+api = Blueprint('api', __name__)
 
 
 # Dispatch table for the represent function below
@@ -74,8 +77,9 @@ def jsonify(_status=None, *args, **kwargs):
 
     See also: https://github.com/mitsuhiko/flask/pull/239
     """
-    return app.response_class(json.dumps(dict(*args, **kwargs), indent=None if request.is_xhr else 2),
-                              mimetype='application/json', status=_status)
+    return current_app.response_class(
+        json.dumps(dict(*args, **kwargs), indent=None if request.is_xhr else 2),
+        mimetype='application/json', status=_status)
 
 
 @represents(User)
@@ -83,7 +87,7 @@ def represent_user(object):
     """
     Create a RESTfull representation of a user as dictionary.
     """
-    return {'uri':   url_for('users_get', login=object.login),
+    return {'uri':   url_for('.users_get', login=object.login),
             'name':  object.name,
             'login': object.login,
             'roles': list(object.roles()),
@@ -95,8 +99,8 @@ def represent_data_source(object):
     """
     Create a RESTfull representation of a data source as dictionary.
     """
-    return {'uri':      url_for('data_sources_get', data_source_id=object.id),
-            'user':     url_for('users_get', login=object.user.login),
+    return {'uri':      url_for('.data_sources_get', data_source_id=object.id),
+            'user':     url_for('.users_get', login=object.user.login),
             'name':     object.name,
             'filetype': object.filetype,
             'gzipped':  object.gzipped,
@@ -108,8 +112,8 @@ def represent_annotation(object):
     """
     Create a RESTfull representation of an annotation as dictionary.
     """
-    return {'uri':         url_for('annotations_wait', data_source_id=object.data_source_id, annotation_id=object.id),
-            'data_source': url_for('data_sources_get', data_source_id=object.data_source_id),
+    return {'uri':         url_for('.annotations_wait', data_source_id=object.data_source_id, annotation_id=object.id),
+            'data_source': url_for('.data_sources_get', data_source_id=object.data_source_id),
             'gzipped':     object.gzipped,
             'added':       str(object.added)}
 
@@ -119,8 +123,8 @@ def represent_sample(object):
     """
     Create a RESTfull representation of a sample as dictionary.
     """
-    return {'uri':                url_for('samples_get', sample_id=object.id),
-            'user':               url_for('users_get', login=object.user.login),
+    return {'uri':                url_for('.samples_get', sample_id=object.id),
+            'user':               url_for('.users_get', login=object.user.login),
             'name':               object.name,
             'coverage_threshold': object.coverage_threshold,
             'pool_size':          object.pool_size,
@@ -375,7 +379,7 @@ def has_login(login, **_):
     return g.user.login == login
 
 
-@app.before_request
+@api.before_request
 def before_request():
     """
     Make sure we add a User instance to the global objects if we have
@@ -387,64 +391,64 @@ def before_request():
         log.info('Unsuccessful authentication with username "%s"', auth.username)
 
 
-@app.errorhandler(400)
+@api.errorhandler(400)
 def error_bad_request(error):
     return jsonify(error={'code': 'bad_request',
                           'message': 'The request could not be understood due to malformed syntax'},
                    _status=400)
 
 
-@app.errorhandler(401)
+@api.errorhandler(401)
 def error_unauthorized(error):
     return jsonify(error={'code': 'unauthorized',
                           'message': 'The request requires user authentication'},
                    _status=401)
 
 
-@app.errorhandler(403)
+@api.errorhandler(403)
 def error_forbidden(error):
     return jsonify(error={'code': 'forbidden',
                           'message': 'Not allowed to make this request'},
                    _status=403)
 
 
-@app.errorhandler(404)
+@api.errorhandler(404)
 def error_not_found(error):
     return jsonify(error={'code': 'not_found',
                           'message': 'The requested entity could not be found'},
                    _status=404)
 
 
-@app.errorhandler(413)
+@api.errorhandler(413)
 def error_entity_too_large(error):
     return jsonify(error={'code': 'entity_too_large',
                           'message': 'The request entity is too large'},
                    _status=413)
 
 
-@app.errorhandler(TaskError)
+@api.errorhandler(TaskError)
 def error_task_error(error):
     return jsonify(error=represent(error), _status=500)
 
 
-@app.errorhandler(InvalidDataSource)
+@api.errorhandler(InvalidDataSource)
 def error_invalid_data_source(error):
     return jsonify(error=represent(error), _status=400)
 
 
-@app.route('/')
+@api.route('/')
 def apiroot():
     api = {'status':  'ok',
            'version': varda.API_VERSION,
            'contact': varda.__contact__,
            'collections': {
-               'users':        url_for('users_list'),
-               'samples':      url_for('samples_list'),
-               'data_sources': url_for('data_sources_list')}}
+               'users':        url_for('.users_list'),
+               'samples':      url_for('.samples_list'),
+               'data_sources': url_for('.data_sources_list')}}
     return jsonify(api=api)
 
 
-@app.route('/authentication')
+@api.route('/authentication')
 def authentication():
     """
     Return current authentication state.
@@ -455,7 +459,7 @@ def authentication():
     return jsonify(authentication=authentication)
 
 
-@app.route('/users', methods=['GET'])
+@api.route('/users', methods=['GET'])
 @require_user
 @ensure(has_role('admin'))
 def users_list():
@@ -465,7 +469,7 @@ def users_list():
     return jsonify(users=[represent(u) for u in User.query])
 
 
-@app.route('/users/<login>', methods=['GET'])
+@api.route('/users/<login>', methods=['GET'])
 @require_user
 @ensure(has_role('admin'), has_login, satisfy=any)
 def users_get(login):
@@ -478,7 +482,7 @@ def users_get(login):
     return jsonify(user=represent(user))
 
 
-@app.route('/users', methods=['POST'])
+@api.route('/users', methods=['POST'])
 @require_user
 @ensure(has_role('admin'))
 def users_add():
@@ -500,13 +504,13 @@ def users_add():
     db.session.add(user)
     db.session.commit()
     log.info('Added user: %r', user)
-    uri = url_for('users_get', login=user.login)
+    uri = url_for('.users_get', login=user.login)
     response = jsonify(user=uri, _status=201)
     response.location = uri
     return response
 
 
-@app.route('/samples', methods=['GET'])
+@api.route('/samples', methods=['GET'])
 @require_user
 @ensure(has_role('admin'))
 def samples_list():
@@ -516,7 +520,7 @@ def samples_list():
     return jsonify(samples=[represent(s) for s in Sample.query])
 
 
-@app.route('/samples/<int:sample_id>', methods=['GET'])
+@api.route('/samples/<int:sample_id>', methods=['GET'])
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def samples_get(sample_id):
@@ -526,7 +530,7 @@ def samples_get(sample_id):
     return jsonify(sample=represent(Sample.query.get_or_404(sample_id)))
 
 
-@app.route('/samples', methods=['POST'])
+@api.route('/samples', methods=['POST'])
 @require_user
 @ensure(has_role('admin'), has_role('importer'), satisfy=any)
 def samples_add():
@@ -544,13 +548,13 @@ def samples_add():
     db.session.add(sample)
     db.session.commit()
     log.info('Added sample: %r', sample)
-    uri = url_for('samples_get', sample_id=sample.id)
+    uri = url_for('.samples_get', sample_id=sample.id)
     response = jsonify(sample=uri, _status=201)
     response.location = uri
     return response
 
 
-@app.route('/samples/<int:sample_id>/observations/wait/<task_id>', methods=['GET'])
+@api.route('/samples/<int:sample_id>/observations/wait/<task_id>', methods=['GET'])
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def observations_wait(sample_id, task_id):
@@ -575,7 +579,7 @@ def observations_wait(sample_id, task_id):
     return jsonify(observations={'task_id': task_id, 'ready': ready})
 
 
-@app.route('/samples/<int:sample_id>/observations', methods=['POST'])
+@api.route('/samples/<int:sample_id>/observations', methods=['POST'])
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def observations_add(sample_id):
@@ -592,13 +596,13 @@ def observations_add(sample_id):
     DataSource.query.get_or_404(data_source_id)
     result = import_vcf.delay(sample_id, data_source_id)
     log.info('Called task: import_vcf(%d, %d) %s', sample_id, data_source_id, result.task_id)
-    uri = url_for('observations_wait', sample_id=sample_id, task_id=result.task_id)
+    uri = url_for('.observations_wait', sample_id=sample_id, task_id=result.task_id)
     response = jsonify(wait=uri, _status=202)
     response.location = uri
     return response
 
 
-@app.route('/samples/<int:sample_id>/regions/wait/<task_id>', methods=['GET'])
+@api.route('/samples/<int:sample_id>/regions/wait/<task_id>', methods=['GET'])
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def regions_wait(sample_id, task_id):
@@ -621,7 +625,7 @@ def regions_wait(sample_id, task_id):
     return jsonify(regions={'task_id': task_id, 'ready': ready})
 
 
-@app.route('/samples/<int:sample_id>/regions', methods=['POST'])
+@api.route('/samples/<int:sample_id>/regions', methods=['POST'])
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def regions_add(sample_id):
@@ -636,13 +640,13 @@ def regions_add(sample_id):
         abort(400)
     result = import_bed.delay(sample_id, data_source_id)
     log.info('Called task: import_bed(%d, %d) %s', sample_id, data_source_id, result.task_id)
-    uri = url_for('regions_wait', sample_id=sample_id, task_id=result.task_id)
+    uri = url_for('.regions_wait', sample_id=sample_id, task_id=result.task_id)
     response = jsonify(wait=uri, _status=202)
     response.location = uri
     return response
 
 
-@app.route('/data_sources', methods=['GET'])
+@api.route('/data_sources', methods=['GET'])
 @require_user
 @ensure(has_role('admin'))
 def data_sources_list():
@@ -652,7 +656,7 @@ def data_sources_list():
     return jsonify(data_sources=[represent(d) for d in DataSource.query])
 
 
-@app.route('/data_sources/<int:data_source_id>', methods=['GET'])
+@api.route('/data_sources/<int:data_source_id>', methods=['GET'])
 @require_user
 @ensure(has_role('admin'), owns_data_source, satisfy=any)
 def data_sources_get(data_source_id):
@@ -662,7 +666,7 @@ def data_sources_get(data_source_id):
     return jsonify(data_source=represent(DataSource.query.get_or_404(data_source_id)))
 
 
-@app.route('/data_sources', methods=['POST'])
+@api.route('/data_sources', methods=['POST'])
 @require_user
 def data_sources_add():
     """
@@ -683,13 +687,13 @@ def data_sources_add():
     db.session.add(data_source)
     db.session.commit()
     log.info('Added data source: %r', data_source)
-    uri = url_for('data_sources_get', data_source_id=data_source.id)
+    uri = url_for('.data_sources_get', data_source_id=data_source.id)
     response = jsonify(data_source=uri, _status=201)
     response.location = uri
     return response
 
 
-@app.route('/data_sources/<int:data_source_id>/annotations', methods=['GET'])
+@api.route('/data_sources/<int:data_source_id>/annotations', methods=['GET'])
 @require_user
 @ensure(has_role('admin'), owns_data_source, satisfy=any)
 def annotations_list(data_source_id):
@@ -699,7 +703,7 @@ def annotations_list(data_source_id):
     return jsonify(annotations=[represent(a) for a in DataSource.query.get_or_404(data_source_id).annotations])
 
 
-@app.route('/data_sources/<int:data_source_id>/annotations/<int:annotation_id>', methods=['GET'])
+@api.route('/data_sources/<int:data_source_id>/annotations/<int:annotation_id>', methods=['GET'])
 @require_user
 @ensure(has_role('admin'), owns_data_source, satisfy=any)
 def annotations_get(data_source_id, annotation_id):
@@ -714,7 +718,7 @@ def annotations_get(data_source_id, annotation_id):
     return send_from_directory(*os.path.split(annotation.local_path()), mimetype='application/x-gzip')
 
 
-@app.route('/data_sources/<int:data_source_id>/annotations/wait/<task_id>', methods=['GET'])
+@api.route('/data_sources/<int:data_source_id>/annotations/wait/<task_id>', methods=['GET'])
 @require_user
 @ensure(has_role('admin'), owns_data_source, satisfy=any)
 def annotations_wait(data_source_id, task_id):
@@ -734,7 +738,7 @@ def annotations_wait(data_source_id, task_id):
     return jsonify(annotation=annotation)
 
 
-@app.route('/data_sources/<int:data_source_id>/annotations', methods=['POST'])
+@api.route('/data_sources/<int:data_source_id>/annotations', methods=['POST'])
 @require_user
 @ensure(has_role('admin'), has_role('annotator'), owns_data_source,
         satisfy=lambda conditions: next(conditions) or all(conditions))
@@ -755,13 +759,13 @@ def annotations_add(data_source_id):
         abort(400)
     result = annotate_vcf.delay(data_source_id)
     log.info('Called task: annotate_vcf(%d) %s', data_source_id, result.task_id)
-    uri = url_for('annotations_wait', data_source_id=data_source_id, task_id=result.task_id)
+    uri = url_for('.annotations_wait', data_source_id=data_source_id, task_id=result.task_id)
     response = jsonify(wait=uri, _status=202)
     response.location = uri
     return response
 
 
-@app.route('/check_variant', methods=['POST'])
+@api.route('/check_variant', methods=['POST'])
 @require_user
 @ensure(has_role('admin'), has_role('annotator'), satisfy=any)
 def check_variant():

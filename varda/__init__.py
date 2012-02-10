@@ -29,8 +29,8 @@ from flask_celery import Celery
 
 RELEASE = False
 
-__version_info__ = ('1', '0', 'beta-1', 'dev')
-__date__ = '16 Nov 2011'
+__version_info__ = ('0', '1', 'dev')
+__date__ = '10 Feb Nov 2012'
 
 
 __version__ = '.'.join(__version_info__)
@@ -42,46 +42,23 @@ __homepage__ = 'http://www.humgen.nl'
 API_VERSION = 1
 
 
-# Addresses to send errors to
-ADMINS = ['m.vermaat.hg@lumc.nl']
-
-# Directory to store uploaded files
-FILES_DIR = '/tmp/varda'
-
-# Maximum size for uploaded files
-MAX_CONTENT_LENGTH = 1024 * 1024 * 1024  # 1 gigabyte
-
-# Location of server log file
-SERVER_LOG_FILE = '/tmp/varda-server.log'
-
-# Location of Celery log file
-#CELERYD_LOG_FILE = '/tmp/varda-celeryd.log'
-
-# Todo: Look into this configuration option
-#CELERYD_HIJACK_ROOT_LOGGER = False
-
-# Variant database
-#SQLALCHEMY_DATABASE_URI = 'mysql://varda:varda@localhost/varda'
-SQLALCHEMY_DATABASE_URI = 'postgresql://varda:varda@localhost/varda'
-
-# Celery results
-CELERY_RESULT_BACKEND = 'database'
-#CELERY_RESULT_DBURI = 'mysql://varda:varda@localhost/vardaresults'
-CELERY_RESULT_DBURI = 'postgresql://varda:varda@localhost/vardaresults'
-
-# Celery broker
-#BROKER_TRANSPORT = 'sqlalchemy'
-#BROKER_HOST = 'mysql://varda:varda@localhost/vardacelery'
-#BROKER_HOST = 'postgresql://varda:varda@localhost/vardacelery'
-BROKER_URL = 'amqp://varda:varda@localhost:5672/varda'
+db = SQLAlchemy()
+celery = Celery()
 
 
-app = Flask(__name__)
-app.config.from_object(__name__)
-db = SQLAlchemy(app)
-celery = Celery(app)
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object('varda.default_settings')
+    app.config.from_envvar('VARDA_SETTINGS', silent=True)
+    db.init_app(app)
+    celery.init_app(app)
+    from varda.views import api
+    app.register_blueprint(api)
+    return app
 
 
+# Todo: The following needs refactoring since we use a create_app function.
+temp = '''
 # In production, send server errors to admins and log warnings to a file
 if not app.debug:
     import logging
@@ -108,7 +85,4 @@ Message:
     for logger in loggers:
         app.logger.addHandler(mail_handler)
         app.logger.addHandler(file_handler)
-
-
-# Views must always be imported last
-import varda.views
+'''
