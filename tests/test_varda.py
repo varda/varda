@@ -18,7 +18,6 @@ import time
 import tempfile
 
 from nose.tools import *
-from celery.bin.celeryd import WorkerCommand
 
 from varda import create_app, db
 from varda.tasks import ping
