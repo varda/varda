@@ -284,3 +284,11 @@ def annotate_vcf(data_source_id):
 
     logger.info('Finished task: annotate_vcf(%d)', data_source_id)
     return annotation.id
+
+
+@celery.task
+def ping():
+    """
+    Ping-pong task usefull for testing purposes.
+    """
+    return 'pong'

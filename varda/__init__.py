@@ -46,10 +46,12 @@ db = SQLAlchemy()
 celery = Celery()
 
 
-def create_app():
+def create_app(settings=None):
     app = Flask(__name__)
     app.config.from_object('varda.default_settings')
     app.config.from_envvar('VARDA_SETTINGS', silent=True)
+    if settings:
+        app.config.update(settings)
     db.init_app(app)
     celery.init_app(app)
     from varda.views import api

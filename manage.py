@@ -38,7 +38,7 @@ To start Varda server:
 
 To run the tests:
 
-    VARDA_SETTINGS=$(pwd)/test_settings.py nosetests -v
+    nosetests -v
 
 """
 
