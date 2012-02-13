@@ -11,6 +11,8 @@ Run these commands once to set this up:
     createdb --encoding=UNICODE --owner=vardatest vardatest
 
 Alternatively, you can change the configuration settings below.
+
+Todo: Look at http://packages.python.org/Flask-Testing/
 """
 
 
@@ -34,15 +36,35 @@ TEST_SETTINGS = {
 
 
 class TestVarda():
-    def setUp(self):
-        self.app = create_app(TEST_SETTINGS)
-        self.client = self.app.test_client()
-        with self.app.test_request_context():
+    @classmethod
+    def setup_class(cls):
+        """
+        Run once before running the tests in this class. Setup the test
+        database.
+        """
+        with create_app(TEST_SETTINGS).test_request_context():
             db.create_all()
 
-    def tearDown(self):
-        with self.app.test_request_context():
+    @classmethod
+    def teardown_class(cls):
+        """
+        Run once after all tests in this class finished. Drop the test database.
+        """
+        with create_app(TEST_SETTINGS).test_request_context():
             db.drop_all()
+
+    def setup(self):
+        """
+        For every test, run this first.
+        """
+        self.app = create_app(TEST_SETTINGS)
+        self.client = self.app.test_client()
+
+    def teardown(self):
+        """
+        For every test, run this afterwards.
+        """
+        pass
 
     def test_root(self):
         r = self.client.get('/')
