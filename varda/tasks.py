@@ -69,12 +69,12 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
     Todo: Instead of reading from an open VCF, read from an abstracted variant
         reader.
     """
-    reader = pyvcf.VCFReader(vcf)
+    reader = pyvcf.Reader(vcf)
 
     for entry in reader:
         chrom = normalize_chromosome(entry.CHROM)
         if use_genotypes:
-            genotypes = [s['GT'] for s in entry.samples.values()]
+            genotypes = [s['GT'] for s in entry.samples]
         if 'SV' in entry.INFO:
             # SV deletion (in 1KG)
             # Todo: For now we ignore these, reference is likely to be
