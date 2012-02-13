@@ -125,6 +125,8 @@ class TestApi():
         wait = json.loads(r.data)['wait']
 
         # Check success
+        # Todo: This gives a SQLAlchemy connection error for some reason I
+        #     don't understand. It works perfectly in a non-test setting.
         r = self.client.get(wait, headers=[auth_header()])
         assert_equal(r.status_code, 200)
         ok_(json.loads(r.data)['observations']['ready'])
