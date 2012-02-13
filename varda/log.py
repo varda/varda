@@ -19,7 +19,7 @@ def make_logger(base):
             header = '[ip: %s] ' % request.remote_addr
             if g.user is not None:
                 header += '[user: %s] ' % g.user.login
-        current_app.logger.getattr(base)(header + message, *args, **kwargs)
+        getattr(current_app.logger, base)(header + message, *args, **kwargs)
     return logger
 
 
