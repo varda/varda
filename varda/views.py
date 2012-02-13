@@ -125,6 +125,7 @@ def represent_sample(object):
     """
     return {'uri':                url_for('.samples_get', sample_id=object.id),
             'user':               url_for('.users_get', login=object.user.login),
+            'observations':       url_for('.observations_add', sample_id=object.id),
             'name':               object.name,
             'coverage_threshold': object.coverage_threshold,
             'pool_size':          object.pool_size,
@@ -584,12 +585,13 @@ def observations_wait(sample_id, task_id):
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def observations_add(sample_id):
     """
-    curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/observations
+    curl -i -d 'data_source=/data_sources/3' http://127.0.0.1:5000/samples/1/observations
     """
     data = request.form
     try:
         sample_id = int(sample_id)
-        data_source_id = int(data['data_source'])
+        # Todo: Get internal ID in a more elegant way from URI
+        data_source_id = int(data['data_source'].split('/')[-1])
     except (KeyError, ValueError):
         abort(400)
     Sample.query.get_or_404(sample_id)
