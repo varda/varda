@@ -1,186 +1,166 @@
-Varda, a variant database interface
-===================================
+Varda server
+============
 
-Very much a work in progress, this document contains some ideas. Some are
-implemented, some are todo.
+A database for genomic variants.
+
+**This is a work in progress, not ready for use!**
+
+
+Description
+-----------
+
+Varda is an application for storing genomic variation data obtained from next-
+generation sequencing experiments, such as full-genome or exome sequencing of
+individuals or populations. Variants can be imported from standard formats
+such as [VCF](http://www.1000genomes.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-41)
+files, or annotated for presence in previously imported datasets.
 
 Varda is implemented by very loosely coupled components, communicating using
-a RESTful protocol over HTTP using json-encoded response payloads.
+a RESTful protocol over HTTP with json-encoded response payloads.
+
+* *Varda server:* Exposes a RESTful API for managing and querying the variant
+    database.
+* *Varda client:* Command line client for querying the server
+    non-interactively.
+* *Varda web:* Web interface for browsing the server interactively.
+
+This is Varda server.
 
 
 Varda server
 ------------
 
-The server is implemented in Python using the [Flask] [1] framework and
-directly interfaces the MySQL database backend using [SQLAlchemy] [2]. It
-exposes a [RESTful] [3] API over HTTP where response payloads are (currently
-only) json-encoded. A future version may use other encodings, depending on the
-value of the Accept-Encoding header sent by the client.
+The server is implemented in Python using the [Flask](http://flask.pocoo.org/)
+framework and directly interfaces the PostgreSQL database backend using
+[SQLAlchemy](http://www.sqlalchemy.org/). It exposes a [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer)
+API over HTTP where response payloads are (currently only) json-encoded. A
+future version may use other encodings, depending on the value of the
+Accept-Encoding header sent by the client.
 
-Long-running actions are executed asynchonously through the [Celery] [4]
-distributed task queue. For simplicity, MySQL is used as both the broker and
-database backend for Celery.
-
-Most requirements for this architecture can be installed from PyPI:
-
-    pip install Flask-Celery Flask-Script Flask-SQLAlchemy kombu-sqlalchemy
-
-Git clone url: https://humgenprojects.lumc.nl/git/varda-server.git
+Long-running actions are executed asynchonously through the [Celery](http://celeryproject.org/)
+distributed task queue.
 
 
-Varda command line client
--------------------------
+Installation
+------------
 
-The simple command line client can be used for administrative tasks, such as
-importing very large VCF files. Communication with the server API is done
-using the [Requests] [5] library.
+Recommended is to work from a Python virtual environment, using [virtualenv](http://www.virtualenv.org/)
+and [virtualenvwrapper](http://www.doughellmann.com/docs/virtualenvwrapper/).
+The following notes include installation of these tools and assume a recent
+Ubuntu (10.10 or later) or Debian (testing, or *wheezy*) operating system.
 
-Git clone url: https://humgenprojects.lumc.nl/git/varda-client.git
+Install [pip](http://www.pip-installer.org/en/latest/index.html), virtualenv,
+and virtualenvwrapper:
 
-
-Varda web interface
--------------------
-
-The HTML5 web interface runs completely client-side. It is built on top of
-Twitter's [Bootstrap] [6] toolkit and uses [Less] [7] stylesheets. Javascript
-code is compiled from [Coffeescript] [8] and will probably use at least
-[jQuery] [9].
-
-Apart from this, there could also be a simple mobile web app, for example for
-use on the iPhone.
-
-Git clone url: https://humgenprojects.lumc.nl/git/varda-web.git
-
-
-Authentication
---------------
-
-Probably use some kind of API keys, of which server-side only a hash is stored
-using bcrypt.
-
-
-Using virtualenv
-----------------
-
-Since this is my first time using [virtualenv] [11], I document some things
-here. It is easier to work with using [virtualenvwrapper] [10].
-
-    sudo easy_install pip
-    sudo pip install virtualenv
-    sudo pip install virtualenvwrapper
-    mkdir ~/.virtualenvs
-
-Add to ~/.bashrc:
-
+    $ sudo easy_install pip
+    $ sudo pip install virtualenv
+    $ sudo pip install virtualenvwrapper
+    $ mkdir ~/.virtualenvs
+    $ cat >> ~/.bashrc
     export WORKON_HOME=~/.virtualenvs
     source /usr/local/bin/virtualenvwrapper.sh
     export PIP_VIRTUALENV_BASE=$WORKON_HOME
     export PIP_REQUIRE_VIRTUALENV=true
     export PIP_RESPECT_VIRTUALENV=true
+    ^D
 
-For easy development, we always want to have a IPython installed:
+Create an environment for Varda server:
 
-    echo 'pip install ipython' >> $WORKON_HOME/postmkvirtualenv
+    $ mkvirtualenv --no-site-packages varda-server
 
-Now, create an environment:
+On of our dependencies is the psycopg2 Python package, for which we need some
+PostgreSQL development libraries installed:
 
-    mkvirtualenv --no-site-packages varda-server
+    $ sudo apt-get install python-dev libpq-dev
 
-Activate the environment with:
+Alternatively, if we use [MySQL](http://www.mysql.com/) as our storage backend
+through the MySQL-python package, we need some MySQL development libraries:
 
-    workon varda-server
+    $ sudo apt-get install python-dev libmysqlclient-dev
 
-To install mysql-python, we need a development package:
+We can now install all required Python packages (Python 2.6 version):
 
-    sudo aptitude install python-dev libmysqlclient-dev
-    pip install MySQL-python
+    $ pip install -r requirements-2.6.txt
 
-Same for psycopg2:
+Or (Python 2.7):
 
-    sudo aptitude install python-dev libpq-dev
-    pip install psycopg2
+    $ pip install -r requirements-2.7.txt
 
-Install all required packages at once (Python 2.6) with:
+Other requirements are a running database server and message broker, which you
+should install with your operating system package manager. We use PostgreSQL
+and [RabbitMQ](http://www.rabbitmq.com/) (prefarably add the APT repository
+[provided by RabbitMQ](http://www.rabbitmq.com/install-debian.html)):
 
-    pip install -r requirements-2.6.txt
+    $ sudo apt-get install postgresql rabbitmq-server
 
-Or (Python 2.7, may not be up-to-date):
+Quick setup of PostgreSQL:
 
-    pip install -r requirements-2.7.txt
+    $ sudo -u postgres createuser --superuser $USER
+    $ createuser --pwprompt --encrypted --no-adduser --no-createdb --no-createrole varda
+    $ createdb --encoding=UNICODE --owner=varda varda
+    $ createdb --encoding=UNICODE --owner=varda vardaresults
 
-Update these lists with `pip freeze > requirements-2.6.txt`.
+Or alternatively, quick setup of MySQL:
 
-For some packages that are hard to install with PIP (database drivers, pysam,
-etc), we could link to the global site packages and install these using apt.
-
-
-Frequency calculations
-----------------------
-
-Sex should be taken into account when calculating frequencies on sex
-chromosomes. For example, in a pool of 500 (250 females, 250 males), the
-maximum frequency on the Y chromosome is 250. This is not a problem for
-samples where we have coverage tracks, since we use them to calculate
-frequencies (e.g. female samples won't have coverage on Y).
-
-For population studies, where we don't have coverage tracks, we should
-have the option to manually set the number of male/female samples, and take
-that into account in calculations. If this ratio is unknown, things will be
-harder (we might be able to deduce something from variants on X and Y). In
-any case, communicate clearly what the calculation exactly is.
+    $ mysql -h localhost -u root -p
+    > create database varda;
+    > create database vardaresults;
+    > grant all privileges on varda.* to varda@localhost identified by 'varda';
+    > grant all privileges on vardaresults.* to varda@localhost identified by 'varda';
 
 
-Todo
-----
+Running Varda server
+--------------------
 
-* Import data source directly from URL without uploading.
-* Everything must be in UTF8.
-* Use Alembic for database migrations.
-* Data source hashing?
+Varda server looks for its configuration in the file specified by the
+`VARDA_SETTINGS` environment variable. First create the file with your
+configuration settings, for example:
 
+    $ export VARDA_SETTINGS=~/varda-server/settings.py
+    $ cat > $VARDA_SETTINGS
+    ADMINS = ['martijn@vermaat.name']
+    SQLALCHEMY_DATABASE_URI = 'postgresql://varda:varda@localhost/varda'
+    CELERY_RESULT_BACKEND = 'database'
+    CELERY_RESULT_DBURI = 'postgresql://varda:varda@localhost/vardaresults'
+    BROKER_URL = 'amqp://varda:varda@localhost:5672/varda'
 
-And then...
------------
+Make sure you have the Python virtual environment activated that we created
+earlier:
 
-Just as a reference, some relevant links:
+    $ workon varda-server
 
-* [Modern Web Application Architecture](http://leftnode.com/entry/modern-web-application-architecture)
-* [Getting RESTful with web.py](http://johnpaulett.com/2008/09/20/getting-restful-with-webpy/)
-* [Simple Flask extension for RESTful APIs](https://github.com/kennethreitz/flask-rest)
-* [Example: Glpi Rest Api](https://bitbucket.org/ee_lars/gra)
-* [Example: The datahub](https://github.com/okfn/datahub)
-* [Example: Andalucia](https://bitbucket.org/abki/andalucia/)
-* [A skeleton for Flask applications](https://github.com/sean-/flask-skeleton)
-* [SQLAlchemy usage recipes](http://www.sqlalchemy.org/trac/wiki/UsageRecipes)
-* [Dropbox API](https://www.dropbox.com/developers/reference/api)
-* [Twitter API](https://dev.twitter.com/docs/api)
-* [Amazon S3 REST API](http://docs.amazonwebservices.com/AmazonS3/latest/API/index.html?APIRest.html)
-* [Designing a Secure REST (Web) API without OAuth](http://www.thebuzzmedia.com/designing-a-secure-rest-api-without-oauth-authentication/)
-* [bitly API Documentation](http://code.google.com/p/bitly-api/wiki/ApiDocumentation)
-* [Alembic Documentation](http://packages.python.org/alembic)
-* [What exactly is RESTful programming?](http://news.ycombinator.com/item?id=3538585)
-* [General principles for good URI design for RESTful and HTTP applications](http://news.ycombinator.com/item?id=3547369)
-* [How I learned to stop worrying and love REST](http://news.ycombinator.com/item?id=3554973)
-* [REST Done Right with Steve Klabnik podcast](http://rubyrogues.com/rest-done-right-with-steve-klabnik/)
+Start a Celery worker node (only used for long-running tasks):
+
+    $ ./manage.py celeryd  -l info -E
+
+And start Varda server:
+
+    $ ./manage.py runserver
+
+You can now point your webbrowser to the URL that is printed and see a json-
+encoded status page.
 
 
-[1]: http://flask.pocoo.org/
-[2]: http://www.sqlalchemy.org/
-[3]: http://en.wikipedia.org/wiki/Representational_state_transfer
-[4]: http://celeryproject.org/
-[5]: http://python-requests.org
-[6]: http://twitter.github.com/bootstrap/
-[7]: http://lesscss.org/
-[8]: http://jashkenas.github.com/coffee-script/
-[9]: http://jquery.com/
-[10]: http://www.virtualenv.org/
-[11]: http://www.doughellmann.com/docs/virtualenvwrapper/
+Unit tests
+----------
+
+Setup a PostgreSQL user and database for testing as described in `tests/test_api.py`
+and then run the tests:
+
+    $ nosetests -v
 
 
-Copyright
----------
+Documentation
+-------------
 
-Copyright (c) 2011-2012, Leiden University Medical Center <humgen@lumc.nl>
-Copyright (c) 2011-2012, Martijn Vermaat <martijn@vermaat.name>
+Todo (surprise, surprise).
 
-Licensed under the MIT license, see the LICENSE file.
+
+Copyright and license
+---------------------
+
+* Copyright (c) 2011-2012, Leiden University Medical Center <humgen@lumc.nl>
+* Copyright (c) 2011-2012, Martijn Vermaat <martijn@vermaat.name>
+
+Licensed under the [MIT license](http://en.wikipedia.org/wiki/MIT_License),
+see the LICENSE file.

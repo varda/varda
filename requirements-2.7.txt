@@ -3,7 +3,6 @@ Flask-SQLAlchemy==0.15
 Flask-Script==0.3.1
 Flask-Script-fix==0.3
 Jinja2==2.6
-MySQL-python==1.2.3
 PyVCF==0.3.0
 SQLAlchemy==0.7.5
 Werkzeug==0.8.3
