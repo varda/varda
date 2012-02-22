@@ -242,6 +242,7 @@ class Variant(db.Model):
     end = db.Column(db.Integer)
     reference = db.Column(db.String(200))
     variant = db.Column(db.String(200))
+    bin = db.Column(db.Integer)
 
     def __init__(self, chromosome, begin, end, reference, variant):
         self.chromosome = chromosome
@@ -249,6 +250,7 @@ class Variant(db.Model):
         self.end = end
         self.reference = reference
         self.variant = variant
+        self.bin = assign_bin(self.begin, self.end)
 
     def __repr__(self):
         return '<Variant %s at chr%s:%i-%i>' % (
