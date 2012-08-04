@@ -96,7 +96,7 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
         else:
             # SNP or insertion.
             end = entry.POS
-        for index, allele in enumerate(entry.ALT):
+        for index, allele in enumerate(str(a) for a in entry.ALT):
             variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=entry.REF, variant=allele).first()
             if not variant:
                 variant = Variant(chrom, entry.POS, end, entry.REF, allele)
@@ -145,7 +145,7 @@ def write_annotation(vcf, annotation):
         else:
             # SNP or insertion.
             end = entry.POS
-        for index, allele in enumerate(entry.ALT):
+        for index, allele in enumerate(str(a) for a in entry.ALT):
             variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=entry.REF, variant=allele).first()
             if variant:
                 observations = variant.observations.count()
