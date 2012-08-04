@@ -17,10 +17,14 @@ import uuid
 from contextlib import contextmanager
 
 from sqlalchemy.exc import IntegrityError
+from celery.utils.log import get_task_logger
 import vcf as pyvcf
 
 from varda import db, celery
 from varda.models import DataUnavailable, Variant, Sample, Observation, DataSource, Annotation
+
+
+logger = get_task_logger(__name__)
 
 
 class TaskError(Exception):
@@ -155,7 +159,6 @@ def import_bed(sample_id, data_source_id):
     """
     Import regions from BED file.
     """
-    logger = import_bed.get_logger()
     logger.info('Started task: import_bed(%d, %d)', sample_id, data_source_id)
 
     sample = Sample.query.get(sample_id)
@@ -211,7 +214,6 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
     @todo: Use custom state to report progress:
         http://docs.celeryproject.org/en/latest/userguide/tasks.html#custom-states
     """
-    logger = import_vcf.get_logger()
     logger.info('Started task: import_vcf(%d, %d)', sample_id, data_source_id)
 
     sample = Sample.query.get(sample_id)
@@ -253,7 +255,6 @@ def annotate_vcf(data_source_id):
     """
     Annotate variants in VCF file.
     """
-    logger = annotate_vcf.get_logger()
     logger.info('Started task: annotate_vcf(%d)', data_source_id)
 
     data_source = DataSource.query.get(data_source_id)
@@ -291,4 +292,6 @@ def ping():
     """
     Ping-pong task usefull for testing purposes.
     """
+    logger.info('Started task: ping')
+    logger.info('Finished task: ping')
     return 'pong'
