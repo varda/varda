@@ -31,8 +31,8 @@ Varda server
 ------------
 
 The server is implemented in Python using the [Flask](http://flask.pocoo.org/)
-framework and directly interfaces the PostgreSQL database backend using
-[SQLAlchemy](http://www.sqlalchemy.org/). It exposes a [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer)
+framework and directly interfaces the PostgreSQL (or MySQL) database backend
+using [SQLAlchemy](http://www.sqlalchemy.org/). It exposes a [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer)
 API over HTTP where response payloads are (currently only) json-encoded. A
 future version may use other encodings, depending on the value of the
 Accept-Encoding header sent by the client.
@@ -46,8 +46,8 @@ Installation
 
 Recommended is to work from a Python virtual environment, using [virtualenv](http://www.virtualenv.org/)
 and [virtualenvwrapper](http://www.doughellmann.com/docs/virtualenvwrapper/).
-The following notes include installation of these tools and assume a recent
-Ubuntu (10.10 or later) or Debian (testing, or *wheezy*) operating system.
+The following notes include installation of these tools and assume a Debian
+(testing, or *wheezy*) operating system with Python 2.7.
 
 Install [pip](http://www.pip-installer.org/en/latest/index.html), virtualenv,
 and virtualenvwrapper:
@@ -71,46 +71,53 @@ Create an environment for Varda server:
 On of our dependencies is the psycopg2 Python package, for which we need some
 PostgreSQL development libraries installed:
 
-    $ sudo apt-get install python-dev libpq-dev
+    $ sudo aptitude install python-dev libpq-dev
 
 Alternatively, if we use [MySQL](http://www.mysql.com/) as our storage backend
 through the MySQL-python package, we need some MySQL development libraries:
 
-    $ sudo apt-get install python-dev libmysqlclient-dev
+    $ sudo aptitutde install python-dev libmysqlclient-dev
 
-We can now install all required Python packages (Python 2.6 version):
+We can now install all required Python packages (substitute MySQL-python for
+psycopg2 in the requirements file if you choose MySQL):
 
-    $ pip install -r requirements-2.6.txt
+    $ pip install -r requirements.txt
 
-Or (Python 2.7):
+Next step is to setup our database server. For PostgreSQL:
 
-    $ pip install -r requirements-2.7.txt
-
-Other requirements are a running database server and message broker, which you
-should install with your operating system package manager. We use PostgreSQL
-and [RabbitMQ](http://www.rabbitmq.com/) (prefarably add the APT repository
-[provided by RabbitMQ](http://www.rabbitmq.com/install-debian.html)):
-
-    $ sudo apt-get install postgresql rabbitmq-server
-
-Quick setup of PostgreSQL:
-
+    $ sudo aptitude install postgresql
     $ sudo -u postgres createuser --superuser $USER
     $ createuser --pwprompt --encrypted --no-adduser --no-createdb --no-createrole varda
     $ createdb --encoding=UNICODE --owner=varda varda
     $ createdb --encoding=UNICODE --owner=varda vardaresults
 
-Or alternatively, quick setup of MySQL:
+For MySQL:
 
+    $ sudo aptitude install mysql-server
     $ mysql -h localhost -u root -p
     > create database varda;
     > create database vardaresults;
     > grant all privileges on varda.* to varda@localhost identified by 'varda';
     > grant all privileges on vardaresults.* to varda@localhost identified by 'varda';
 
+The recommended message broker is [Redis](http://redis.io):
 
-Running Varda server
---------------------
+    $ sudo aptitude install redis-server
+
+Alternatively, [RabbitMQ](http://www.rabbitmq.com/) can be used as message
+broker (prefarably add the APT repository [provided by RabbitMQ](http://www.rabbitmq.com/install-debian.html)):
+
+    $ sudo apt-get install postgresql rabbitmq-server
+    $ sudo rabbitmqctl add_user varda varda
+    $ sudo rabbitmqctl add_vhost varda
+    $ sudo rabbitmqctl set_permissions -p varda varda '.*' '.*' '.*'
+
+As a third alternative, but not recommended, you can use your database server
+as message broker as well.
+
+
+Configuration
+-------------
 
 Varda server looks for its configuration in the file specified by the
 `VARDA_SETTINGS` environment variable. First create the file with your
@@ -122,20 +129,53 @@ configuration settings, for example:
     SQLALCHEMY_DATABASE_URI = 'postgresql://varda:varda@localhost/varda'
     CELERY_RESULT_BACKEND = 'database'
     CELERY_RESULT_DBURI = 'postgresql://varda:varda@localhost/vardaresults'
-    BROKER_URL = 'amqp://varda:varda@localhost:5672/varda'
+    BROKER_URL = 'redis://localhost:6379/0'
 
-Make sure you have the Python virtual environment activated that we created
-earlier:
+Some example settings can be found in `varda/default_settings.py`.
+
+
+Database setup
+--------------
+
+The following is an example Python session creating the database tables and
+setting up users. Make sure to have the `VARDA_SETTINGS` environment variable
+set and our Python virtual environment active.
+
+    from varda import create_app, db
+    from varda.models import User
+
+    app = create_app()
+    app.test_request_context().push()
+
+    db.drop_all()
+    db.create_all()
+
+    pietje = User('Pietje Puk', 'pietje', 'pi3tje', roles=['admin'])
+    karel = User('Karel Koek', 'karel', 'k4rel', roles=['importer'])
+    martijn = User('Martijn Vermaat', 'martijn', 'martijn',
+                   roles=['admin', 'importer', 'annotator'])
+
+    db.session.add(pietje)
+    db.session.add(karel)
+    db.session.add(martijn)
+    db.session.commit()
+
+
+Running Varda server
+--------------------
+
+Have your database server and message broker running and the `VARDA_SETTINGS`
+environment variable set. Activate the Python virtual environment:
 
     $ workon varda-server
 
 Start a Celery worker node (only used for long-running tasks):
 
-    $ ./manage.py celeryd  -l info -E
+    $ celery -A varda.worker.celery worker -l info
 
 And start Varda server:
 
-    $ ./manage.py runserver
+    $ ./runserver
 
 You can now point your webbrowser to the URL that is printed and see a json-
 encoded status page.
@@ -144,7 +184,7 @@ encoded status page.
 Unit tests
 ----------
 
-Setup a PostgreSQL user and database for testing as described in `tests/test_api.py`
+Setup a database user and database for testing as described in `tests/test_api.py`
 and then run the tests:
 
     $ nosetests -v

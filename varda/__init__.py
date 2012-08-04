@@ -9,8 +9,8 @@ Licensed under the MIT license, see the LICENSE file.
 
 
 from flask import Flask
-from flaskext.sqlalchemy import SQLAlchemy
-from flask_celery import Celery
+from flask.ext.sqlalchemy import SQLAlchemy
+from celery import Celery
 
 
 # On the event of a new release, we update the __version_info__ and __date__
@@ -43,7 +43,7 @@ API_VERSION = 1
 
 
 db = SQLAlchemy()
-celery = Celery()
+celery = Celery('varda')
 
 
 def create_app(settings=None):
@@ -53,7 +53,7 @@ def create_app(settings=None):
     if settings:
         app.config.update(settings)
     db.init_app(app)
-    celery.init_app(app)
+    celery.conf.add_defaults(app.config)
     from varda.views import api
     app.register_blueprint(api)
     return app
