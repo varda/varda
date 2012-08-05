@@ -569,6 +569,11 @@ def observations_wait(sample_id, task_id):
     Note: For a non-existing task_id, AsyncResult just returns a result with
         status PENDING.
     """
+    # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
+    # not get the task result afterwards anymore via .AsyncResult. We know it
+    # has been finished though, so we just return.
+    if current_app.config.get('CELERY_ALWAYS_EAGER'):
+        return jsonify(observations={'task_id': task_id, 'ready': True})
     result = import_vcf.AsyncResult(task_id)
     try:
         # This re-raises a possible TaskError, handled by the error_task_error
@@ -616,6 +621,11 @@ def regions_wait(sample_id, task_id):
         though, since you cannot guess task_id so it is kind of private.
     Note: The sample_id argument is pretty useless here...
     """
+    # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
+    # not get the task result afterwards anymore via .AsyncResult. We know it
+    # has been finished though, so we just return.
+    if current_app.config.get('CELERY_ALWAYS_EAGER'):
+        return jsonify(observations={'task_id': task_id, 'ready': True})
     result = import_bed.AsyncResult(task_id)
     try:
         # This re-raises a possible TaskError, handled by the error_task_error
@@ -729,6 +739,11 @@ def annotations_wait(data_source_id, task_id):
 
     Todo: The data_source_id argument is kind of useless here...
     """
+    # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
+    # not get the task result afterwards anymore via .AsyncResult. We know it
+    # has been finished though, so we just return.
+    if current_app.config.get('CELERY_ALWAYS_EAGER'):
+        return jsonify(observations={'task_id': task_id, 'ready': True})
     annotation = {'task_id': task_id}
     result = annotate_vcf.AsyncResult(task_id)
     try:
