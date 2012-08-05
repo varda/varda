@@ -1,17 +1,6 @@
 """
 High-level REST API unit tests.
 
-The tests assume there is a PostgreSQL server running on localhost with a
-database 'vardatest' accessibly for the user 'vardatest' with password
-'vardatest'.
-
-Run these commands once to set this up:
-
-    createuser --pwprompt --encrypted --no-adduser --no-createdb --no-createrole vardatest
-    createdb --encoding=UNICODE --owner=vardatest vardatest
-
-Alternatively, you can change the configuration settings below.
-
 Todo: Look at http://packages.python.org/Flask-Testing/
 Todo: Suppress the annoying log messages.
 """
@@ -30,7 +19,7 @@ from varda.tasks import ping
 TEST_SETTINGS = {
     'TESTING': True,
     'FILES_DIR': tempfile.mkdtemp(),
-    'SQLALCHEMY_DATABASE_URI': 'postgresql://vardatest:vardatest@localhost/vardatest',
+    'SQLALCHEMY_DATABASE_URI': 'sqlite://',
     'BROKER_TRANSPORT': 'memory',
     'CELERY_ALWAYS_EAGER': True,
     'CELERY_EAGER_PROPAGATES_EXCEPTIONS': True
