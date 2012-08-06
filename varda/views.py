@@ -488,9 +488,9 @@ def users_add():
     db.session.commit()
     log.info('Added user: %r', user)
     uri = url_for('.users_get', login=user.login)
-    response = jsonify(user=uri, _status=201)
+    response = jsonify(user=uri)
     response.location = uri
-    return response
+    return response, 201
 
 
 @api.route('/samples', methods=['GET'])
@@ -532,9 +532,9 @@ def samples_add():
     db.session.commit()
     log.info('Added sample: %r', sample)
     uri = url_for('.samples_get', sample_id=sample.id)
-    response = jsonify(sample=uri, _status=201)
+    response = jsonify(sample=uri)
     response.location = uri
-    return response
+    return response, 201
 
 
 @api.route('/samples/<int:sample_id>/observations/wait/<task_id>', methods=['GET'])
@@ -586,9 +586,9 @@ def observations_add(sample_id):
     result = import_vcf.delay(sample_id, data_source_id)
     log.info('Called task: import_vcf(%d, %d) %s', sample_id, data_source_id, result.task_id)
     uri = url_for('.observations_wait', sample_id=sample_id, task_id=result.task_id)
-    response = jsonify(wait=uri, _status=202)
+    response = jsonify(wait=uri)
     response.location = uri
-    return response
+    return response, 202
 
 
 @api.route('/samples/<int:sample_id>/regions/wait/<task_id>', methods=['GET'])
@@ -635,9 +635,9 @@ def regions_add(sample_id):
     result = import_bed.delay(sample_id, data_source_id)
     log.info('Called task: import_bed(%d, %d) %s', sample_id, data_source_id, result.task_id)
     uri = url_for('.regions_wait', sample_id=sample_id, task_id=result.task_id)
-    response = jsonify(wait=uri, _status=202)
+    response = jsonify(wait=uri)
     response.location = uri
-    return response
+    return response, 202
 
 
 @api.route('/data_sources', methods=['GET'])
@@ -682,9 +682,9 @@ def data_sources_add():
     db.session.commit()
     log.info('Added data source: %r', data_source)
     uri = url_for('.data_sources_get', data_source_id=data_source.id)
-    response = jsonify(data_source=uri, _status=201)
+    response = jsonify(data_source=uri)
     response.location = uri
-    return response
+    return response, 201
 
 
 @api.route('/data_sources/<int:data_source_id>/annotations', methods=['GET'])
@@ -759,9 +759,9 @@ def annotations_add(data_source_id):
     result = annotate_vcf.delay(data_source_id)
     log.info('Called task: annotate_vcf(%d) %s', data_source_id, result.task_id)
     uri = url_for('.annotations_wait', data_source_id=data_source_id, task_id=result.task_id)
-    response = jsonify(wait=uri, _status=202)
+    response = jsonify(wait=uri)
     response.location = uri
-    return response
+    return response, 202
 
 
 @api.route('/check_variant', methods=['POST'])
