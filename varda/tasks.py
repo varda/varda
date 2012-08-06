@@ -184,23 +184,20 @@ def import_bed(sample_id, data_source_id):
     def delete_regions():
         sample.regions.filter_by(data_source=data_source).delete()
 
-    # Note: If we switch to Python 2.7 we can use multiple context managers in
-    #     one switch statement. Or use contextlib.nested in 2.6.
-    with bed as bed:
-        with database_task(cleanup=delete_regions):
-            for line in bed:
-                fields = line.split()
-                if len(parts) < 1 or parts[0] == 'track':
-                    continue
-                try:
-                    chromosome = normalize_chromosome(parts[0])
-                    begin = int(parts[1])
-                    end = int(parts[2])
-                except (IndexError, ValueError):
-                    raise TaskError('data_source_invalid', 'Invalid line in BED file: "%s"' % line)
-                region = Region(sample, data_source, chromosome, begin, end)
-                db.session.add(region)
-                db.session.commit()
+    with bed as bed, database_task(cleanup=delete_regions):
+        for line in bed:
+            fields = line.split()
+            if len(parts) < 1 or parts[0] == 'track':
+                continue
+            try:
+                chromosome = normalize_chromosome(parts[0])
+                begin = int(parts[1])
+                end = int(parts[2])
+            except (IndexError, ValueError):
+                raise TaskError('data_source_invalid', 'Invalid line in BED file: "%s"' % line)
+            region = Region(sample, data_source, chromosome, begin, end)
+            db.session.add(region)
+            db.session.commit()
 
     logger.info('Finished task: import_bed(%d, %d)', sample_id, data_source_id)
 
@@ -239,13 +236,10 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
     def delete_observations():
         sample.observations.filter_by(data_source=data_source).delete()
 
-    # Note: If we switch to Python 2.7 we can use multiple context managers in
-    #     one switch statement. Or use contextlib.nested in 2.6.
-    with vcf as vcf:
-        with database_task(cleanup=delete_observations):
-            # Todo: Create some sort of abstracted variant reader from the vcf
-            #     file and pass that to import_variants.
-            import_variants(vcf, sample, data_source, use_genotypes)
+    with vcf as vcf, database_task(cleanup=delete_observations):
+        # Todo: Create some sort of abstracted variant reader from the vcf
+        #     file and pass that to import_variants.
+        import_variants(vcf, sample, data_source, use_genotypes)
 
     logger.info('Finished task: import_vcf(%d, %d)', sample_id, data_source_id)
 
@@ -269,16 +263,13 @@ def annotate_vcf(data_source_id):
     annotation = Annotation(data_source)
     annotation_data = annotation.data_writer()
 
-    # Note: If we switch to Python 2.7 we can use multiple context managers in
-    #     one switch statement. Or use contextlib.nested in 2.6.
     # Todo: Use context manager that deletes annotation file on error.
     # Todo: In these kind of situations, maybe we also need to make sure that
     #    the Annotation instance is deleted?
-    with vcf as vcf:
-        with annotation_data as annotation_data:
-            # Todo: Create some sort of abstracted variant reader from the vcf
-            #     file and pass that to annotate_variants.
-            write_annotation(vcf, annotation_data)
+    with vcf as vcf, annotation_data as annotation_data:
+        # Todo: Create some sort of abstracted variant reader from the vcf
+        #     file and pass that to annotate_variants.
+        write_annotation(vcf, annotation_data)
 
     db.session.add(annotation)
     db.session.commit()

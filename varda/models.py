@@ -14,7 +14,6 @@ import os
 import gzip
 import uuid
 from datetime import date
-from contextlib import closing
 
 import bcrypt
 from flask import current_app
@@ -89,11 +88,8 @@ class User(db.Model):
         return bcrypt.hashpw(password, self.password_hash) == self.password_hash
 
     def roles(self):
-        """
-        Todo: If we choose Python 2.7, use {'admin'} set syntax
-        """
-        return set(role for i, role in enumerate(USER_ROLES)
-                   if self.roles_bitstring & pow(2, i))
+        return {role for i, role in enumerate(USER_ROLES)
+                if self.roles_bitstring & pow(2, i)}
 
 
 class DataSource(db.Model):
@@ -154,8 +150,7 @@ class DataSource(db.Model):
         filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
         try:
             if self.gzipped:
-                # Todo: The closing wrapper is not needed in Python 2.7
-                return closing(gzip.open(filepath))
+                return gzip.open(filepath)
             else:
                 return open(filepath)
         except EnvironmentError:
@@ -212,16 +207,14 @@ class Annotation(db.Model):
         Be sure to close after calling this.
         """
         filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
-        # Todo: The closing wrapper is not needed in Python 2.7
-        return closing(gzip.open(filepath))
+        return gzip.open(filepath)
 
     def data_writer(self):
         """
         Be sure to close after calling this.
         """
         filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
-        # Todo: The closing wrapper is not needed in Python 2.7
-        return closing(gzip.open(filepath, 'wb'))
+        return gzip.open(filepath, 'wb')
 
     def local_path(self):
         """

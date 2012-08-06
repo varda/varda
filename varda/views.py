@@ -314,11 +314,10 @@ def ensure(*conditions, **options):
             if kwargs is None:
                 condition_kwargs = rule_kwargs
             else:
-                # Todo: If we switch to Python 2.7, use a dictionary
-                #     comprehension here.
-                condition_kwargs = dict([(name, rule_kwargs.get(value))
-                                         for name, value in kwargs.items()])
-            if not satisfy(c(*condition_args, **condition_kwargs) for c in conditions):
+                condition_kwargs = {name: rule_kwargs.get(value)
+                                    for name, value in kwargs.items()}
+            if not satisfy(c(*condition_args, **condition_kwargs)
+                           for c in conditions):
                 abort(403)
             return rule(*rule_args, **rule_kwargs)
         return ensured_rule
