@@ -13,7 +13,6 @@ from nose.tools import *
 
 from varda import create_app, db
 from varda.models import User
-from varda.tasks import ping
 
 
 TEST_SETTINGS = {
@@ -63,25 +62,6 @@ class TestApi():
         """
         r = self.client.get('/')
         assert 'contact' in r.data
-
-    def test_ping_blocking(self):
-        """
-        Synchronously execute a task and get the result.
-
-        Todo: The ping tests should go to a separate tasks testing module.
-        """
-        assert_equal(ping.apply().result, 'pong')
-
-    def test_ping_delayed(self):
-        """
-        Asynchronously execute a task and get the result.
-
-        This works, because we set CELERY_ALWAYS_EAGER to True in the test
-        environment.
-
-        Todo: The ping tests should go to a separate tasks testing module.
-        """
-        assert_equal(ping.delay().result, 'pong')
 
     def test_import_1kg(self):
         """
