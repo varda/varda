@@ -33,7 +33,7 @@ import os
 import uuid
 from functools import wraps
 
-from flask import Blueprint, current_app, g, abort, request, redirect, url_for, json, send_from_directory
+from flask import Blueprint, current_app, g, abort, request, redirect, url_for, jsonify, send_from_directory
 from celery.exceptions import TimeoutError
 
 import varda
@@ -61,25 +61,6 @@ def represents(model):
             return representer(*args, **kwargs)
         return wrapped_representer
     return represents_model
-
-
-def jsonify(_status=None, *args, **kwargs):
-    """
-    This is a temporary reimplementation of flask.jsonify that accepts a
-    special keyword argument '_status' for the HTTP response status code.
-
-    Eventually this will probably be implemented in Flask and we can use
-    something like
-
-        >>> @app.route('/')
-        >>> def my_view():
-        >>>     return flask.jsonify, 404
-
-    See also: https://github.com/mitsuhiko/flask/pull/239
-    """
-    return current_app.response_class(
-        json.dumps(dict(*args, **kwargs), indent=None if request.is_xhr else 2),
-        mimetype='application/json', status=_status)
 
 
 @represents(User)
@@ -393,47 +374,48 @@ def before_request():
 
 @api.errorhandler(400)
 def error_bad_request(error):
-    return jsonify(error={'code': 'bad_request',
-                          'message': 'The request could not be understood due to malformed syntax'},
-                   _status=400)
+    return jsonify(error={
+            'code': 'bad_request',
+            'message': 'The request could not be understood due to malformed syntax'}), 400
 
 
 @api.errorhandler(401)
 def error_unauthorized(error):
-    return jsonify(error={'code': 'unauthorized',
-                          'message': 'The request requires user authentication'},
-                   _status=401)
+    return jsonify(error={
+            'code': 'unauthorized',
+            'message': 'The request requires user authentication'}), 401
 
 
 @api.errorhandler(403)
 def error_forbidden(error):
-    return jsonify(error={'code': 'forbidden',
-                          'message': 'Not allowed to make this request'},
-                   _status=403)
+    return jsonify(error={
+            'code': 'forbidden',
+            'message': 'Not allowed to make this request'}), 403
 
 
 @api.errorhandler(404)
+@api.app_errorhandler(404)
 def error_not_found(error):
-    return jsonify(error={'code': 'not_found',
-                          'message': 'The requested entity could not be found'},
-                   _status=404)
+    return jsonify(error={
+            'code': 'not_found',
+            'message': 'The requested entity could not be found'}), 404
 
 
 @api.errorhandler(413)
 def error_entity_too_large(error):
-    return jsonify(error={'code': 'entity_too_large',
-                          'message': 'The request entity is too large'},
-                   _status=413)
+    return jsonify(error={
+            'code': 'entity_too_large',
+            'message': 'The request entity is too large'}), 413
 
 
 @api.errorhandler(TaskError)
 def error_task_error(error):
-    return jsonify(error=represent(error), _status=500)
+    return jsonify(error=represent(error)), 500
 
 
 @api.errorhandler(InvalidDataSource)
 def error_invalid_data_source(error):
-    return jsonify(error=represent(error), _status=400)
+    return jsonify(error=represent(error)), 400
 
 
 @api.route('/')
@@ -491,6 +473,7 @@ def users_add():
 
     Todo: Check for duplicate login.
     Todo: Optionally generate password.
+    Todo: Can also use request.json if content-type is correct.
     """
     data = request.form
     try:
