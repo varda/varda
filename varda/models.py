@@ -98,7 +98,7 @@ class DataSource(db.Model):
     BED track from which Region entries are created.
 
     Todo: We can now provide data as an uploaded file or as a path to a local
-        file. We also want to be able to give a link to a internet resource.
+        file. We also want to be able to give a link to an internet resource.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
@@ -250,9 +250,9 @@ class Variant(db.Model):
             self.variant, self.chromosome, self.begin, self.end)
 
 
-Index('index_variant_position',
-      Variant.chromosome, Variant.begin, Variant.end)
-Index('index_variant_unique',
+Index('variant_location',
+      Variant.chromosome, Variant.begin)
+Index('variant_unique',
       Variant.chromosome, Variant.begin, Variant.end,
       Variant.reference, Variant.variant, unique=True)
 
@@ -351,7 +351,5 @@ class Region(db.Model):
         return '<Region for %r at chr%s:%i-%i>' % (self.sample, self.chromosome, self.begin, self.end)
 
 
-Index('region_begin',
-      Region.chromosome, Region.begin)
-Index('region_end',
-      Region.chromosome, Region.end)
+Index('region_location',
+      Region.bin, Region.chromosome, Region.begin)
