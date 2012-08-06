@@ -12,6 +12,8 @@ Licensed under the MIT license, see the LICENSE file.
 """
 
 
+from __future__ import division
+
 import os
 import uuid
 from contextlib import contextmanager
@@ -19,9 +21,10 @@ from contextlib import contextmanager
 from sqlalchemy.exc import IntegrityError
 from celery.utils.log import get_task_logger
 import vcf as pyvcf
+from vcf.utils import trim_common_suffix
 
 from varda import db, celery
-from varda.models import DataUnavailable, Variant, Sample, Observation, DataSource, Annotation
+from varda.models import DataUnavailable, Variant, Sample, Observation, Region, DataSource, Annotation
 
 
 logger = get_task_logger(__name__)
@@ -68,10 +71,13 @@ def database_task(cleanup=None):
         db.session.commit()
 
 
-def import_variants(vcf, sample, data_source, use_genotypes=True):
+def import_variants_population_study(vcf, sample, data_source, use_genotypes=True):
     """
     Todo: Instead of reading from an open VCF, read from an abstracted variant
         reader.
+
+    Todo: This is not used, during dvd refactoring. It was the import of
+        population study variants.
     """
     reader = pyvcf.Reader(vcf)
 
@@ -112,6 +118,73 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
                 raise TaskError('data_source_invalid', 'Cannot read variant support')
             try:
                 observation = Observation(sample, variant, data_source, support=support)
+            except IntegrityError:
+                # This should never happen since we check this above.
+                raise TaskError('data_source_imported', 'Observation already exists')
+            db.session.add(observation)
+            db.session.commit()
+
+
+def import_variants(vcf, sample, data_source, use_genotypes=True):
+    """
+    Todo: Instead of reading from an open VCF, read from an abstracted variant
+        reader.
+
+    Todo: Rename import_variants to import_observations.
+
+    Todo: Merge back population study importing (see old implementation above
+        renamed import_variants_population_study).
+    """
+    reader = pyvcf.Reader(vcf)
+
+    for entry in reader:
+        chrom = normalize_chromosome(entry.CHROM)
+
+        # DP: Raw read depth.
+        if 'DP4' not in entry.INFO:
+            coverage = entry.INFO['DP']
+
+            # AF: Allele Frequency, for each ALT allele, in the same order as
+            # listed.
+            if 'AF' in entry.INFO:
+                if isinstance(entry.INFO['AF'], (list, tuple)):
+                    # Todo: Shouldn't we use an AF entry per allele?
+                    support = coverage * entry.INFO['AF'][0]
+                else:
+                    support = coverage * entry.INFO['AF']
+            # AF1: EM estimate of the site allele frequency of the strongest
+            # non-reference allele.
+            elif 'AF1' in entry.INFO:
+                support = coverage * entry.INFO['AF1']
+            else:
+                raise TaskError('data_source_invalid',
+                                'Cannot read variant support')
+
+        else:
+            # DP4: Number of 1) forward ref alleles; 2) reverse ref;
+            # 3) forward non-ref; 4) reverse non-ref alleles, used in variant
+            # calling. Sum can be smaller than DP because low-quality bases
+            # are not counted.
+            coverage = sum(entry.INFO['DP4'])
+            support = sum(entry.INFO['DP4'][2:])
+
+        for index, allele in enumerate(entry.ALT):
+            reference, allele = trim_common_suffix(entry.REF.upper(),
+                                                   str(allele).upper())
+            if 'INDEL' in entry.INFO and len(reference) >= len(allele):
+                end = entry.POS + len(reference) - 1
+            else:
+                end = entry.POS
+
+            variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=reference, variant=allele).first()
+            if not variant:
+                variant = Variant(chrom, entry.POS, end, reference, allele)
+                db.session.add(variant)
+                db.session.commit()
+            try:
+                # Todo: variant_coverage calculation is not correct with
+                #     multiple non-ref alleles.
+                observation = Observation(sample, variant, data_source, total_coverage=coverage, variant_coverage=(support // len(entry.ALT)))
             except IntegrityError:
                 # This should never happen since we check this above.
                 raise TaskError('data_source_imported', 'Observation already exists')
@@ -187,12 +260,12 @@ def import_bed(sample_id, data_source_id):
     with bed as bed, database_task(cleanup=delete_regions):
         for line in bed:
             fields = line.split()
-            if len(parts) < 1 or parts[0] == 'track':
+            if len(fields) < 1 or fields[0] == 'track':
                 continue
             try:
-                chromosome = normalize_chromosome(parts[0])
-                begin = int(parts[1])
-                end = int(parts[2])
+                chromosome = normalize_chromosome(fields[0])
+                begin = int(fields[1])
+                end = int(fields[2])
             except (IndexError, ValueError):
                 raise TaskError('data_source_invalid', 'Invalid line in BED file: "%s"' % line)
             region = Region(sample, data_source, chromosome, begin, end)

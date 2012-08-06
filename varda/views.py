@@ -80,12 +80,13 @@ def represent_data_source(object):
     """
     Create a RESTfull representation of a data source as dictionary.
     """
-    return {'uri':      url_for('.data_sources_get', data_source_id=object.id),
-            'user':     url_for('.users_get', login=object.user.login),
-            'name':     object.name,
-            'filetype': object.filetype,
-            'gzipped':  object.gzipped,
-            'added':    str(object.added)}
+    return {'uri':         url_for('.data_sources_get', data_source_id=object.id),
+            'user':        url_for('.users_get', login=object.user.login),
+            'annotations': url_for('.annotations_list', data_source_id=object.id),
+            'name':        object.name,
+            'filetype':    object.filetype,
+            'gzipped':     object.gzipped,
+            'added':       str(object.added)}
 
 
 @represents(Annotation)
@@ -93,9 +94,9 @@ def represent_annotation(object):
     """
     Create a RESTfull representation of an annotation as dictionary.
     """
-    return {'uri':         url_for('.annotations_wait', data_source_id=object.data_source_id, annotation_id=object.id),
+    return {'uri':         url_for('.annotations_get', data_source_id=object.data_source_id, annotation_id=object.id),
             'data_source': url_for('.data_sources_get', data_source_id=object.data_source_id),
-            'gzipped':     object.gzipped,
+            'gzipped':     object.data_source.gzipped,
             'added':       str(object.added)}
 
 
@@ -107,6 +108,7 @@ def represent_sample(object):
     return {'uri':                url_for('.samples_get', sample_id=object.id),
             'user':               url_for('.users_get', login=object.user.login),
             'observations':       url_for('.observations_add', sample_id=object.id),
+            'regions':            url_for('.regions_add', sample_id=object.id),
             'name':               object.name,
             'coverage_threshold': object.coverage_threshold,
             'pool_size':          object.pool_size,
@@ -607,7 +609,7 @@ def regions_wait(sample_id, task_id):
     # not get the task result afterwards anymore via .AsyncResult. We know it
     # has been finished though, so we just return.
     if current_app.config.get('CELERY_ALWAYS_EAGER'):
-        return jsonify(observations={'task_id': task_id, 'ready': True})
+        return jsonify(regions={'task_id': task_id, 'ready': True})
     result = import_bed.AsyncResult(task_id)
     try:
         # This re-raises a possible TaskError, handled by the error_task_error
@@ -629,7 +631,8 @@ def regions_add(sample_id):
     data = request.form
     try:
         sample_id = int(sample_id)
-        data_source_id = int(data['data_source'])
+        # Todo: Get internal ID in a more elegant way from URI
+        data_source_id = int(data['data_source'].split('/')[-1])
     except (KeyError, ValueError):
         abort(400)
     result = import_bed.delay(sample_id, data_source_id)
@@ -724,14 +727,18 @@ def annotations_wait(data_source_id, task_id):
     # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
     # not get the task result afterwards anymore via .AsyncResult. We know it
     # has been finished though, so we just return.
+    # This does mean that we cannot add the full annotation data to this
+    # response. See annotations_add for how to get this in the unit tests.
+    # Note that the API thus diverges a bit for the unit tests.
     if current_app.config.get('CELERY_ALWAYS_EAGER'):
-        return jsonify(observations={'task_id': task_id, 'ready': True})
+        return jsonify(annotation={'task_id': task_id, 'ready': True})
     annotation = {'task_id': task_id}
     result = annotate_vcf.AsyncResult(task_id)
     try:
         # This re-raises a possible TaskError, handled by the error_task_error
         # errorhandler above.
-        annotation.update({'ready': True, 'id': result.get(timeout=3)})
+        annotation.update(represent(Annotation.query.get(result.get(timeout=3))))
+        annotation['ready'] = True
     except TimeoutError:
         annotation['ready'] = False
     return jsonify(annotation=annotation)
@@ -749,7 +756,9 @@ def annotations_add(data_source_id):
         that we ensure: admin OR (annotator AND owns_data_source).
 
     Todo: More parameters for annotation.
-    Todo: Support other formats than VCF.
+    Todo: Support other formats than VCF (and check that this is not e.g. a
+        BED data source, which of course cannot be annotated).
+    Todo: Only permit annotation if the data source is imported.
     """
     data = request.form
     try:
@@ -759,7 +768,15 @@ def annotations_add(data_source_id):
     result = annotate_vcf.delay(data_source_id)
     log.info('Called task: annotate_vcf(%d) %s', data_source_id, result.task_id)
     uri = url_for('.annotations_wait', data_source_id=data_source_id, task_id=result.task_id)
-    response = jsonify(wait=uri)
+    # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
+    # not get the task result afterwards anymore via .AsyncResult. We know it
+    # has been finished directly though, so we just add the resulting
+    # annotation to this response, so it can be used in the unit tests.
+    # Note that the API thus diverges a bit for the unit tests.
+    if current_app.config.get('CELERY_ALWAYS_EAGER'):
+        response = jsonify(wait=uri, annotation=represent(Annotation.query.get(result.result)))
+    else:
+        response = jsonify(wait=uri)
     response.location = uri
     return response, 202
 

@@ -1,0 +1,64 @@
+##fileformat=VCFv4.1
+##samtoolsVersion=0.1.16 (r963:234)
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw read depth">
+##INFO=<ID=DP4,Number=4,Type=Integer,Description="# high-quality ref-forward bases, ref-reverse, alt-forward and alt-reverse bases">
+##INFO=<ID=MQ,Number=1,Type=Integer,Description="Root-mean-square mapping quality of covering reads">
+##INFO=<ID=FQ,Number=1,Type=Float,Description="Phred probability of all samples being the same">
+##INFO=<ID=AF1,Number=1,Type=Float,Description="Max-likelihood estimate of the site allele frequency of the first ALT allele">
+##INFO=<ID=G3,Number=3,Type=Float,Description="ML estimate of genotype frequencies">
+##INFO=<ID=HWE,Number=1,Type=Float,Description="Chi^2 based HWE test P-value based on G3">
+##INFO=<ID=CI95,Number=2,Type=Float,Description="Equal-tail Bayesian credible interval of the site allele frequency at the 95% level">
+##INFO=<ID=PV4,Number=4,Type=Float,Description="P-values for strand bias, baseQ bias, mapQ bias and tail distance bias">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+##INFO=<ID=PC2,Number=2,Type=Integer,Description="Phred probability of the nonRef allele frequency in group1 samples being larger (,smaller) than in group2.">
+##INFO=<ID=PCHI2,Number=1,Type=Float,Description="Posterior weighted chi^2 P-value for testing the association between group1 and group2 samples.">
+##INFO=<ID=QCHI2,Number=1,Type=Integer,Description="Phred scaled PCHI2.">
+##INFO=<ID=PR,Number=1,Type=Integer,Description="# permutations yielding a smaller PCHI2.">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=GL,Number=3,Type=Float,Description="Likelihoods for RR,RA,AA genotypes (R=ref,A=alt)">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="# high-quality bases">
+##FORMAT=<ID=SP,Number=1,Type=Integer,Description="Phred-scaled strand bias P-value">
+##FORMAT=<ID=PL,Number=-1,Type=Integer,Description="List of Phred-scaled genotype likelihoods, number of values is (#ALT+1)*(#ALT+2)/2">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	-
+chrX	2699968	.	A	G	127	.	DP=50;AF1=1;CI95=1,1;DP4=0,0,49,0;MQ=60;FQ=-175	GT:PL:GQ	1/1:160,148,0:99
+chrX	2733844	.	a	aTACACACACACACA,aTACACACA,aTACACACACA	104	.	INDEL;DP=24;AF1=1;CI95=0.5,1;DP4=0,0,1,7;MQ=49;FQ=-43.5	GT:PL:GQ	1/1:221,86,77,148,0,139,158,13,75,152:16
+chrX	2748051	.	T	C	78.1	.	DP=8;AF1=1;CI95=0.5,1;DP4=0,0,4,2;MQ=46;FQ=-45	GT:PL:GQ	1/1:111,18,0:33
+chrX	2774855	.	c	cTATC	214	.	INDEL;DP=21;AF1=1;CI95=1,1;DP4=0,0,0,15;MQ=58;FQ=-76.5	GT:PL:GQ	1/1:255,42,0:81
+chrX	2777985	.	C	T	222	.	DP=85;AF1=1;CI95=1,1;DP4=0,0,40,40;MQ=60;FQ=-268	GT:PL:GQ	1/1:255,241,0:99
+chrX	2794093	.	tttttttttt	t	93.9	.	INDEL;DP=42;AF1=1;CI95=0.5,1;DP4=0,2,0,11;MQ=59;FQ=-41.5;PV4=1,1,0.34,1	GT:PL:GQ	1/1:133,7,0:12
+chrX	2800677	.	A	G	222	.	DP=197;AF1=1;CI95=1,1;DP4=0,0,75,104;MQ=60;FQ=-282	GT:PL:GQ	1/1:255,255,0:99
+chrX	2821979	.	G	T	99	.	DP=72;AF1=1;CI95=1,1;DP4=0,0,61,1;MQ=60;FQ=-214	GT:PL:GQ	1/1:132,187,0:99
+chrX	2822961	.	t	tT	65.5	.	INDEL;DP=167;AF1=0.5;CI95=0.5,0.5;DP4=15,10,7,16;MQ=55;FQ=68.5;PV4=0.049,1,0.0012,0.43	GT:PL:GQ	0/1:103,0,143:99
+chrX	2827744	.	ag	aAAAg,aAg	14.7	.	INDEL;DP=33;AF1=0.508;CI95=0.5,0.5;DP4=1,0,2,0;MQ=51;FQ=-19.6;PV4=1,1,0.33,0.017	GT:PL:GQ	0/1:54,2,17,37,0,52:18
+chrX	11778471	.	G	T	110	.	DP=19;AF1=1;CI95=1,1;DP4=0,0,18,0;MQ=59;FQ=-81	GT:PL:GQ	1/1:143,54,0:99
+chrX	11778783	.	C	CCTT	214	.	INDEL;DP=19;AF1=1;CI95=1,1;DP4=0,0,8,11;MQ=60;FQ=-91.5	GT:PL:GQ	1/1:255,57,0:99
+chrX	11779538	.	A	G	129	.	DP=24;AF1=1;CI95=1,1;DP4=0,0,24,0;MQ=60;FQ=-99	GT:PL:GQ	1/1:162,72,0:99
+chrX	11781776	.	T	C	96	.	DP=10;AF1=1;CI95=1,1;DP4=0,0,9,0;MQ=58;FQ=-54	GT:PL:GQ	1/1:129,27,0:51
+chrX	11783502	.	G	C	120	.	DP=49;AF1=1;CI95=1,1;DP4=0,0,40,0;MQ=60;FQ=-147	GT:PL:GQ	1/1:153,120,0:99
+chrX	152728003	.	T	C	222	.	DP=37;AF1=1;CI95=1,1;DP4=0,0,30,6;MQ=60;FQ=-135	GT:PL:GQ	1/1:255,108,0:99
+chrX	152760871	.	G	A	177	.	DP=43;AF1=1;CI95=1,1;DP4=0,0,39,2;MQ=59;FQ=-150	GT:PL:GQ	1/1:210,123,0:99
+chrX	154842666	.	C	T	112	.	DP=36;AF1=1;CI95=1,1;DP4=0,0,0,29;MQ=60;FQ=-114	GT:PL:GQ	1/1:145,87,0:99
+chrY	2829410	.	T	C	222	.	DP=98;AF1=1;CI95=1,1;DP4=0,0,46,46;MQ=59;FQ=-282	GT:PL:GQ	1/1:255,255,0:99
+chrY	4968368	.	G	T	79	.	DP=69;AF1=1;CI95=1,1;DP4=0,0,56,8;MQ=15;FQ=-220	GT:PL:GQ	1/1:112,193,0:99
+chrY	5076150	.	T	TTAATA	80.5	.	INDEL;DP=39;AF1=0.5;CI95=0.5,0.5;DP4=0,32,0,5;MQ=43;FQ=83.5;PV4=1,1,1,0.069	GT:PL:GQ	0/1:118,0,239:99
+chrY	5607528	.	T	G	49	.	DP=93;AF1=0.5;CI95=0.5,0.5;DP4=32,28,11,16;MQ=43;FQ=52;PV4=0.36,6.2e-17,1.8e-08,1	GT:PL:GQ	0/1:79,0,234:82
+chrY	14100408	.	T	A	10.4	.	DP=27;AF1=0.5;CI95=0.5,0.5;DP4=16,3,3,4;MQ=57;FQ=13.2;PV4=0.057,0.01,0.001,0.0085	GT:PL:GQ	0/1:40,0,179:42
+chrY	14107438	.	C	T	22	.	DP=108;AF1=0.5;CI95=0.5,0.5;DP4=35,23,18,29;MQ=20;FQ=25;PV4=0.031,0.0048,0.01,1	GT:PL:GQ	0/1:52,0,177:55
+chrY	14107467	.	C	T	101	.	DP=82;AF1=0.5;CI95=0.5,0.5;DP4=9,33,7,30;MQ=28;FQ=104;PV4=1,0.0025,0.0037,1	GT:PL:GQ	0/1:131,0,196:99
+chrY	58997288	.	A	G	21.8	.	DP=14;AF1=1;CI95=0.5,1;DP4=2,3,5,4;MQ=13;FQ=-33;PV4=1,0.21,1,1	GT:PL:GQ	1/1:53,6,0:10
+chrY	58997292	.	G	C	16.6	.	DP=14;AF1=1;CI95=0.5,1;DP4=4,3,3,4;MQ=13;FQ=-29;PV4=1,1,1,1	GT:PL:GQ	1/1:46,2,0:5
+chr20	29648515	.	T	C	98	.	DP=12;AF1=1;CI95=1,1;DP4=0,0,12,0;MQ=44;FQ=-63	GT:PL:GQ	1/1:131,36,0:69
+chr20	29648539	.	T	C	111	.	DP=12;AF1=1;CI95=1,1;DP4=0,0,12,0;MQ=44;FQ=-63	GT:PL:GQ	1/1:144,36,0:69
+chr20	29648621	.	T	A	107	.	DP=12;AF1=1;CI95=1,1;DP4=0,0,0,12;MQ=44;FQ=-63	GT:PL:GQ	1/1:140,36,0:69
+chr20	30021789	.	G	A	222	.	DP=81;AF1=1;CI95=1,1;DP4=0,0,21,59;MQ=50;FQ=-268	GT:PL:GQ	1/1:255,241,0:99
+chr20	30022447	.	A	G	113	.	DP=24;AF1=1;CI95=1,1;DP4=0,0,22,0;MQ=30;FQ=-93	GT:PL:GQ	1/1:146,66,0:99
+chr20	30022459	.	T	C	45	.	DP=24;AF1=0.5;CI95=0.5,0.5;DP4=13,1,9,0;MQ=34;FQ=48;PV4=1,0.15,0.077,1	GT:PL:GQ	0/1:75,0,136:78
+chr20	30022519	.	aaata	a	215	.	INDEL;DP=21;AF1=1;CI95=1,1;DP4=0,0,5,2;MQ=60;FQ=-55.5	GT:PL:GQ	1/1:255,21,0:39
+chr20	30135300	.	C	T	53	.	DP=74;AF1=0.5;CI95=0.5,0.5;DP4=42,0,30,0;MQ=59;FQ=56;PV4=1,1.1e-14,0.03,1	GT:PL:GQ	0/1:83,0,129:86
+chr20	37709645	.	G	A	68.5	.	DP=8;AF1=0.5718;CI95=0.5,1;DP4=0,1,0,7;MQ=60;FQ=-21;PV4=1,0.07,1,0.00013	GT:PL:GQ	0/1:98,0,6:9
+chr20	38875620	.	T	TCCGATCTTT	195	.	INDEL;DP=12;AF1=1;CI95=0.5,1;DP4=0,0,0,6;MQ=60;FQ=-52.5	GT:PL:GQ	1/1:235,18,0:33
+chr20	41425776	.	C	T	92.1	.	DP=8;AF1=1;CI95=1,1;DP4=0,0,7,0;MQ=60;FQ=-48	GT:PL:GQ	1/1:125,21,0:39
+chr20	43117535	.	att	at	121	.	INDEL;DP=11;AF1=1;CI95=1,1;DP4=0,0,0,10;MQ=60;FQ=-64.5	GT:PL:GQ	1/1:162,30,0:57
+chr20	44374505	.	TCCC	TCC	104	.	INDEL;DP=65;AF1=0.5;CI95=0.5,0.5;DP4=4,31,1,26;MQ=59;FQ=107;PV4=0.38,0.3,1,0.21	GT:PL:GQ	0/1:142,0,237:99
+chr20	44374747	.	C	T	62	.	DP=9;AF1=0.5;CI95=0.5,0.5;DP4=0,3,0,6;MQ=59;FQ=28;PV4=1,0.028,0.26,0.061	GT:PL:GQ	0/1:92,0,55:58
