@@ -127,9 +127,85 @@ class TestApi():
     def test_exome(self):
         """
         Import and annotate exome sample with coverage track.
+
+        All annotations should have observation and coverage 1.
+        """
+        _, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
+        annotation = self._annotate(vcf_data_source)
+
+        # Download annotation and see if we can parse it as VCF
+        r = self.client.get(annotation, headers=[auth_header()])
+        assert_equal(r.content_type, 'application/x-gzip')
+        open('/tmp/test_exome.vcf.gz', 'w').write(r.data)
+        for _ in vcf.Reader(StringIO(r.data), compressed=True):
+            pass
+
+    def test_exome_subset(self):
+        """
+        Import exome sample with coverage track and import and annotate a
+        subset of it.
+
+        All annotations should have observation and coverage 2.
+        """
+        self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
+        _, vcf_data_source, _ = self._import('Test subset', 'tests/data/exome-samtools-subset.vcf', 'tests/data/exome-samtools-subset.bed')
+        annotation = self._annotate(vcf_data_source)
+
+        # Download annotation and see if we can parse it as VCF
+        r = self.client.get(annotation, headers=[auth_header()])
+        assert_equal(r.content_type, 'application/x-gzip')
+        open('/tmp/test_exome_subset.vcf.gz', 'w').write(r.data)
+        for _ in vcf.Reader(StringIO(r.data), compressed=True):
+            pass
+
+    def test_exome_superset(self):
+        """
+        Import exome sample with coverage track and import and annotate a
+        superset of it.
+
+        All annotations should have observation and coverage (2, 2), (1, 2), or (1, 1).
+        """
+        _, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
+        self._import('Test subset', 'tests/data/exome-samtools-subset.vcf', 'tests/data/exome-samtools-subset.bed')
+        annotation = self._annotate(vcf_data_source)
+
+        # Download annotation and see if we can parse it as VCF
+        r = self.client.get(annotation, headers=[auth_header()])
+        assert_equal(r.content_type, 'application/x-gzip')
+        open('/tmp/test_exome_superset.vcf.gz', 'w').write(r.data)
+        for _ in vcf.Reader(StringIO(r.data), compressed=True):
+            pass
+
+    def _annotate(self, vcf_data_source):
+        """
+        Annotate observations and return the annotation URI.
+        """
+        # Get annotations URI for the observations data source
+        r = self.client.get(vcf_data_source, headers=[auth_header()])
+        assert_equal(r.status_code, 200)
+        annotations = json.loads(r.data)['data_source']['annotations']
+
+        # Annotate observations
+        r = self.client.post(annotations, headers=[auth_header()])
+        assert_equal(r.status_code, 202)
+        annotation_wait = json.loads(r.data)['wait']
+        # Note: This API diverges only for the unit test setting
+        annotation = json.loads(r.data)['annotation']['uri']
+
+        # Fake check (all results are direct in the unit test setting)
+        r = self.client.get(annotation_wait, headers=[auth_header()])
+        assert_equal(r.status_code, 200)
+        ok_(json.loads(r.data)['annotation']['ready'])
+
+        return annotation
+
+    def _import(self, name, vcf_file, bed_file):
+        """
+        Import observations and coverage. Return a tuple with URIs for the
+        sample, VCF data source, and BED data source.
         """
         # Create sample
-        data = {'name': 'Exome sample',
+        data = {'name': name,
                 'coverage_threshold': 8,
                 'pool_size': 1}
         r = self.client.post('/samples', data=data, headers=[auth_header()])
@@ -137,18 +213,18 @@ class TestApi():
         sample = json.loads(r.data)['sample']
 
         # Upload VCF
-        data = {'name': 'Some exome observations',
+        data = {'name': '%s observations' % name,
                 'filetype': 'vcf',
-                'data': open('tests/data/exome-samtools.vcf')}
+                'data': open(vcf_file)}
         r = self.client.post('/data_sources', data=data, headers=[auth_header()])
         assert_equal(r.status_code, 201)
         # Todo: Something better than the replace.
         vcf_data_source = r.headers['Location'].replace('http://localhost', '')
 
         # Upload BED
-        data = {'name': 'Some exome coverage',
+        data = {'name': '%s coverage' % name,
                 'filetype': 'bed',
-                'data': open('tests/data/exome-samtools.bed')}
+                'data': open(bed_file)}
         r = self.client.post('/data_sources', data=data, headers=[auth_header()])
         assert_equal(r.status_code, 201)
         # Todo: Something better than the replace.
@@ -181,29 +257,7 @@ class TestApi():
         assert_equal(r.status_code, 200)
         ok_(json.loads(r.data)['regions']['ready'])
 
-        # Get annotations URI for the observations data source
-        r = self.client.get(vcf_data_source, headers=[auth_header()])
-        assert_equal(r.status_code, 200)
-        annotations = json.loads(r.data)['data_source']['annotations']
-
-        # Annotate observations
-        r = self.client.post(annotations, headers=[auth_header()])
-        assert_equal(r.status_code, 202)
-        annotation_wait = json.loads(r.data)['wait']
-        # Note: This API diverges only for the unit test setting
-        annotation = json.loads(r.data)['annotation']['uri']
-
-        # Fake check (all results are direct in the unit test setting)
-        r = self.client.get(annotation_wait, headers=[auth_header()])
-        assert_equal(r.status_code, 200)
-        ok_(json.loads(r.data)['annotation']['ready'])
-
-        # Download annotation and see if we can parse it as VCF
-        r = self.client.get(annotation, headers=[auth_header()])
-        assert_equal(r.content_type, 'application/x-gzip')
-        open('/tmp/jaja.vcf.gz', 'w').write(r.data)
-        for _ in vcf.Reader(StringIO(r.data), compressed=True):
-            pass
+        return sample, vcf_data_source, bed_data_source
 
     def test_import_1kg(self):
         """
