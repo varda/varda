@@ -538,17 +538,14 @@ def samples_add():
     return response, 201
 
 
-@api.route('/samples/<int:sample_id>/observations/wait/<task_id>', methods=['GET'])
+@api.route('/observations/wait/<task_id>', methods=['GET'])
 @require_user
-@ensure(has_role('admin'), owns_sample, satisfy=any)
-def observations_wait(sample_id, task_id):
+def observations_wait(task_id):
     """
     Check status of import observations task.
 
-    Note: The ensure decorator we use does not guarantee that the user has
-        initiated this task, but we cannot check that. This is not too bad
-        though, since you cannot guess task_id so it is kind of private.
-    Note: The sample_id argument is pretty useless here...
+    Todo: Merge with other *_wait functions.
+
     Note: For a non-existing task_id, AsyncResult just returns a result with
         status PENDING.
     """
@@ -586,23 +583,19 @@ def observations_add(sample_id):
     DataSource.query.get_or_404(data_source_id)
     result = import_vcf.delay(sample_id, data_source_id)
     log.info('Called task: import_vcf(%d, %d) %s', sample_id, data_source_id, result.task_id)
-    uri = url_for('.observations_wait', sample_id=sample_id, task_id=result.task_id)
+    uri = url_for('.observations_wait', task_id=result.task_id)
     response = jsonify(wait=uri)
     response.location = uri
     return response, 202
 
 
-@api.route('/samples/<int:sample_id>/regions/wait/<task_id>', methods=['GET'])
+@api.route('/regions/wait/<task_id>', methods=['GET'])
 @require_user
-@ensure(has_role('admin'), owns_sample, satisfy=any)
-def regions_wait(sample_id, task_id):
+def regions_wait(task_id):
     """
     Check status of import regions task.
 
-    Note: The ensure decorator we use does not guarantee that the user has
-        initiated this task, but we cannot check that. This is not too bad
-        though, since you cannot guess task_id so it is kind of private.
-    Note: The sample_id argument is pretty useless here...
+    Todo: Merge with other *_wait functions.
     """
     # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
     # not get the task result afterwards anymore via .AsyncResult. We know it
@@ -636,7 +629,7 @@ def regions_add(sample_id):
         abort(400)
     result = import_bed.delay(sample_id, data_source_id)
     log.info('Called task: import_bed(%d, %d) %s', sample_id, data_source_id, result.task_id)
-    uri = url_for('.regions_wait', sample_id=sample_id, task_id=result.task_id)
+    uri = url_for('.regions_wait', task_id=result.task_id)
     response = jsonify(wait=uri)
     response.location = uri
     return response, 202
@@ -707,23 +700,20 @@ def annotations_list(data_source_id):
 def annotations_get(data_source_id, annotation_id):
     """
     Get annotated version of a data source.
-
-    Todo: The data_source_id argument is kind of useless here...
     """
     annotation = Annotation.query.get_or_404(annotation_id)
-    #with annotation.data() as data:
-    #    return data.read()
+    if annotation.data_source_id != data_source_id:
+        abort(404)
     return send_from_directory(*os.path.split(annotation.local_path()), mimetype='application/x-gzip')
 
 
-@api.route('/data_sources/<int:data_source_id>/annotations/wait/<task_id>', methods=['GET'])
+@api.route('/annotations/wait/<task_id>', methods=['GET'])
 @require_user
-@ensure(has_role('admin'), owns_data_source, satisfy=any)
-def annotations_wait(data_source_id, task_id):
+def annotations_wait(task_id):
     """
     Wait for annotated version of a data source.
 
-    Todo: The data_source_id argument is kind of useless here...
+    Todo: Merge with other *_wait functions.
     """
     # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
     # not get the task result afterwards anymore via .AsyncResult. We know it
@@ -738,6 +728,11 @@ def annotations_wait(data_source_id, task_id):
     try:
         # This re-raises a possible TaskError, handled by the error_task_error
         # errorhandler above.
+        # Todo: There is no permissions checking in this view, so we shouldn't
+        #     have any data in the response. The issue is that the client
+        #     needs the URI to the created Annotation (this is not needed in
+        #     the other *_wait views). Perhaps do an additional check on
+        #     ownership and a possible 403 response?
         annotation.update(represent(Annotation.query.get(result.get(timeout=3))))
         annotation['ready'] = True
     except TimeoutError:
@@ -768,7 +763,7 @@ def annotations_add(data_source_id):
         abort(400)
     result = annotate_vcf.delay(data_source_id, ignore_sample_ids=[])
     log.info('Called task: annotate_vcf(%d) %s', data_source_id, result.task_id)
-    uri = url_for('.annotations_wait', data_source_id=data_source_id, task_id=result.task_id)
+    uri = url_for('.annotations_wait', task_id=result.task_id)
     # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
     # not get the task result afterwards anymore via .AsyncResult. We know it
     # has been finished directly though, so we just add the resulting
