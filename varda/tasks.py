@@ -22,6 +22,7 @@ from vcf.parser import _Info as VcfInfo, field_counts as vcf_field_counts
 
 from varda import db, celery
 from varda.models import DataUnavailable, Variant, Sample, Observation, Region, DataSource, Annotation
+from varda.region_binning import all_bins
 
 
 logger = get_task_logger(__name__)
@@ -135,7 +136,7 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
             db.session.commit()
 
 
-def write_annotation(vcf, annotation):
+def write_annotation(vcf, annotation, ignore_sample_ids=None):
     """
     Todo: Instead of reading from an open VCF, read from an abstracted variant
         reader.
@@ -146,17 +147,21 @@ def write_annotation(vcf, annotation):
     Todo: Do a real frequency calculation and add the result to an info column
         (with appropriate name).
     """
+    ignore_sample_ids = ignore_sample_ids or []
+
     reader = pyvcf.Reader(vcf)
 
-    reader.infos['VARDA'] = VcfInfo('VARDA', vcf_field_counts['A'], 'Integer',
-                                    'Number of observations (out of %i '
-                                    'samples)' % Sample.query.count())
+    reader.infos['OBS'] = VcfInfo('OBS', vcf_field_counts['A'], 'Integer',
+        'Samples with variant (out of %i)' % Sample.query.count())
+    reader.infos['COV'] = VcfInfo('COV', vcf_field_counts['A'], 'Integer',
+        'Samples with coverage (out of %i)' % Sample.query.count())
     writer = pyvcf.Writer(annotation, reader, lineterminator='\n')
 
     for entry in reader:
         chrom = normalize_chromosome(entry.CHROM)
 
-        info_varda = []
+        observations = []
+        coverage = []
         for index, allele in enumerate(entry.ALT):
             reference, allele = trim_common_suffix(entry.REF.upper(),
                                                    str(allele).upper())
@@ -164,15 +169,22 @@ def write_annotation(vcf, annotation):
                 end = entry.POS + len(reference) - 1
             else:
                 end = entry.POS
+            bins = all_bins(entry.POS, end)
 
             variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=reference, variant=allele).first()
             if variant:
-                info_varda.append(variant.observations.count())
+                observations.append(variant.observations.filter(~Observation.sample_id.in_(ignore_sample_ids)).count())
             else:
-                info_varda.append(0)
-            #annotation.write('\t'.join([chrom, str(entry.POS), entry.REF, allele, str(observations)]) + '\n')
+                observations.append(0)
 
-        entry.add_info('VARDA', info_varda)
+            coverage.append(Region.query.filter(Region.chromosome == chrom,
+                                                Region.begin <= entry.POS,
+                                                Region.end >= end,
+                                                Region.bin.in_(bins),
+                                                ~Region.sample_id.in_(ignore_sample_ids)).count())
+
+        entry.add_info('OBS', observations)
+        entry.add_info('COV', coverage)
         writer.write_record(entry)
 
 
@@ -267,11 +279,13 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
 
 
 @celery.task
-def annotate_vcf(data_source_id):
+def annotate_vcf(data_source_id, ignore_sample_ids=None):
     """
     Annotate variants in VCF file.
     """
     logger.info('Started task: annotate_vcf(%d)', data_source_id)
+
+    ignore_sample_ids = ignore_sample_ids or []
 
     data_source = DataSource.query.get(data_source_id)
     if not data_source:
@@ -291,7 +305,7 @@ def annotate_vcf(data_source_id):
     with vcf as vcf, annotation_data as annotation_data:
         # Todo: Create some sort of abstracted variant reader from the vcf
         #     file and pass that to annotate_variants.
-        write_annotation(vcf, annotation_data)
+        write_annotation(vcf, annotation_data, ignore_sample_ids)
 
     db.session.add(annotation)
     db.session.commit()

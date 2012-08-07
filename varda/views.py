@@ -765,7 +765,7 @@ def annotations_add(data_source_id):
         data_source_id = int(data_source_id)
     except ValueError:
         abort(400)
-    result = annotate_vcf.delay(data_source_id)
+    result = annotate_vcf.delay(data_source_id, ignore_sample_ids=[])
     log.info('Called task: annotate_vcf(%d) %s', data_source_id, result.task_id)
     uri = url_for('.annotations_wait', data_source_id=data_source_id, task_id=result.task_id)
     # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
