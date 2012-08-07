@@ -6,10 +6,12 @@ Todo: Suppress the annoying log messages.
 """
 
 
+from StringIO import StringIO
 import tempfile
 import json
 
 from nose.tools import *
+import vcf
 
 from varda import create_app, db
 from varda.models import User
@@ -137,9 +139,12 @@ class TestApi():
         assert_equal(r.status_code, 200)
         ok_(json.loads(r.data)['annotation']['ready'])
 
-        # Download annotation
+        # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotation, headers=[auth_header()])
-        open('/tmp/jaja', 'w').write(r.data)
+        assert_equal(r.content_type, 'application/x-gzip')
+        open('/tmp/jaja.vcf.gz', 'w').write(r.data)
+        for _ in vcf.Reader(StringIO(r.data), compressed=True):
+            pass
 
     def test_import_1kg(self):
         """

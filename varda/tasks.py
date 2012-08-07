@@ -1,10 +1,6 @@
 """
 Celery tasks.
 
-Todo: Chromosomes starting with 'chr' and mitochondrial genome.
-Todo: Update the import and annotation code (see SOAP-based implementation in
-    the ngs-data dvd branch.
-
 Copyright (c) 2011-2012, Leiden University Medical Center <humgen@lumc.nl>
 Copyright (c) 2011-2012, Martijn Vermaat <martijn@vermaat.name>
 
@@ -22,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from celery.utils.log import get_task_logger
 import vcf as pyvcf
 from vcf.utils import trim_common_suffix
+from vcf.parser import _Info as VcfInfo, field_counts as vcf_field_counts
 
 from varda import db, celery
 from varda.models import DataUnavailable, Variant, Sample, Observation, Region, DataSource, Annotation
@@ -130,7 +127,7 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
     Todo: Instead of reading from an open VCF, read from an abstracted variant
         reader.
 
-    Todo: Rename import_variants to import_observations.
+    Todo: Rename import_variants to import_observations?
 
     Todo: Merge back population study importing (see old implementation above
         renamed import_variants_population_study).
@@ -192,12 +189,15 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
             db.session.commit()
 
 
-def write_annotation(vcf, annotation):
+def write_annotation_population_study(vcf, annotation):
     """
     Todo: Instead of reading from an open VCF, read from an abstracted variant
         reader.
+
+    Todo: This is not used, during dvd refactoring. It was the annotation of
+        population study variants.
     """
-    reader = pyvcf.VCFReader(vcf)
+    reader = pyvcf.Reader(vcf)
 
     #annotation.write('## Number of samples in database: %i\n' % Sample.query.all().count())
     annotation.write('#CHROM\tPOS\tREF\tALT\tObservations\n')
@@ -225,6 +225,47 @@ def write_annotation(vcf, annotation):
             else:
                 observations = 0
             annotation.write('\t'.join([chrom, str(entry.POS), entry.REF, allele, str(observations)]) + '\n')
+
+
+def write_annotation(vcf, annotation):
+    """
+    Todo: Instead of reading from an open VCF, read from an abstracted variant
+        reader.
+
+    Todo: Merge back population study annotation (see old implementation above
+        renamed write_annotation_population_study).
+
+    Todo: Do a real frequency calculation and add the result to an info column
+        (with appropriate name).
+    """
+    reader = pyvcf.Reader(vcf)
+
+    reader.infos['VARDA'] = VcfInfo('VARDA', vcf_field_counts['A'], 'Integer',
+                                    'Number of observations (out of %i '
+                                    'samples)' % Sample.query.count())
+    writer = pyvcf.Writer(annotation, reader)
+
+    for entry in reader:
+        chrom = normalize_chromosome(entry.CHROM)
+
+        info_varda = []
+        for index, allele in enumerate(entry.ALT):
+            reference, allele = trim_common_suffix(entry.REF.upper(),
+                                                   str(allele).upper())
+            if 'INDEL' in entry.INFO and len(reference) >= len(allele):
+                end = entry.POS + len(reference) - 1
+            else:
+                end = entry.POS
+
+            variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=reference, variant=allele).first()
+            if variant:
+                info_varda.append(variant.observations.count())
+            else:
+                info_varda.append(0)
+            #annotation.write('\t'.join([chrom, str(entry.POS), entry.REF, allele, str(observations)]) + '\n')
+
+        entry.add_info('VARDA', info_varda)
+        writer.write_record(entry)
 
 
 @celery.task
