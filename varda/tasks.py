@@ -68,60 +68,6 @@ def database_task(cleanup=None):
         db.session.commit()
 
 
-def import_variants_population_study(vcf, sample, data_source, use_genotypes=True):
-    """
-    Todo: Instead of reading from an open VCF, read from an abstracted variant
-        reader.
-
-    Todo: This is not used, during dvd refactoring. It was the import of
-        population study variants.
-    """
-    reader = pyvcf.Reader(vcf)
-
-    for entry in reader:
-        chrom = normalize_chromosome(entry.CHROM)
-        if use_genotypes:
-            genotypes = [s['GT'] for s in entry.samples]
-        if 'SV' in entry.INFO:
-            # SV deletion (in 1KG)
-            # Todo: For now we ignore these, reference is likely to be
-            # larger than the maximum of 200 by the database schema.
-            #end = int(position) + len(reference) - 1
-            #allele = ''
-            continue
-        elif ('SVTYPE' in entry.INFO and entry.INFO['SVTYPE'] == 'DEL') or \
-             ('INDEL' in entry.INFO and len(entry.REF) >= len(entry.ALT[0])):
-            # Todo: In this condition we compare the lengths of reference and
-            #     alternate allele, so we should probably do this separately
-            #     for each allele (i.e. move this inside the loop below).
-            # Deletion
-            end = entry.POS + len(entry.REF) - 1
-        else:
-            # SNP or insertion.
-            end = entry.POS
-        for index, allele in enumerate(str(a) for a in entry.ALT):
-            variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=entry.REF, variant=allele).first()
-            if not variant:
-                variant = Variant(chrom, entry.POS, end, entry.REF, allele)
-                db.session.add(variant)
-                db.session.commit()
-            if use_genotypes:
-                support = sum(1 for genotype in genotypes if str(index + 1) in genotype)
-            elif 'SF' in entry.INFO:
-                support = len(entry.INFO['SF'])  # Was: len(info['SF'].split(','))
-            elif 'AC' in entry.INFO:
-                support = entry.INFO['AC'][0]
-            else:
-                raise TaskError('data_source_invalid', 'Cannot read variant support')
-            try:
-                observation = Observation(sample, variant, data_source, support=support)
-            except IntegrityError:
-                # This should never happen since we check this above.
-                raise TaskError('data_source_imported', 'Observation already exists')
-            db.session.add(observation)
-            db.session.commit()
-
-
 def import_variants(vcf, sample, data_source, use_genotypes=True):
     """
     Todo: Instead of reading from an open VCF, read from an abstracted variant
@@ -187,44 +133,6 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
                 raise TaskError('data_source_imported', 'Observation already exists')
             db.session.add(observation)
             db.session.commit()
-
-
-def write_annotation_population_study(vcf, annotation):
-    """
-    Todo: Instead of reading from an open VCF, read from an abstracted variant
-        reader.
-
-    Todo: This is not used, during dvd refactoring. It was the annotation of
-        population study variants.
-    """
-    reader = pyvcf.Reader(vcf)
-
-    #annotation.write('## Number of samples in database: %i\n' % Sample.query.all().count())
-    annotation.write('#CHROM\tPOS\tREF\tALT\tObservations\n')
-
-    for entry in reader:
-        chrom = normalize_chromosome(entry.CHROM)
-        if 'SV' in entry.INFO:
-            # SV deletion (in 1KG)
-            # Todo: For now we ignore these, reference is likely to be
-            # larger than the maximum of 200 by the database schema.
-            #end = int(position) + len(reference) - 1
-            #allele = ''
-            continue
-        elif ('SVTYPE' in entry.INFO and entry.INFO['SVTYPE'] == 'DEL') or \
-             ('INDEL' in entry.INFO and len(entry.REF) >= len(entry.ALT[0])):
-            # Deletion
-            end = entry.POS + len(entry.REF) - 1
-        else:
-            # SNP or insertion.
-            end = entry.POS
-        for index, allele in enumerate(str(a) for a in entry.ALT):
-            variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=entry.REF, variant=allele).first()
-            if variant:
-                observations = variant.observations.count()
-            else:
-                observations = 0
-            annotation.write('\t'.join([chrom, str(entry.POS), entry.REF, allele, str(observations)]) + '\n')
 
 
 def write_annotation(vcf, annotation):
