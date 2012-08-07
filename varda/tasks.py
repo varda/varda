@@ -243,7 +243,7 @@ def write_annotation(vcf, annotation):
     reader.infos['VARDA'] = VcfInfo('VARDA', vcf_field_counts['A'], 'Integer',
                                     'Number of observations (out of %i '
                                     'samples)' % Sample.query.count())
-    writer = pyvcf.Writer(annotation, reader)
+    writer = pyvcf.Writer(annotation, reader, lineterminator='\n')
 
     for entry in reader:
         chrom = normalize_chromosome(entry.CHROM)
