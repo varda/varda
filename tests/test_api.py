@@ -27,16 +27,19 @@ TEST_SETTINGS = {
 }
 
 
-def auth_header(login='test', password='test'):
+def auth_header(login='admin', password='test'):
     """
     HTTP Basic Authentication header for a test user.
     """
-    return ('AUTHORIZATION', 'BASIC ' + 'test:test'.encode('base64'))
+    user = '%s:%s' % (login, password)
+    return ('AUTHORIZATION', 'BASIC ' + user.encode('base64'))
 
 
 class TestApi():
     """
     High-level unit tests, using the REST API entry points of Varda.
+
+    Todo: Split into several test classes.
     """
     def setup(self):
         """
@@ -46,7 +49,9 @@ class TestApi():
         self.client = self.app.test_client()
         with self.app.test_request_context():
             db.create_all()
-            user = User('Test User', 'test', 'test', roles=['admin'])
+            admin = User('Test Admin', 'admin', 'test', roles=['admin'])
+            db.session.add(admin)
+            user = User('Test User', 'user', 'test', roles=[])
             db.session.add(user)
             db.session.commit()
 
@@ -64,6 +69,60 @@ class TestApi():
         """
         r = self.client.get('/')
         assert 'contact' in r.data
+
+    def test_authentication(self):
+        """
+        Test authentication stuff.
+        """
+        r = self.client.get('/users')
+        assert_equal(r.status_code, 401)
+
+        r = self.client.get('/users', headers=[auth_header(password='incorrect')])
+        assert_equal(r.status_code, 401)
+
+        r = self.client.get('/users', headers=[auth_header()])
+        assert_equal(r.status_code, 200)
+
+        r = self.client.get('/users', headers=[auth_header(login='user', password='test')])
+        assert_equal(r.status_code, 403)
+
+        r = self.client.get('/')
+        assert_equal(r.status_code, 200)
+
+        r = self.client.get('/', headers=[auth_header(login='user', password='test')])
+        assert_equal(r.status_code, 200)
+
+    def test_user(self):
+        """
+        Test user creation.
+        """
+        data = {'name': 'Test Tester',
+                'login': 'test',
+                'password': 'test',
+                'roles': ''}
+        r = self.client.post('/users', data=data, headers=[auth_header()])
+        assert_equal(r.status_code, 201)
+        # Todo: Something better than the replace.
+        user = r.headers['Location'].replace('http://localhost', '')
+
+        r = self.client.get(user, headers=[auth_header()])
+        assert_equal(r.status_code, 200)
+
+    def test_user_json(self):
+        """
+        Test user creation with a json payload.
+        """
+        data = {'name': 'Test Tester',
+                'login': 'test',
+                'password': 'test',
+                'roles': ''}
+        r = self.client.post('/users', data=json.dumps(data), content_type='application/json', headers=[auth_header()])
+        assert_equal(r.status_code, 201)
+        # Todo: Something better than the replace.
+        user = r.headers['Location'].replace('http://localhost', '')
+
+        r = self.client.get(user, headers=[auth_header()])
+        assert_equal(r.status_code, 200)
 
     def test_exome(self):
         """

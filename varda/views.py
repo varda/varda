@@ -475,9 +475,8 @@ def users_add():
 
     Todo: Check for duplicate login.
     Todo: Optionally generate password.
-    Todo: Can also use request.json if content-type is correct.
     """
-    data = request.form
+    data = request.json or request.form
     try:
         name = data.get('name', data['login'])
         login = data['login']
@@ -522,7 +521,7 @@ def samples_add():
     """
     curl -i -d 'name=Genome of the Netherlands' -d 'pool_size=500' http://127.0.0.1:5000/samples
     """
-    data = request.form
+    data = request.json or request.form
     try:
         name = data['name']
         coverage_threshold = int(data.get('coverage_threshold', 8))
@@ -576,7 +575,7 @@ def observations_add(sample_id):
     """
     curl -i -d 'data_source=/data_sources/3' http://127.0.0.1:5000/samples/1/observations
     """
-    data = request.form
+    data = request.json or request.form
     try:
         sample_id = int(sample_id)
         # Todo: Get internal ID in a more elegant way from URI
@@ -628,7 +627,7 @@ def regions_add(sample_id):
     """
     curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/regions
     """
-    data = request.form
+    data = request.json or request.form
     try:
         sample_id = int(sample_id)
         # Todo: Get internal ID in a more elegant way from URI
@@ -671,13 +670,15 @@ def data_sources_add():
 
     Todo: It might be better to use the mimetype for filetype here instead of
         a separate field.
+    Todo: Have an option to add data source by external url instead of upload.
     """
+    rdata = request.json or request.form
     try:
-        name = request.form['name']
-        filetype = request.form['filetype']
+        name = rdata['name']
+        filetype = rdata['filetype']
     except KeyError:
         abort(400)
-    gzipped = request.form.get('gzipped', '').lower() == 'true'
+    gzipped = rdata.get('gzipped', '').lower() == 'true'
     data = request.files.get('data')
     local_path = request.form.get('local_path')
     data_source = DataSource(g.user, name, filetype, upload=data, local_path=local_path, gzipped=gzipped)
@@ -760,7 +761,7 @@ def annotations_add(data_source_id):
         BED data source, which of course cannot be annotated).
     Todo: Only permit annotation if the data source is imported.
     """
-    data = request.form
+    data = request.json or request.form
     try:
         data_source_id = int(data_source_id)
     except ValueError:
@@ -803,7 +804,7 @@ def check_variant():
         Observation.query.join(Sample).filter(Observation.variant_id == 1).\
                                        filter(Sample.id == 1).count()
     """
-    data = request.form
+    data = request.json or request.form
     try:
         # Todo: use normalize_chromosome from tasks.py.
         chromosome = data['chromosome']
