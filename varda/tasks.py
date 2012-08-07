@@ -120,8 +120,9 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
             else:
                 end = entry.POS
 
-            variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=reference, variant=allele).first()
-            if not variant:
+            try:
+                variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=reference, variant=allele).one()
+            except NoResultsFound:
                 variant = Variant(chrom, entry.POS, end, reference, allele)
                 db.session.add(variant)
                 db.session.commit()
@@ -131,6 +132,7 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
                 observation = Observation(sample, variant, data_source, total_coverage=coverage, variant_coverage=(support // len(entry.ALT)))
             except IntegrityError:
                 # This should never happen since we check this above.
+                # Todo: Is this true?
                 raise TaskError('data_source_imported', 'Observation already exists')
             db.session.add(observation)
             db.session.commit()
@@ -171,12 +173,11 @@ def write_annotation(vcf, annotation, ignore_sample_ids=None):
                 end = entry.POS
             bins = all_bins(entry.POS, end)
 
-            variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=reference, variant=allele).first()
-            if variant:
+            try:
+                variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=reference, variant=allele).one()
                 observations.append(variant.observations.filter(~Observation.sample_id.in_(ignore_sample_ids)).count())
-            else:
+            except NoResultsFound:
                 observations.append(0)
-
             coverage.append(Region.query.filter(Region.chromosome == chrom,
                                                 Region.begin <= entry.POS,
                                                 Region.end >= end,
