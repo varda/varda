@@ -15,6 +15,7 @@ import uuid
 from contextlib import contextmanager
 
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 from celery.utils.log import get_task_logger
 import vcf as pyvcf
 from vcf.utils import trim_common_suffix
@@ -122,7 +123,7 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
 
             try:
                 variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=reference, variant=allele).one()
-            except NoResultsFound:
+            except NoResultFound:
                 variant = Variant(chrom, entry.POS, end, reference, allele)
                 db.session.add(variant)
                 db.session.commit()
@@ -176,7 +177,7 @@ def write_annotation(vcf, annotation, ignore_sample_ids=None):
             try:
                 variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=reference, variant=allele).one()
                 observations.append(variant.observations.filter(~Observation.sample_id.in_(ignore_sample_ids)).count())
-            except NoResultsFound:
+            except NoResultFound:
                 observations.append(0)
             coverage.append(Region.query.filter(Region.chromosome == chrom,
                                                 Region.begin <= entry.POS,
