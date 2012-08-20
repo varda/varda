@@ -63,7 +63,7 @@ class User(db.Model):
     User in the system.
 
     For the roles column we use a bitstring where the leftmost role in the
-    :attribute:`USER_ROLES` tuple is defined by the least-significant bit.
+    :data:`USER_ROLES` tuple is defined by the least-significant bit.
     Essentially, this creates a set of roles.
 
     .. todo:: Login should really be validated to only contain alphanums.

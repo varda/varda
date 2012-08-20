@@ -1,5 +1,5 @@
 """
-Varda server, a database for genomic variants.
+Varda server, a database for genomic variantion.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
@@ -46,6 +46,18 @@ celery = Celery('varda')
 
 
 def create_app(settings=None):
+    """
+    Create a Flask instance for Varda server. Configuration settings are read
+    from a file specified by the ``VARDA_SETTINGS`` environment variable, if
+    it exists.
+
+    :kwarg settings: Dictionary of configuration settings. These take
+        precedence over settings read from the file pointed to by the
+        ``VARDA_SETTINGS`` environment variable.
+    :type settings: dict
+
+    :return: Flask application instance.
+    """
     app = Flask(__name__)
     app.config.from_object('varda.default_settings')
     app.config.from_envvar('VARDA_SETTINGS', silent=True)

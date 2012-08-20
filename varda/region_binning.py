@@ -142,9 +142,9 @@ def covered_region(bin):
 
     :return: Tuple of
         - left: Start position of genomic region covered by ``bin``
-              (one-based, inclusive).
+        (one-based, inclusive).
         - right: End position of genomic region covered by ``bin`` (one-based,
-              inclusive).
+        inclusive).
     :rtype: tuple(int)
 
     :raise OutOfRangeError: Bin number ``bin`` exceeds the maximum bin number.
