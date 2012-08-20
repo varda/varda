@@ -276,6 +276,7 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
         # Todo: Create some sort of abstracted variant reader from the vcf
         #     file and pass that to import_variants.
         import_variants(vcf, sample, data_source, use_genotypes)
+        data_source.imported = True
 
     logger.info('Finished task: import_vcf(%d, %d)', sample_id, data_source_id)
 

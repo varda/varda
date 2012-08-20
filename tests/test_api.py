@@ -51,6 +51,8 @@ class TestApi():
             db.create_all()
             admin = User('Test Admin', 'admin', 'test', roles=['admin'])
             db.session.add(admin)
+            trader = User('Test Trader', 'trader', 'test', roles=['importer', 'trader'])
+            db.session.add(trader)
             user = User('Test User', 'user', 'test', roles=[])
             db.session.add(user)
             db.session.commit()
@@ -69,6 +71,13 @@ class TestApi():
         """
         r = self.client.get('/')
         assert 'contact' in r.data
+
+    def test_parameter_type(self):
+        """
+        Test request with incorrect parameter type.
+        """
+        r = self.client.post('/data_sources/abc/annotations', headers=[auth_header()])
+        assert_equal(r.status_code, 404)
 
     def test_authentication(self):
         """
@@ -175,6 +184,50 @@ class TestApi():
         open('/tmp/test_exome_superset.vcf.gz', 'w').write(r.data)
         for _ in vcf.Reader(StringIO(r.data), compressed=True):
             pass
+
+    def test_trader(self):
+        """
+        A trader can only annotate after importing.
+        """
+        # Create sample
+        data = {'name': 'Test sample',
+                'coverage_threshold': 8,
+                'pool_size': 1}
+        r = self.client.post('/samples', data=data, headers=[auth_header(login='trader', password='test')])
+        assert_equal(r.status_code, 201)
+        sample = json.loads(r.data)['sample']
+
+        # Upload VCF
+        data = {'name': 'Test observations',
+                'filetype': 'vcf',
+                'data': open('tests/data/exome-samtools.vcf')}
+        r = self.client.post('/data_sources', data=data, headers=[auth_header(login='trader', password='test')])
+        assert_equal(r.status_code, 201)
+        # Todo: Something better than the replace.
+        vcf_data_source = r.headers['Location'].replace('http://localhost', '')
+
+        # Get annotations URI for the observations data source
+        r = self.client.get(vcf_data_source, headers=[auth_header(login='trader', password='test')])
+        assert_equal(r.status_code, 200)
+        annotations = json.loads(r.data)['data_source']['annotations']
+
+        # Annotate observations
+        r = self.client.post(annotations, headers=[auth_header(login='trader', password='test')])
+        assert_equal(r.status_code, 400)
+
+        # Get observations URIs for this sample
+        r = self.client.get(sample, headers=[auth_header(login='trader', password='test')])
+        observations = json.loads(r.data)['sample']['observations']
+
+        # Import observations
+        data = {'data_source': vcf_data_source}
+        r = self.client.post(observations, data=data, headers=[auth_header(login='trader', password='test')])
+        assert_equal(r.status_code, 202)
+        observations_wait = json.loads(r.data)['wait']
+
+        # Annotate observations
+        r = self.client.post(annotations, headers=[auth_header(login='trader', password='test')])
+        assert_equal(r.status_code, 202)
 
     def _annotate(self, vcf_data_source):
         """

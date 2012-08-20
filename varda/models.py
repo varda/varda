@@ -23,11 +23,16 @@ from varda import db
 from varda.region_binning import assign_bin
 
 
-# Todo: Use the types for which we have validators
+# Todo: Use the types for which we have validators.
 DATA_SOURCE_FILETYPES = ('bed', 'vcf', 'annotation')
 
-# Note: Add new roles at the end
-USER_ROLES = ('admin', 'importer', 'annotator')
+# Note: Add new roles at the end.
+USER_ROLES = (
+    'admin',       # Can do anything.
+    'importer',    # Can import samples.
+    'annotator',   # Can annotate samples.
+    'trader'       # Can annotate samples if they are also imported.
+)
 
 
 class InvalidDataSource(Exception):
@@ -109,6 +114,7 @@ class DataSource(db.Model):
     filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES, name='filetype'))
     gzipped = db.Column(db.Boolean)
     added = db.Column(db.Date)
+    imported = db.Column(db.Boolean, default=False)
 
     user = db.relationship(User, backref=db.backref('data_sources', lazy='dynamic'))
 
