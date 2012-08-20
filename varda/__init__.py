@@ -54,7 +54,7 @@ def create_app(settings=None):
         app.config.update(settings)
     db.init_app(app)
     celery.conf.add_defaults(app.config)
-    from varda.views import api
+    from varda.api import api
     app.register_blueprint(api)
     return app
 
