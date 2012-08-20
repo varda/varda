@@ -1,29 +1,30 @@
 """
 REST server views.
 
-Todo: Representations of resources can sometimes be nested arbitrarily deeply.
+.. todo:: Representations of resources can sometimes be nested arbitrarily
+    deeply.
     One extreme would be to only represent nested resources by their URL, the
     other extreme would be to always give the full JSON representation of the
     nested resource (unless the nesting is infinitely deep of course). A
     possible solution is to add a ?depth=N query parameter to view URLs, where
     N would be how deep to expand URLs with JSON representations. A nice
     implementation for this on the server side will require some thinking...
-    Also see [1].
-Todo: Use caching headers whenever we can. ETag headers are good when you can
-    easily reduce a resource to a hash value. Last-Modified should indicate to
-    you that keeping around a timestamp of when resources are updated is a
-    good idea. Cache-Control and Expires should be given sensible values.
-Todo: Implement pagination for collection representations, perhaps with HTTP
-    range headers. This is related to sorting and filtering. See e.g. [3].
-Todo: Use accept HTTP headers.
-Todo: Correctly use HTTP verbs, see [2].
+    Also see `this discussion <http://news.ycombinator.com/item?id=3491227>`_.
 
-[1] http://news.ycombinator.com/item?id=3491227
-[2] http://news.ycombinator.com/item?id=3514668
-[3] http://dojotoolkit.org/reference-guide/quickstart/rest.html
+.. todo:: Use caching headers whenever we can. ETag headers are good when you
+    can easily reduce a resource to a hash value. Last-Modified should
+    indicate to you that keeping around a timestamp of when resources are
+    updated is a good idea. Cache-Control and Expires should be given sensible
+    values.
 
-Copyright (c) 2011-2012, Leiden University Medical Center <humgen@lumc.nl>
-Copyright (c) 2011-2012, Martijn Vermaat <martijn@vermaat.name>
+.. todo:: Implement pagination for collection representations, perhaps with
+    HTTP range headers. This is related to sorting and filtering. See e.g.
+    `this document <http://dojotoolkit.org/reference-guide/quickstart/rest.html>`_.
+
+.. todo:: Use accept HTTP headers.
+.. todo:: `Correctly use HTTP verbs <http://news.ycombinator.com/item?id=3514668>`_.
+
+.. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
 Licensed under the MIT license, see the LICENSE file.
 """
@@ -50,7 +51,7 @@ api = Blueprint('api', __name__)
 def get_user(login, password):
     """
     Check if login and password are correct and return the user if so, else
-    return None.
+    return ``None``.
     """
     user = User.query.filter_by(login=login).first()
     if user is not None and user.check_password(password):
@@ -60,7 +61,7 @@ def get_user(login, password):
 @api.before_request
 def before_request():
     """
-    Make sure we add a User instance to the global objects if we have
+    Make sure we add a :class:`User` instance to the global objects if we have
     authentication.
     """
     auth = request.authorization
@@ -143,7 +144,9 @@ def authentication():
 @ensure(has_role('admin'))
 def users_list():
     """
-    curl -i -u pietje:pi3tje http://127.0.0.1:5000/users
+    Example usage:
+
+        curl -i -u pietje:pi3tje http://127.0.0.1:5000/users
     """
     return jsonify(users=[serialize(u) for u in User.query])
 
@@ -153,7 +156,9 @@ def users_list():
 @ensure(has_role('admin'), has_login, satisfy=any)
 def users_get(login):
     """
-    curl -i http://127.0.0.1:5000/users/pietje
+    Example usage:
+
+        curl -i http://127.0.0.1:5000/users/pietje
     """
     user = User.query.filter_by(login=login).first()
     if user is None:
@@ -166,10 +171,10 @@ def users_get(login):
 @ensure(has_role('admin'))
 def users_add():
     """
-    Roles must be listed in a string separated by a comma.
+    .. note:: Roles must be listed in a string separated by a comma.
 
-    Todo: Check for duplicate login.
-    Todo: Optionally generate password.
+    .. todo:: Check for duplicate login.
+    .. todo:: Optionally generate password.
     """
     data = request.json or request.form
     try:
@@ -194,7 +199,9 @@ def users_add():
 @ensure(has_role('admin'))
 def samples_list():
     """
-    curl -i -u pietje:pi3tje http://127.0.0.1:5000/samples
+    Example usage:
+
+        curl -i -u pietje:pi3tje http://127.0.0.1:5000/samples
     """
     return jsonify(samples=[serialize(s) for s in Sample.query])
 
@@ -204,7 +211,9 @@ def samples_list():
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def samples_get(sample_id):
     """
-    curl -i http://127.0.0.1:5000/samples/2
+    Example usage:
+
+        curl -i http://127.0.0.1:5000/samples/2
     """
     return jsonify(sample=serialize(Sample.query.get_or_404(sample_id)))
 
@@ -214,7 +223,9 @@ def samples_get(sample_id):
 @ensure(has_role('admin'), has_role('importer'), satisfy=any)
 def samples_add():
     """
-    curl -i -d 'name=Genome of the Netherlands' -d 'pool_size=500' http://127.0.0.1:5000/samples
+    Example usage:
+
+        curl -i -d 'name=Genome of the Netherlands' -d 'pool_size=500' http://127.0.0.1:5000/samples
     """
     data = request.json or request.form
     try:
@@ -239,10 +250,10 @@ def observations_wait(task_id):
     """
     Check status of import observations task.
 
-    Todo: Merge with other *_wait functions.
+    .. todo:: Merge with other ``*_wait`` functions.
 
-    Note: For a non-existing task_id, AsyncResult just returns a result with
-        status PENDING.
+    .. note:: For a non-existing ``task_id``, ``.AsyncResult`` just returns a
+        result with status ``PENDING``.
     """
     # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
     # not get the task result afterwards anymore via .AsyncResult. We know it
@@ -265,7 +276,9 @@ def observations_wait(task_id):
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def observations_add(sample_id):
     """
-    curl -i -d 'data_source=/data_sources/3' http://127.0.0.1:5000/samples/1/observations
+    Example usage:
+
+        curl -i -d 'data_source=/data_sources/3' http://127.0.0.1:5000/samples/1/observations
     """
     data = request.json or request.form
     try:
@@ -289,7 +302,7 @@ def regions_wait(task_id):
     """
     Check status of import regions task.
 
-    Todo: Merge with other *_wait functions.
+    .. todo:: Merge with other ``*_wait`` functions.
     """
     # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
     # not get the task result afterwards anymore via .AsyncResult. We know it
@@ -312,9 +325,11 @@ def regions_wait(task_id):
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def regions_add(sample_id):
     """
-    curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/regions
+    Example usage:
 
-    Todo: Check for importer role.
+        curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/regions
+
+    .. todo:: Check for importer role.
     """
     data = request.json or request.form
     try:
@@ -356,9 +371,10 @@ def data_sources_add():
     """
     Upload VCF or BED file.
 
-    Todo: It might be better to use the mimetype for filetype here instead of
-        a separate field.
-    Todo: Have an option to add data source by external url instead of upload.
+    .. todo:: It might be better to use the mimetype for filetype here instead
+        of a separate field.
+    .. todo:: Have an option to add data source by external url instead of
+        upload.
     """
     rdata = request.json or request.form
     try:
@@ -408,7 +424,7 @@ def annotations_wait(task_id):
     """
     Wait for annotated version of a data source.
 
-    Todo: Merge with other *_wait functions.
+    .. todo:: Merge with other ``*_wait`` functions.
     """
     # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
     # not get the task result afterwards anymore via .AsyncResult. We know it
@@ -444,13 +460,16 @@ def annotations_add(data_source_id):
     """
     Annotate a data source.
 
-    Note: The satisfy keyword argument used here in the ensure decorator means
-        that we ensure: admin OR (owns_data_source AND (annotator OR trader)).
-
     Todo: More parameters for annotation.
     Todo: Support other formats than VCF (and check that this is not e.g. a
         BED data source, which of course cannot be annotated).
     """
+    # The ``satisfy`` keyword argument used here in the ``ensure`` decorator
+    # means that we ensure at least one of:
+    # - admin
+    # - owns_data_source AND annotator
+    # - owns_data_source AND trader
+
     if 'admin' not in g.user.roles() and 'annotator' not in g.user.roles():
         # This is a trader, so check if the data source has been imported.
         if not DataSource.query.get(data_source_id).imported:
@@ -480,7 +499,7 @@ def check_variant():
     """
     Check a variant.
 
-    Todo: Make this a GET request?
+    .. todo:: Make this a GET request?
 
     We also want to check frequencies. For example:
 

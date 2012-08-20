@@ -1,10 +1,9 @@
 """
 Models backed by SQL using SQLAlchemy.
 
-Todo: Perhaps add some delete cascade rules.
+.. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
-Copyright (c) 2011-2012, Leiden University Medical Center <humgen@lumc.nl>
-Copyright (c) 2011-2012, Martijn Vermaat <martijn@vermaat.name>
+.. todo:: Perhaps add some delete cascade rules.
 
 Licensed under the MIT license, see the LICENSE file.
 """
@@ -23,8 +22,10 @@ from varda import db
 from varda.region_binning import assign_bin
 
 
-# Todo: Use the types for which we have validators.
 DATA_SOURCE_FILETYPES = ('bed', 'vcf', 'annotation')
+"""
+.. todo:: Use the types for which we have validators.
+"""
 
 # Note: Add new roles at the end.
 USER_ROLES = (
@@ -62,11 +63,11 @@ class User(db.Model):
     User in the system.
 
     For the roles column we use a bitstring where the leftmost role in the
-    USER_ROLES tuple is defined by the least-significant bit. Essentially,
-    this creates a set of roles.
+    :attribute:`USER_ROLES` tuple is defined by the least-significant bit.
+    Essentially, this creates a set of roles.
 
-    Todo: Login should really be validated to only contain alphanums.
-    Todo: The bitstring encoding/decoding can probably be implemented more
+    .. todo:: Login should really be validated to only contain alphanums.
+    .. todo:: The bitstring encoding/decoding can probably be implemented more
         efficiently.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
@@ -102,8 +103,9 @@ class DataSource(db.Model):
     Data source (probably uploaded as a file). E.g. VCF file to be imported, or
     BED track from which Region entries are created.
 
-    Todo: We can now provide data as an uploaded file or as a path to a local
-        file. We also want to be able to give a link to an internet resource.
+    .. todo:: We can now provide data as an uploaded file or as a path to a
+        local file. We also want to be able to give a link to an internet
+        resource.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
@@ -151,7 +153,10 @@ class DataSource(db.Model):
 
     def data(self):
         """
-        Be sure to close after calling this.
+        Get open file-like handle to data contained in this data source for
+        reading.
+
+        .. note:: Be sure to close after calling this.
         """
         filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
         try:
@@ -210,14 +215,20 @@ class Annotation(db.Model):
 
     def data(self):
         """
-        Be sure to close after calling this.
+        Get open file-like handle to data contained in this annotation for
+        reading.
+
+        .. note:: Be sure to close after calling this.
         """
         filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
         return gzip.open(filepath)
 
     def data_writer(self):
         """
-        Be sure to close after calling this.
+        Get open file-like handle to data contained in this annotation for
+        writing.
+
+        .. note:: Be sure to close after calling this.
         """
         filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
         return gzip.open(filepath, 'wb')
@@ -293,7 +304,7 @@ class Observation(db.Model):
     """
     Observation in a sample.
 
-    Note: For pooled samples (or population studies), a combination of
+    .. note:: For pooled samples (or population studies), a combination of
         (sample_id, variant_id) may not be unique. So this cannot make the
         primary key (as we previously had).
         SQLAlchemy is not happy if we have no primary key at all, so we add
@@ -310,7 +321,7 @@ class Observation(db.Model):
     # have data. If we have no data, we store None.
     total_coverage = db.Column(db.Integer)
     variant_coverage = db.Column(db.Integer)
-    support = db.Column(db.Integer)  # Number of individuals for pooled sample
+    support = db.Column(db.Integer)  # Number of individuals for pooled sample.
 
     sample = db.relationship(Sample, backref=db.backref('observations', lazy='dynamic'))
     variant = db.relationship(Variant, backref=db.backref('observations', lazy='dynamic'))

@@ -1,8 +1,7 @@
 """
 API permission checking.
 
-Copyright (c) 2011-2012, Leiden University Medical Center <humgen@lumc.nl>
-Copyright (c) 2011-2012, Martijn Vermaat <martijn@vermaat.name>
+.. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
 Licensed under the MIT license, see the LICENSE file.
 """
@@ -27,7 +26,7 @@ def require_user(rule):
         ...     return 'sample'
 
     If authentication was successful, the authenticated user instance can be
-    accessed through g.user. Otherwise, the request is aborted with a 401
+    accessed through ``g.user``. Otherwise, the request is aborted with a 401
     response code.
     """
     @wraps(rule)
@@ -42,15 +41,15 @@ def ensure(*conditions, **options):
     """
     Decorator to ensure some given conditions are met.
 
-    The conditions arguments are functions returning True on success and False
-    otherwise. By default, all conditions must be met. A custom scheme can be
-    specified with the satisfy keyword argument, which must be a function
-    consuming an iterable and returning a boolean. For example, satisfy=any
-    uses the standard library function any to ensure that at least one of the
-    conditions is met.
+    The conditions arguments are functions returning ``True`` on success and
+    ``False`` otherwise. By default, all conditions must be met. A custom
+    scheme can be specified with the ``satisfy`` keyword argument, which must
+    be a function consuming an iterable and returning a boolean. For example,
+    ``satisfy=any`` uses the standard library function ``any`` to ensure that
+    at least one of the conditions is met.
 
     Typical conditions may depend on the authorized user. In that case, use
-    the require_user decorator first, for example:
+    the ``require_user`` decorator first, for example:
 
         >>> def is_admin():
         ...     return 'admin' in g.user.roles()
@@ -62,12 +61,12 @@ def ensure(*conditions, **options):
         ...     return []
 
     To specify which keyword arguments to pass to the condition functions as
-    positional and keyword arguments, use the args and kwargs keyword
+    positional and keyword arguments, use the ``args`` and ``kwargs`` keyword
     arguments, respectively.
 
-    The args keyword argument lists the rule keyword arguments by name that
-    should be passed as positional arguments to the condition functions, in
-    that order. For example, to pass the 'variant_id' argument:
+    The ``args`` keyword argument lists the rule keyword arguments by name
+    that should be passed as positional arguments to the condition functions,
+    in that order. For example, to pass the ``variant_id`` argument:
 
         >>> def owns_variant(variant):
         ...     return True
@@ -78,10 +77,10 @@ def ensure(*conditions, **options):
         >>> def get_variant(sample_id, variant_id):
         ...     return 'variant'
 
-    The kwargs keyword argument maps condition function keyword arguments to
-    their respective rule keyword arguments. For example, to pass the
-    'sample_id' and 'variant_id' rule arguments as 'sample' and 'variant'
-    keyword arguments to the condition functions:
+    The ``kwargs`` keyword argument maps condition function keyword arguments
+    to their respective rule keyword arguments. For example, to pass the
+    ``sample_id`` and ``variant_id`` rule arguments as ``sample`` and
+    ``variant`` keyword arguments to the condition functions:
 
         >>> def owns_sample_and_variant(variant=None, sample=None):
         ...     return True
@@ -94,8 +93,8 @@ def ensure(*conditions, **options):
 
     By default, the condition functions are passed all rule keyword arguments.
     This makes it easy to use conditions that use the same names for keyword
-    arguments as the decorated rule without the need for the args or kwargs
-    arguments:
+    arguments as the decorated rule without the need for the ``args`` or
+    ``kwargs`` arguments:
 
         >>> def owns_variant(variant_id, **_):
         ...     return True
@@ -108,8 +107,9 @@ def ensure(*conditions, **options):
 
     Note that since all keyword arguments are passed here, the condition
     function has to accept all of them and not just the one it uses. The
-    pattern **_ as shown here captures any additional keyword arguments. If
-    you want to explicitely don't pass any keyword arguments, use kwargs={}.
+    pattern ``**_`` as shown here captures any additional keyword arguments.
+    If you want to explicitely not pass any keyword arguments, use
+    ``kwargs={}``.
 
     Finally, an example with multiple conditions where at least one of them
     must be met:
@@ -120,7 +120,7 @@ def ensure(*conditions, **options):
         >>> def get_samples(sample_id):
         ...     return 'variant'
 
-    Note: The main limitation here is that only one argument scheme can be
+    .. note:: The main limitation here is that only one argument scheme can be
         given, which is used for all condition functions. Therefore it is
         useful to have consistent argument naming in your condition functions.
     """
@@ -159,12 +159,12 @@ def has_role(role):
         >>> def list_variants():
         ...     return []
 
-    The resulting condition returns True if there is an authenticated user and
-    it has the requested role, False otherwise.
+    The resulting condition returns ``True`` if there is an authenticated user
+    and it has the requested role, ``False`` otherwise.
 
-    Note: We add the keyword arguments wildcard **_ so this function can be
-        easily used as condition argument to the ensure decorator even if
-        there are unrelated keyword arguments for the decorated rule.
+    .. note:: We add the keyword arguments wildcard ``**_`` so this function
+        can be easily used as condition argument to the ensure decorator even
+        if there are unrelated keyword arguments for the decorated rule.
     """
     def condition(**_):
         return g.user is not None and role in g.user.roles()
@@ -173,9 +173,9 @@ def has_role(role):
 
 def owns_sample(sample_id, **_):
     """
-    Note: We add the keyword arguments wildcard **_ so this function can be
-        easily used as condition argument to the ensure decorator even if
-        there are unrelated keyword arguments for the decorated rule.
+    .. note:: We add the keyword arguments wildcard ``**_`` so this function
+        can be easily used as condition argument to the ensure decorator even
+        if there are unrelated keyword arguments for the decorated rule.
     """
     sample = Sample.query.get(sample_id)
     return sample is not None and sample.user is g.user
@@ -183,9 +183,9 @@ def owns_sample(sample_id, **_):
 
 def owns_data_source(data_source_id, **_):
     """
-    Note: We add the keyword arguments wildcard **_ so this function can be
-        easily used as condition argument to the ensure decorator even if
-        there are unrelated keyword arguments for the decorated rule.
+    .. note:: We add the keyword arguments wildcard ``**_`` so this function
+        can be easily used as condition argument to the ensure decorator even
+        if there are unrelated keyword arguments for the decorated rule.
     """
     data_source = DataSource.query.get(data_source_id)
     return data_source is not None and data_source.user is g.user
@@ -193,8 +193,8 @@ def owns_data_source(data_source_id, **_):
 
 def has_login(login, **_):
     """
-    Note: We add the keyword arguments wildcard **_ so this function can be
-        easily used as condition argument to the ensure decorator even if
-        there are unrelated keyword arguments for the decorated rule.
+    .. note:: We add the keyword arguments wildcard ``**_`` so this function
+        can be easily used as condition argument to the ensure decorator even
+        if there are unrelated keyword arguments for the decorated rule.
     """
     return g.user.login == login

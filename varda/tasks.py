@@ -1,8 +1,7 @@
 """
 Celery tasks.
 
-Copyright (c) 2011-2012, Leiden University Medical Center <humgen@lumc.nl>
-Copyright (c) 2011-2012, Martijn Vermaat <martijn@vermaat.name>
+.. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
 Licensed under the MIT license, see the LICENSE file.
 """
@@ -41,7 +40,7 @@ class TaskError(Exception):
 
 def normalize_chromosome(chromosome):
     """
-    Todo: This should be in util.py or something.
+    .. todo:: This should be in util.py or something.
     """
     if chromosome.startswith('NC_012920'):
         return 'M'
@@ -55,10 +54,11 @@ def database_task(cleanup=None):
     """
     Context manager for a Celery task using the database.
 
-    Upon closing, the database session is committed and if a TaskError was
-    raised, the cleanup function argument is called first.
+    Upon closing, the database session is committed and if a
+    :exception:`TaskError` was raised, the cleanup function argument is
+    called first.
 
-    Todo: We might add a setup function as argument.
+    .. todo:: We might add a setup function as argument.
     """
     try:
         yield
@@ -72,13 +72,13 @@ def database_task(cleanup=None):
 
 def import_variants(vcf, sample, data_source, use_genotypes=True):
     """
-    Todo: Instead of reading from an open VCF, read from an abstracted variant
-        reader.
+    .. todo:: Instead of reading from an open VCF, read from an abstracted
+        variant reader.
 
-    Todo: Rename import_variants to import_observations?
+    .. todo:: Rename import_variants to import_observations?
 
-    Todo: Merge back population study importing (see old implementation above
-        renamed import_variants_population_study).
+    .. todo:: Merge back population study importing (see old implementation
+        above renamed import_variants_population_study).
     """
     reader = pyvcf.Reader(vcf)
 
@@ -141,14 +141,14 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
 
 def write_annotation(vcf, annotation, ignore_sample_ids=None):
     """
-    Todo: Instead of reading from an open VCF, read from an abstracted variant
-        reader.
+    .. todo:: Instead of reading from an open VCF, read from an abstracted
+        variant reader.
 
-    Todo: Merge back population study annotation (see old implementation above
-        renamed write_annotation_population_study).
+    .. todo:: Merge back population study annotation (see old implementation
+        above renamed write_annotation_population_study).
 
-    Todo: Do a real frequency calculation and add the result to an info column
-        (with appropriate name).
+    .. todo:: Do a real frequency calculation and add the result to an info
+        column (with appropriate name).
     """
     ignore_sample_ids = ignore_sample_ids or []
 
@@ -243,9 +243,9 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
     """
     Import observed variants from VCF file.
 
-    @todo: This only works for merged population studies at the moment.
-    @todo: Use custom state to report progress:
-        http://docs.celeryproject.org/en/latest/userguide/tasks.html#custom-states
+    .. todo:: This only works for merged population studies at the moment.
+    .. todo:: Use `custom state <http://docs.celeryproject.org/en/latest/userguide/tasks.html#custom-states>`_
+           to report progress:
     """
     logger.info('Started task: import_vcf(%d, %d)', sample_id, data_source_id)
 

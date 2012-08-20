@@ -2,18 +2,15 @@
 Working with the UCSC Genome Browser binning scheme.
 
 These are some utility functions for working with genomic regions and the
-binning scheme as used in the UCSC Genome Browser [1].
+binning scheme as used in the `UCSC Genome Browser <http://genome.cshlp.org/content/12/6/996.full>`_.
 
-Note that all genomic positions in this module are one-based and inclusive.
+.. note:: All genomic positions in this module are one-based and inclusive.
 
-@todo: Implement the extended binning scheme (for positions > 2^29).
-@todo: Be more flexible in the binning scheme to use.
-@todo: Other useful functions?
+.. todo:: Implement the extended binning scheme (for positions > 2^29).
+.. todo:: Be more flexible in the binning scheme to use.
+.. todo:: Other useful functions?
 
-[1] http://genome.cshlp.org/content/12/6/996.full
-
-Copyright (c) 2011-2012, Leiden University Medical Center <humgen@lumc.nl>
-Copyright (c) 2011-2012, Martijn Vermaat <martijn@vermaat.name>
+.. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
 Licensed under the MIT license, see the LICENSE file.
 """
@@ -40,31 +37,29 @@ class OutOfRangeError(Exception):
 
 def range_per_level(start, end):
     """
-    Given a genomic region {start}-{end}, make an iterator that returns for
+    Given a genomic region ``start-end``, make an iterator that returns for
     each level the first and last bin overlapping with the region, starting
     with the smallest bins.
 
-    If {start} > {end}, these values are automagically swapped for your
+    If ``start > end``, these values are automagically swapped for your
     convenience.
 
-    Algorithm by Jim Kent [1].
+    Algorithm by `Jim Kent <http://genomewiki.ucsc.edu/index.php/Bin_indexing_system>`_.
 
-    @arg start: Start position of genomic region (one-based, inclusive).
-    @type start: int
-    @arg end: End position of genomic region (one-based, inclusive).
-    @type end: int
+    :arg start: Start position of genomic region (one-based, inclusive).
+    :type start: int
+    :arg end: End position of genomic region (one-based, inclusive).
+    :type end: int
 
-    @return: Iterator yielding tuples of
-        - left: First bin overlapping with {start}-{end}.
-        - right: Last bin overlapping with {start}-{end}.
+    :return: Iterator yielding tuples of
+        - left: First bin overlapping with ``start-end``.
+        - right: Last bin overlapping with ``start-end``.
         The tuples are ordered according to the bin size of the levels,
         starting with the smalles bins.
-    @rtype: iterator(tuple(int, int))
+    :rtype: iterator(tuple(int, int))
 
-    @raise OutOfRangeError: Region {start}-{end} exceeds the range of the
+    :raise OutOfRangeError: Region ``start-end`` exceeds the range of the
         binning scheme.
-
-    [1] http://genomewiki.ucsc.edu/index.php/Bin_indexing_system
     """
     if start > end:
         start, end = end, start
@@ -88,18 +83,18 @@ def range_per_level(start, end):
 
 def assign_bin(start, end):
     """
-    Given a genomic region {start}-{end}, return the smallest bin in which
+    Given a genomic region ``start-end``, return the smallest bin in which
     it fits.
 
-    @arg start: Start position of genomic region (one-based, inclusive).
-    @type start: int
-    @arg end: End position of genomic region (one-based, inclusive).
-    @type end: int
+    :arg start: Start position of genomic region (one-based, inclusive).
+    :type start: int
+    :arg end: End position of genomic region (one-based, inclusive).
+    :type end: int
 
-    @return: Smallest bin containing {start}-{end}.
-    @rtype: int
+    :return: Smallest bin containing ``start-end``.
+    :rtype: int
 
-    @raise OutOfRangeError: Region {start}-{end} exceeds the range of the
+    :raise OutOfRangeError: Region ``start-end`` exceeds the range of the
         binning scheme.
     """
     try:
@@ -111,23 +106,23 @@ def assign_bin(start, end):
 
 def all_bins(start, end=None):
     """
-    Given a genomic region {start}-{end}, return all bins overlapping with
+    Given a genomic region ``start-end``, return all bins overlapping with
     the region. The order is according to the bin level (starting with the
     smallest bins), and within a level according to the bin number
     (ascending).
 
-    @arg start: Start position of genomic region (one-based, inclusive).
-    @type start: int
-    @kwarg end: End position of genomic region (one-based, inclusive). If not
+    :arg start: Start position of genomic region (one-based, inclusive).
+    :type start: int
+    :kwarg end: End position of genomic region (one-based, inclusive). If not
         provided, the region is assumed to be of length 1 (equivalent to
-        setting {start}={end}).
-    @type end: int
+        setting ``start=end``).
+    :type end: int
 
-    @return: All bins overlapping with {start}-{end}, ordered first according
+    :return: All bins overlapping with ``start-end``, ordered first according
         to bin level (ascending) and then according to bin number (ascending).
-    @rtype: list(int)
+    :rtype: list(int)
 
-    @raise OutOfRangeError: Region {start}-{end} exceeds the range of the
+    :raise OutOfRangeError: Region ``start-end`` exceeds the range of the
         binning scheme.
     """
     if not end:
@@ -140,19 +135,19 @@ def all_bins(start, end=None):
 
 def covered_region(bin):
     """
-    Given a bin number {bin}, return the genomic region covered by this bin.
+    Given a bin number ``bin``, return the genomic region covered by this bin.
 
-    @arg bin: Bin number.
-    @type bin: int
+    :arg bin: Bin number.
+    :type bin: int
 
-    @return: Tuple of
-        - left: Start position of genomic region covered by {bin} (one-based,
+    :return: Tuple of
+        - left: Start position of genomic region covered by ``bin``
+              (one-based, inclusive).
+        - right: End position of genomic region covered by ``bin`` (one-based,
               inclusive).
-        - right: End position of genomic region covered by {bin} (one-based,
-              inclusive).
-    @rtype: tuple(int)
+    :rtype: tuple(int)
 
-    @raise OutOfRangeError: Bin number {bin} exceeds the maximum bin number.
+    :raise OutOfRangeError: Bin number ``bin`` exceeds the maximum bin number.
     """
     if bin < 0 or bin > MAX_BIN:
         raise OutOfRangeError(

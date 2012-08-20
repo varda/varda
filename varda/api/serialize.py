@@ -1,8 +1,7 @@
 """
 API model serializers.
 
-Copyright (c) 2011-2012, Leiden University Medical Center <humgen@lumc.nl>
-Copyright (c) 2011-2012, Martijn Vermaat <martijn@vermaat.name>
+.. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
 Licensed under the MIT license, see the LICENSE file.
 """
@@ -103,8 +102,8 @@ def serialize(instance):
     This function dispatches to a specific serializer function depending on
     the type of object at hand.
 
-    Note: Returns None if no serializer was found.
-    Note: I don't think this construction of creating serializations is
+    .. note:: Returns ``None`` if no serializer was found.
+    .. note:: I don't think this construction of creating serializations is
         especially elegant, but it gets the job done and I really don't want
         any functionality for representations in the models themselves.
     """
