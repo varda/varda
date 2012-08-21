@@ -56,7 +56,7 @@ def ensure(*conditions, **options):
         ...
         >>> @app.route('/samples', methods=['GET'])
         >>> @require_user
-        >>> ensure(is_admin)
+        >>> @ensure(is_admin)
         >>> def list_variants():
         ...     return []
 
@@ -73,7 +73,7 @@ def ensure(*conditions, **options):
         ...
         >>> @app.route('/samples/<sample_id>/variants/<variant_id>', methods=['GET'])
         >>> @require_user
-        >>> ensure(owns_variant, args=['variant_id'])
+        >>> @ensure(owns_variant, args=['variant_id'])
         >>> def get_variant(sample_id, variant_id):
         ...     return 'variant'
 
@@ -87,7 +87,7 @@ def ensure(*conditions, **options):
         ...
         >>> @app.route('/samples/<sample_id>/variants/<variant_id>', methods=['GET'])
         >>> @require_user
-        >>> ensure(owns_sample_and_variant, kwargs={'sample': 'sample_id', 'variant': 'variant_id'})
+        >>> @ensure(owns_sample_and_variant, kwargs={'sample': 'sample_id', 'variant': 'variant_id'})
         >>> def get_variant(sample_id, variant_id):
         ...     return 'variant'
 
@@ -101,7 +101,7 @@ def ensure(*conditions, **options):
         ...
         >>> @app.route('/samples/<sample_id>/variants/<variant_id>', methods=['GET'])
         >>> @require_user
-        >>> ensure(owns_variant)
+        >>> @ensure(owns_variant)
         >>> def get_variant(sample_id, variant_id):
         ...     return 'variant'
 
@@ -155,7 +155,7 @@ def has_role(role):
 
         >>> @app.route('/samples', methods=['GET'])
         >>> @require_user
-        >>> ensure(has_role('admin'))
+        >>> @ensure(has_role('admin'))
         >>> def list_variants():
         ...     return []
 
