@@ -35,6 +35,7 @@ __date__ = '10 Feb Nov 2012'
 __version__ = '.'.join(__version_info__)
 __author__ = 'Martijn Vermaat'
 __contact__ = 'martijn@vermaat.name'
+__homepage__ = 'http://martijn.vermaat.name'
 
 
 API_VERSION = 1
