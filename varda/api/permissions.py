@@ -3,7 +3,7 @@ API permission checking.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
-Licensed under the MIT license, see the LICENSE file.
+.. Licensed under the MIT license, see the LICENSE file.
 """
 
 
@@ -18,7 +18,7 @@ def require_user(rule):
     """
     Decorator for user authentication.
 
-    The app.route decorator should always be first, for example:
+    The app.route decorator should always be first, for example::
 
         >>> @app.route('/samples/<sample_id>', methods=['GET'])
         >>> @require_user
@@ -49,7 +49,7 @@ def ensure(*conditions, **options):
     at least one of the conditions is met.
 
     Typical conditions may depend on the authorized user. In that case, use
-    the ``require_user`` decorator first, for example:
+    the ``require_user`` decorator first, for example::
 
         >>> def is_admin():
         ...     return 'admin' in g.user.roles()
@@ -66,7 +66,7 @@ def ensure(*conditions, **options):
 
     The ``args`` keyword argument lists the rule keyword arguments by name
     that should be passed as positional arguments to the condition functions,
-    in that order. For example, to pass the ``variant_id`` argument:
+    in that order. For example, to pass the ``variant_id`` argument::
 
         >>> def owns_variant(variant):
         ...     return True
@@ -80,7 +80,7 @@ def ensure(*conditions, **options):
     The ``kwargs`` keyword argument maps condition function keyword arguments
     to their respective rule keyword arguments. For example, to pass the
     ``sample_id`` and ``variant_id`` rule arguments as ``sample`` and
-    ``variant`` keyword arguments to the condition functions:
+    ``variant`` keyword arguments to the condition functions::
 
         >>> def owns_sample_and_variant(variant=None, sample=None):
         ...     return True
@@ -94,7 +94,7 @@ def ensure(*conditions, **options):
     By default, the condition functions are passed all rule keyword arguments.
     This makes it easy to use conditions that use the same names for keyword
     arguments as the decorated rule without the need for the ``args`` or
-    ``kwargs`` arguments:
+    ``kwargs`` arguments::
 
         >>> def owns_variant(variant_id, **_):
         ...     return True
@@ -112,7 +112,7 @@ def ensure(*conditions, **options):
     ``kwargs={}``.
 
     Finally, an example with multiple conditions where at least one of them
-    must be met:
+    must be met::
 
         >>> @app.route('/samples/<sample_id>', methods=['GET'])
         >>> @require_user
@@ -151,7 +151,7 @@ def has_role(role):
     Given a role, return a function that can be used as a condition argument
     for the ensure decorator.
 
-    Example:
+    Example::
 
         >>> @app.route('/samples', methods=['GET'])
         >>> @require_user
@@ -173,6 +173,7 @@ def has_role(role):
 
 def owns_sample(sample_id, **_):
     """
+
     .. note:: We add the keyword arguments wildcard ``**_`` so this function
         can be easily used as condition argument to the ensure decorator even
         if there are unrelated keyword arguments for the decorated rule.
@@ -183,6 +184,7 @@ def owns_sample(sample_id, **_):
 
 def owns_data_source(data_source_id, **_):
     """
+
     .. note:: We add the keyword arguments wildcard ``**_`` so this function
         can be easily used as condition argument to the ensure decorator even
         if there are unrelated keyword arguments for the decorated rule.
@@ -193,8 +195,9 @@ def owns_data_source(data_source_id, **_):
 
 def has_login(login, **_):
     """
+
     .. note:: We add the keyword arguments wildcard ``**_`` so this function
-        can be easily used as condition argument to the ensure decorator even
-        if there are unrelated keyword arguments for the decorated rule.
+       can be easily used as condition argument to the ensure decorator even
+       if there are unrelated keyword arguments for the decorated rule.
     """
     return g.user.login == login

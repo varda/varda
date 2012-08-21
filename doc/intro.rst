@@ -31,3 +31,5 @@ Accept-Encoding header sent by the client.
 
 Long-running actions are executed asynchonously through the `Celery <http://celeryproject.org/>`_
 distributed task queue.
+
+Varda server is licensed under the :doc:`MIT License </license>`.

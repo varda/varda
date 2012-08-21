@@ -26,7 +26,7 @@ REST server views.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
-Licensed under the MIT license, see the LICENSE file.
+.. Licensed under the MIT license, see the LICENSE file.
 """
 
 
@@ -144,7 +144,8 @@ def authentication():
 @ensure(has_role('admin'))
 def users_list():
     """
-    Example usage:
+
+    Example usage::
 
         curl -i -u pietje:pi3tje http://127.0.0.1:5000/users
     """
@@ -156,7 +157,8 @@ def users_list():
 @ensure(has_role('admin'), has_login, satisfy=any)
 def users_get(login):
     """
-    Example usage:
+
+    Example usage::
 
         curl -i http://127.0.0.1:5000/users/pietje
     """
@@ -199,7 +201,8 @@ def users_add():
 @ensure(has_role('admin'))
 def samples_list():
     """
-    Example usage:
+
+    Example usage::
 
         curl -i -u pietje:pi3tje http://127.0.0.1:5000/samples
     """
@@ -211,7 +214,8 @@ def samples_list():
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def samples_get(sample_id):
     """
-    Example usage:
+
+    Example usage::
 
         curl -i http://127.0.0.1:5000/samples/2
     """
@@ -223,9 +227,10 @@ def samples_get(sample_id):
 @ensure(has_role('admin'), has_role('importer'), satisfy=any)
 def samples_add():
     """
-    Example usage:
 
-        curl -i -d 'name=Genome of the Netherlands' -d 'pool_size=500' http://127.0.0.1:5000/samples
+    Example usage::
+
+        curl -i -d 'name=My big sequencing experiment' -d 'pool_size=500' http://127.0.0.1:5000/samples
     """
     data = request.json or request.form
     try:
@@ -276,7 +281,8 @@ def observations_wait(task_id):
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def observations_add(sample_id):
     """
-    Example usage:
+
+    Example usage::
 
         curl -i -d 'data_source=/data_sources/3' http://127.0.0.1:5000/samples/1/observations
     """
@@ -325,7 +331,8 @@ def regions_wait(task_id):
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def regions_add(sample_id):
     """
-    Example usage:
+
+    Example usage::
 
         curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/regions
 
@@ -460,8 +467,8 @@ def annotations_add(data_source_id):
     """
     Annotate a data source.
 
-    Todo: More parameters for annotation.
-    Todo: Support other formats than VCF (and check that this is not e.g. a
+    .. todo:: More parameters for annotation.
+    .. todo:: Support other formats than VCF (and check that this is not e.g. a
         BED data source, which of course cannot be annotated).
     """
     # The ``satisfy`` keyword argument used here in the ``ensure`` decorator
@@ -501,7 +508,7 @@ def check_variant():
 
     .. todo:: Make this a GET request?
 
-    We also want to check frequencies. For example:
+    We also want to check frequencies. For example::
 
         SELECT COUNT(*) FROM Observation, Sample
         WHERE Observation.sampleId = Sample.id
@@ -509,9 +516,9 @@ def check_variant():
         AND Sample.id > 100
         AND Sample.id NOT IN (%s)
 
-    will be something like:
+    will be something like::
 
-        Observation.query.join(Sample).filter(Observation.variant_id == 1).\
+        Observation.query.join(Sample).filter(Observation.variant_id == 1).\\
                                        filter(Sample.id == 1).count()
     """
     data = request.json or request.form

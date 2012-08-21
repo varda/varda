@@ -12,7 +12,7 @@ binning scheme as used in the `UCSC Genome Browser <http://genome.cshlp.org/cont
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
-Licensed under the MIT license, see the LICENSE file.
+.. Licensed under the MIT license, see the LICENSE file.
 """
 
 

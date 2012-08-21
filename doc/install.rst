@@ -9,9 +9,20 @@ Installation
 .. note:: This guide assumes installation on a Debian (testing, or *wheezy*)
     system with Python 2.7.
 
+Getting Varda server running consists of the following steps:
 
-Database server
----------------
+* `Installing a database server`_
+* `Installing a message broker`_
+* `Setting up a Python virtual environment`_
+* `Creating initial configuration`_
+* `Setting up the database`_
+* `Running Varda server`_
+
+
+.. _database:
+
+Installing a database server
+----------------------------
 
 The recommended database server is PostreSQL, but MySQL will also work. You
 might even get away with SQLite. Choose one of the three.
@@ -53,7 +64,7 @@ package::
     $ sudo aptitutde install python-dev libmysqlclient-dev
 
 Substitute ``MySQL-python`` for ``psycopg2`` in the ``requirements.txt``
-before you use it in `Python virtual environment`_.
+before you use it in the :ref:`varda-virtualenv` section.
 
 
 Option 3: SQLite
@@ -63,8 +74,10 @@ I think you have all you need. You can remove the ``psycopg2`` line in
 ``requirements.txt``.
 
 
-Message broker
---------------
+.. _broker:
+
+Installing a message broker
+---------------------------
 
 A message broker is needed for communication between the server process and
 worker processes. The recommended message broker is `Redis <http://redis.io>`_::
@@ -84,8 +97,10 @@ As a third alternative, but not recommended, you can use your database server
 as message broker as well.
 
 
-Python virtual environment
---------------------------
+.. _varda-virtualenv:
+
+Setting up a Python virtual environment
+---------------------------------------
 
 It is recommended to run Varda server from a Python virtual environment, using
 `virtualenv <http://www.virtualenv.org/>`_. Managing virtual environments is
@@ -122,8 +137,10 @@ Now might be a good idea to run the unit tests::
 The remainder of this guide assumes the virtual environment is activated.
 
 
-Initial configuration
----------------------
+.. _configuration:
+
+Creating initial configuration
+------------------------------
 
 Varda server looks for its configuration in the file specified by the
 ``VARDA_SETTINGS`` environment variable. First create the file with your
@@ -145,8 +162,10 @@ above ``export`` command to your ``~/.bashrc``. Another is prefixing your
 invocations with ``VARDA_SETTINGS=...``.
 
 
-Database setup
---------------
+.. _database-setup:
+
+Setting up the database
+-----------------------
 
 The following is an example Python session creating the database tables and
 setting up users::
@@ -170,6 +189,7 @@ setting up users::
     db.session.add(martijn)
     db.session.commit()
 
+.. _running:
 
 Running Varda server
 --------------------

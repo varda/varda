@@ -3,7 +3,7 @@ Celery tasks.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
-Licensed under the MIT license, see the LICENSE file.
+.. Licensed under the MIT license, see the LICENSE file.
 """
 
 
@@ -55,8 +55,8 @@ def database_task(cleanup=None):
     Context manager for a Celery task using the database.
 
     Upon closing, the database session is committed and if a
-    :exception:`TaskError` was raised, the cleanup function argument is
-    called first.
+    :exc:`TaskError` was raised, the cleanup function argument is called
+    first.
 
     .. todo:: We might add a setup function as argument.
     """

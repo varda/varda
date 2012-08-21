@@ -3,7 +3,7 @@ Varda server, a database for genomic variantion.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
-Licensed under the MIT license, see the LICENSE file.
+.. Licensed under the MIT license, see the LICENSE file.
 """
 
 
@@ -33,9 +33,8 @@ __date__ = '10 Feb Nov 2012'
 
 
 __version__ = '.'.join(__version_info__)
-__author__ = 'Leiden University Medical Center'
-__contact__ = 'humgen@lumc.nl'
-__homepage__ = 'http://www.humgen.nl'
+__author__ = 'Martijn Vermaat'
+__contact__ = 'martijn@vermaat.name'
 
 
 API_VERSION = 1

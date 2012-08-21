@@ -5,7 +5,7 @@ Models backed by SQL using SQLAlchemy.
 
 .. todo:: Perhaps add some delete cascade rules.
 
-Licensed under the MIT license, see the LICENSE file.
+.. Licensed under the MIT license, see the LICENSE file.
 """
 
 
@@ -25,6 +25,7 @@ from varda.region_binning import assign_bin
 DATA_SOURCE_FILETYPES = ('bed', 'vcf', 'annotation')
 """
 .. todo:: Use the types for which we have validators.
+.. todo:: I don't think we use 'annotation' anymore.
 """
 
 # Note: Add new roles at the end.

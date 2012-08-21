@@ -3,7 +3,11 @@ Varda server
 
 A database for genomic variation.
 
-.. warning:: This is a work in progress, probably not yet ready for use!
+**Warning:** This is a work in progress, probably not yet ready for use!
+
+
+Description
+-----------
 
 Varda is an application for storing genomic variation data obtained from next-
 generation sequencing experiments, such as full-genome or exome sequencing of
@@ -23,33 +27,17 @@ a RESTful protocol over HTTP with json-encoded response payloads.
 This is Varda server.
 
 
-Contents
---------
+Documentation
+-------------
 
-Documentation for users of Varda server:
+Until a hosted version of the documentation is available it can be built
+directly from the sources in the ``doc`` directory.
 
-.. toctree::
-   :maxdepth: 2
-
-   intro
-   copyright
-   install
-   rest-api
-
-For developers working on Varda server:
-
-.. toctree::
-   :maxdepth: 3
-
-   design
-   model
-   notes
-   api
+This also includes installation instructions.
 
 
-Indices and tables
-------------------
+Copyright
+---------
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+Varda server is licensed under the MIT License, see the LICENSE file for
+details. See the AUTHORS file for a list of authors.
