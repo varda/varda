@@ -23,8 +23,9 @@ Varda server
 ------------
 
 The server is implemented in Python using the `Flask <http://flask.pocoo.org/>`_
-framework and directly interfaces the PostgreSQL (or MySQL) database backend
-using `SQLAlchemy <http://www.sqlalchemy.org/>`_. It exposes a `RESTful <http://en.wikipedia.org/wiki/Representational_state_transfer>`_
+framework and directly interfaces the `PostgreSQL <http://www.postgresql.org>`_
+(or `MySQL <http://www.mysql.com>`_) database backend using `SQLAlchemy <http://www.sqlalchemy.org/>`_.
+It exposes a `RESTful <http://en.wikipedia.org/wiki/Representational_state_transfer>`_
 API over HTTP where response payloads are (currently only) json-encoded. A
 future version may use other encodings, depending on the value of the
 Accept-Encoding header sent by the client.
@@ -32,4 +33,4 @@ Accept-Encoding header sent by the client.
 Long-running actions are executed asynchonously through the `Celery <http://celeryproject.org/>`_
 distributed task queue.
 
-Varda server is licensed under the :doc:`MIT License </license>`.
+Varda server is licensed under the :doc:`MIT License </copyright>`.

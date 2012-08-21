@@ -6,8 +6,8 @@ Installation
     probably deviate on some points (but shoudn't be done anyway since this
     is pre-alpha software).
 
-.. note:: This guide assumes installation on a Debian (testing, or *wheezy*)
-    system with Python 2.7.
+.. note:: This guide assumes installation on a `Debian <http://www.debian.org>`_
+    (testing, or *wheezy*) system with Python 2.7.
 
 Getting Varda server running consists of the following steps:
 
@@ -24,8 +24,12 @@ Getting Varda server running consists of the following steps:
 Installing a database server
 ----------------------------
 
-The recommended database server is PostreSQL, but MySQL will also work. You
-might even get away with SQLite. Choose one of the three.
+The recommended database server is `PostreSQL <http://www.postgresql.org>`_,
+but `MySQL <http://www.mysql.com>`_ will also work. You might even get away
+with `SQLite <http://www.sqlite.org>`_. Choose one of the three.
+
+(In theory, any database supported by `SQLAlchemy <http://www.sqlalchemy.org>`_
+could work.)
 
 
 Option 1: PostgreSQL
@@ -88,13 +92,14 @@ Alternatively, `RabbitMQ <http://www.rabbitmq.com/>`_ can be used as message
 broker (prefarably add the APT repository `provided by RabbitMQ <http://www.rabbitmq.com/install-debian.html>`_).
 Example::
 
-    $ sudo apt-get install rabbitmq-server
+    $ sudo aptitude install rabbitmq-server
     $ sudo rabbitmqctl add_user varda varda
     $ sudo rabbitmqctl add_vhost varda
     $ sudo rabbitmqctl set_permissions -p varda varda '.*' '.*' '.*'
 
-As a third alternative, but not recommended, you can use your database server
-as message broker as well.
+The message broker is interfaced by `Celery <http://celeryproject.org>`_,
+so you should be able to use any broker `supported by Celery <http://docs.celeryproject.org/en/latest/getting-started/brokers/index.html>`_.
+Although not recommended, it can even be your database server.
 
 
 .. _varda-virtualenv:
