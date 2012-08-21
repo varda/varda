@@ -11,8 +11,8 @@ from functools import wraps
 
 from flask import url_for
 
-from varda.models import InvalidDataSource, Sample, DataSource, Annotation, User
-from varda.tasks import TaskError
+from ..models import Annotation, DataSource, InvalidDataSource, Sample, User
+from ..tasks import TaskError
 
 
 # Dispatch table for the serialize function below.

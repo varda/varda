@@ -7,7 +7,7 @@ Helper module for celery to run a worker.
 """
 
 
-from varda import create_app, celery
+from . import celery, create_app
 
 
 create_app()

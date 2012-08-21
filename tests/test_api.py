@@ -7,8 +7,8 @@ Todo: Suppress the annoying log messages.
 
 
 from StringIO import StringIO
-import tempfile
 import json
+import tempfile
 
 from nose.tools import *
 import vcf
@@ -70,7 +70,7 @@ class TestApi():
         Dummy test.
         """
         r = self.client.get('/')
-        assert 'contact' in r.data
+        assert_equal(json.loads(r.data)['api']['status'], 'ok')
 
     def test_parameter_type(self):
         """

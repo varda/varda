@@ -9,17 +9,17 @@ Models backed by SQL using SQLAlchemy.
 """
 
 
-import os
-import gzip
-import uuid
 from datetime import date
+import gzip
+import os
+import uuid
 
-import bcrypt
 from flask import current_app
 from sqlalchemy import Index
+import bcrypt
 
-from varda import db
-from varda.region_binning import assign_bin
+from . import db
+from .region_binning import assign_bin
 
 
 DATA_SOURCE_FILETYPES = ('bed', 'vcf', 'annotation')

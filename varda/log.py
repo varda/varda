@@ -7,8 +7,7 @@ Logging functionality for Varda server.
 """
 
 
-from flask import g, request
-from flask import current_app
+from flask import current_app, g, request
 
 
 def make_logger(base):

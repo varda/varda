@@ -9,20 +9,20 @@ Celery tasks.
 
 from __future__ import division
 
+from contextlib import contextmanager
 import os
 import uuid
-from contextlib import contextmanager
 
+from celery.utils.log import get_task_logger
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
-from celery.utils.log import get_task_logger
-import vcf as pyvcf
-from vcf.utils import trim_common_suffix
 from vcf.parser import _Info as VcfInfo, field_counts as vcf_field_counts
+from vcf.utils import trim_common_suffix
+import vcf as pyvcf
 
-from varda import db, celery
-from varda.models import DataUnavailable, Variant, Sample, Observation, Region, DataSource, Annotation
-from varda.region_binning import all_bins
+from . import db, celery
+from .models import Annotation, DataSource, DataUnavailable, Observation, Sample, Region, Variant
+from .region_binning import all_bins
 
 
 logger = get_task_logger(__name__)

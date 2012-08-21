@@ -7,9 +7,9 @@ Varda server, a database for genomic variantion.
 """
 
 
+from celery import Celery
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
-from celery import Celery
 
 
 # On the event of a new release, we update the __version_info__ and __date__
@@ -38,9 +38,6 @@ __contact__ = 'martijn@vermaat.name'
 __homepage__ = 'http://martijn.vermaat.name'
 
 
-API_VERSION = 1
-
-
 db = SQLAlchemy()
 celery = Celery('varda')
 
@@ -65,7 +62,7 @@ def create_app(settings=None):
         app.config.update(settings)
     db.init_app(app)
     celery.conf.add_defaults(app.config)
-    from varda.api import api
+    from .api import api
     app.register_blueprint(api)
     return app
 

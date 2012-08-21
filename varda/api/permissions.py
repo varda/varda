@@ -9,9 +9,9 @@ API permission checking.
 
 from functools import wraps
 
-from flask import g, abort
+from flask import abort, g
 
-from varda.models import Sample, DataSource
+from ..models import DataSource, Sample
 
 
 def require_user(rule):

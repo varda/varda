@@ -7,4 +7,4 @@ REST server API.
 """
 
 
-from varda.api.views import api
+from .views import api

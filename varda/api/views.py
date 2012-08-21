@@ -30,19 +30,21 @@ REST server views.
 """
 
 
+from functools import wraps
 import os
 import uuid
-from functools import wraps
 
-from flask import Blueprint, current_app, g, abort, request, redirect, url_for, jsonify, send_from_directory
 from celery.exceptions import TimeoutError
+from flask import abort, Blueprint, current_app, g, jsonify, redirect, request, send_from_directory, url_for
 
-import varda
-from varda import db, log
-from varda.models import InvalidDataSource, Variant, Sample, Observation, DataSource, Annotation, User
-from varda.tasks import TaskError, import_vcf, import_bed, annotate_vcf
-from varda.api.serialize import serialize
-from varda.api.permissions import require_user, ensure, has_role, owns_sample, owns_data_source, has_login
+from .. import db, log
+from ..models import Annotation, DataSource, InvalidDataSource, Observation, Sample, User, Variant
+from ..tasks import annotate_vcf, import_bed, import_vcf, TaskError
+from .permissions import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
+from .serialize import serialize
+
+
+API_VERSION = 1
 
 
 api = Blueprint('api', __name__)
@@ -119,8 +121,7 @@ def error_invalid_data_source(error):
 @api.route('/')
 def apiroot():
     api = {'status':  'ok',
-           'version': varda.API_VERSION,
-           'contact': varda.__contact__,
+           'version': API_VERSION,
            'collections': {
                'users':        url_for('.users_list'),
                'samples':      url_for('.samples_list'),
