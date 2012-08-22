@@ -70,15 +70,15 @@ def database_task(cleanup=None):
         db.session.commit()
 
 
-def import_variants(vcf, sample, data_source, use_genotypes=True):
+def import_variants(vcf, data_source, use_genotypes=True):
     """
     .. todo:: Instead of reading from an open VCF, read from an abstracted
         variant reader.
 
     .. todo:: Rename import_variants to import_observations?
 
-    .. todo:: Merge back population study importing (see old implementation
-        above renamed import_variants_population_study).
+    .. todo:: Merge back population study importing (see implementation in the
+        old-population-study branch).
     """
     reader = pyvcf.Reader(vcf)
 
@@ -130,7 +130,7 @@ def import_variants(vcf, sample, data_source, use_genotypes=True):
             try:
                 # Todo: variant_coverage calculation is not correct with
                 #     multiple non-ref alleles.
-                observation = Observation(sample, variant, data_source, total_coverage=coverage, variant_coverage=(support // len(entry.ALT)))
+                observation = Observation(variant, data_source, total_coverage=coverage, variant_coverage=(support // len(entry.ALT)))
             except IntegrityError:
                 # This should never happen since we check this above.
                 # Todo: Is this true?
@@ -144,11 +144,11 @@ def write_annotation(vcf, annotation, ignore_sample_ids=None):
     .. todo:: Instead of reading from an open VCF, read from an abstracted
         variant reader.
 
-    .. todo:: Merge back population study annotation (see old implementation
-        above renamed write_annotation_population_study).
+    .. todo:: Merge back population study annotation (see implementation in
+        the old-population-study branch).
 
-    .. todo:: Do a real frequency calculation and add the result to an info
-        column (with appropriate name).
+    .. todo:: Use support field (and possibly total_coverage,
+        variant_coverage) for population studies.
     """
     ignore_sample_ids = ignore_sample_ids or []
 
@@ -231,9 +231,10 @@ def import_bed(sample_id, data_source_id):
                 end = int(fields[2])
             except (IndexError, ValueError):
                 raise TaskError('data_source_invalid', 'Invalid line in BED file: "%s"' % line)
-            region = Region(sample, data_source, chromosome, begin, end)
+            region = Region(data_source, chromosome, begin, end)
             db.session.add(region)
             db.session.commit()
+        data_source.sample = sample
 
     logger.info('Finished task: import_bed(%d, %d)', sample_id, data_source_id)
 
@@ -276,7 +277,7 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
         # Todo: Create some sort of abstracted variant reader from the vcf
         #     file and pass that to import_variants.
         import_variants(vcf, sample, data_source, use_genotypes)
-        data_source.imported = True
+        data_source.sample = sample
 
     logger.info('Finished task: import_vcf(%d, %d)', sample_id, data_source_id)
 

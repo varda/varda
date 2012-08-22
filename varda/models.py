@@ -98,6 +98,71 @@ class User(db.Model):
                 if self.roles_bitstring & pow(2, i)}
 
 
+class Variant(db.Model):
+    """
+    Genomic variant.
+    """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    chromosome = db.Column(db.String(2))
+    begin = db.Column(db.Integer)
+    end = db.Column(db.Integer)
+    reference = db.Column(db.String(200))
+    variant = db.Column(db.String(200))
+    bin = db.Column(db.Integer)
+
+    def __init__(self, chromosome, begin, end, reference, variant):
+        self.chromosome = chromosome
+        self.begin = begin
+        self.end = end
+        self.reference = reference
+        self.variant = variant
+        self.bin = assign_bin(self.begin, self.end)
+
+    def __repr__(self):
+        return '<Variant %s at chr%s:%i-%i>' % (
+            self.variant, self.chromosome, self.begin, self.end)
+
+
+Index('variant_location',
+      Variant.chromosome, Variant.begin)
+Index('variant_unique',
+      Variant.chromosome, Variant.begin, Variant.end,
+      Variant.reference, Variant.variant, unique=True)
+
+
+class Sample(db.Model):
+    """
+    Sample.
+
+    ``coverage_profile`` is essentially ``not is_population_study``.
+    """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    name = db.Column(db.String(200))
+    coverage_threshold = db.Column(db.Integer)
+    pool_size = db.Column(db.Integer)
+    added = db.Column(db.Date)
+    active = db.Column(db.Boolean, default=False)
+    coverage_profile = db.Column(db.Boolean)
+
+    user = db.relationship(User, backref=db.backref('samples', lazy='dynamic'))
+
+    def __init__(self, user, name, pool_size=1, coverage_threshold=None, coverage_profile=True):
+        self.user = user
+        self.name = name
+        self.coverage_threshold = coverage_threshold
+        self.pool_size = pool_size
+        self.added = date.today()
+        self.coverage_profile = True
+
+    def __repr__(self):
+        return '<Sample %s of %i added %s by %r>' % (self.name, self.pool_size, str(self.added), self.user)
+
+
 class DataSource(db.Model):
     """
     Data source (probably uploaded as a file). E.g. VCF file to be imported, or
@@ -106,6 +171,7 @@ class DataSource(db.Model):
     .. todo:: We can now provide data as an uploaded file or as a path to a
         local file. We also want to be able to give a link to an internet
         resource.
+    .. todo:: Checksums of data sources?
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
@@ -116,9 +182,10 @@ class DataSource(db.Model):
     filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES, name='filetype'))
     gzipped = db.Column(db.Boolean)
     added = db.Column(db.Date)
-    imported = db.Column(db.Boolean, default=False)
+    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'), default=None)
 
     user = db.relationship(User, backref=db.backref('data_sources', lazy='dynamic'))
+    sample = db.relationship(Sample, backref=db.backref('data_sources', lazy='dynamic'))
 
     def __init__(self, user, name, filetype, upload=None, local_path=None, gzipped=False):
         if not filetype in DATA_SOURCE_FILETYPES:
@@ -150,6 +217,14 @@ class DataSource(db.Model):
 
     def __repr__(self):
         return '<DataSource %s as %s added %s by %r>' % (self.name, self.filetype, str(self.added), self.user)
+
+    @property
+    def imported(self):
+        return self.sample_id is not None
+
+    @property
+    def active(self):
+        return self.imported and self.sample.active
 
     def data(self):
         """
@@ -240,80 +315,13 @@ class Annotation(db.Model):
         return os.path.join(current_app.config['FILES_DIR'], self.filename)
 
 
-class Variant(db.Model):
-    """
-    Genomic variant.
-    """
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
-
-    id = db.Column(db.Integer, primary_key=True)
-    chromosome = db.Column(db.String(2))
-    begin = db.Column(db.Integer)
-    end = db.Column(db.Integer)
-    reference = db.Column(db.String(200))
-    variant = db.Column(db.String(200))
-    bin = db.Column(db.Integer)
-
-    def __init__(self, chromosome, begin, end, reference, variant):
-        self.chromosome = chromosome
-        self.begin = begin
-        self.end = end
-        self.reference = reference
-        self.variant = variant
-        self.bin = assign_bin(self.begin, self.end)
-
-    def __repr__(self):
-        return '<Variant %s at chr%s:%i-%i>' % (
-            self.variant, self.chromosome, self.begin, self.end)
-
-
-Index('variant_location',
-      Variant.chromosome, Variant.begin)
-Index('variant_unique',
-      Variant.chromosome, Variant.begin, Variant.end,
-      Variant.reference, Variant.variant, unique=True)
-
-
-class Sample(db.Model):
-    """
-    Sample.
-    """
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
-
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    name = db.Column(db.String(200))
-    coverage_threshold = db.Column(db.Integer)
-    pool_size = db.Column(db.Integer)
-    added = db.Column(db.Date)
-
-    user = db.relationship(User, backref=db.backref('samples', lazy='dynamic'))
-
-    def __init__(self, user, name, coverage_threshold=8, pool_size=1):
-        self.user = user
-        self.name = name
-        self.coverage_threshold = coverage_threshold
-        self.pool_size = pool_size
-        self.added = date.today()
-
-    def __repr__(self):
-        return '<Sample %s of %i added %s by %r>' % (self.name, self.pool_size, str(self.added), self.user)
-
-
 class Observation(db.Model):
     """
     Observation in a sample.
-
-    .. note:: For pooled samples (or population studies), a combination of
-        (sample_id, variant_id) may not be unique. So this cannot make the
-        primary key (as we previously had).
-        SQLAlchemy is not happy if we have no primary key at all, so we add
-        an id column.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
     variant_id = db.Column(db.Integer, db.ForeignKey('variant.id'))
     data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
 
@@ -321,14 +329,12 @@ class Observation(db.Model):
     # have data. If we have no data, we store None.
     total_coverage = db.Column(db.Integer)
     variant_coverage = db.Column(db.Integer)
-    support = db.Column(db.Integer)  # Number of individuals for pooled sample.
+    support = db.Column(db.Integer)  # Number of individuals.
 
-    sample = db.relationship(Sample, backref=db.backref('observations', lazy='dynamic'))
     variant = db.relationship(Variant, backref=db.backref('observations', lazy='dynamic'))
     data_source = db.relationship(DataSource, backref=db.backref('observations', lazy='dynamic'))
 
-    def __init__(self, sample, variant, data_source, total_coverage=None, variant_coverage=None, support=None):
-        self.sample = sample
+    def __init__(self, variant, data_source, support=1, total_coverage=None, variant_coverage=None):
         self.variant = variant
         self.data_source = data_source
         self.total_coverage = total_coverage
@@ -336,7 +342,7 @@ class Observation(db.Model):
         self.support = support
 
     def __repr__(self):
-        return '<Observation %r on %r>' % (self.variant, self.sample)
+        return '<Observation %r from %r>' % (self.variant, self.data_source)
 
 
 class Region(db.Model):
@@ -346,18 +352,15 @@ class Region(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
     data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
     chromosome = db.Column(db.String(2))
     begin = db.Column(db.Integer)
     end = db.Column(db.Integer)
     bin = db.Column(db.Integer)
 
-    sample = db.relationship(Sample, backref=db.backref('regions', lazy='dynamic'))
     data_source = db.relationship(DataSource, backref=db.backref('regions', lazy='dynamic'))
 
-    def __init__(self, sample, data_source, chromosome, begin, end):
-        self.sample = sample
+    def __init__(self, data_source, chromosome, begin, end):
         self.data_source = data_source
         self.chromosome = chromosome
         self.begin = begin
@@ -365,7 +368,7 @@ class Region(db.Model):
         self.bin = assign_bin(self.begin, self.end)
 
     def __repr__(self):
-        return '<Region for %r at chr%s:%i-%i>' % (self.sample, self.chromosome, self.begin, self.end)
+        return '<Region from %r at chr%s:%i-%i>' % (self.data_source, self.chromosome, self.begin, self.end)
 
 
 Index('region_location',

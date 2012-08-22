@@ -479,10 +479,11 @@ def annotations_add(data_source_id):
     # - owns_data_source AND trader
 
     if 'admin' not in g.user.roles() and 'annotator' not in g.user.roles():
-        # This is a trader, so check if the data source has been imported.
-        if not DataSource.query.get(data_source_id).imported:
-            raise InvalidDataSource('unimported_data', 'Data source cannot '
-                                    'be annotated unless it is imported first')
+        # This is a trader, so check if the data source has been imported in
+        # an active sample.
+        if not DataSource.query.get(data_source_id).active:
+            raise InvalidDataSource('inactive_data_source', 'Data source '
+                'cannot be annotated unless it is imported and active')
     data = request.json or request.form
     result = annotate_vcf.delay(data_source_id, ignore_sample_ids=[])
     log.info('Called task: annotate_vcf(%d) %s', data_source_id, result.task_id)
