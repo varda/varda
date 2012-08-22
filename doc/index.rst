@@ -42,7 +42,6 @@ For developers working on Varda server:
    :maxdepth: 3
 
    design
-   model
    notes
    api
 
