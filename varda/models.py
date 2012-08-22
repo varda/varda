@@ -148,16 +148,18 @@ class Sample(db.Model):
     added = db.Column(db.Date)
     active = db.Column(db.Boolean, default=False)
     coverage_profile = db.Column(db.Boolean)
+    public = db.Column(db.Boolean)
 
     user = db.relationship(User, backref=db.backref('samples', lazy='dynamic'))
 
-    def __init__(self, user, name, pool_size=1, coverage_threshold=None, coverage_profile=True):
+    def __init__(self, user, name, pool_size=1, coverage_threshold=None, coverage_profile=True, public=False):
         self.user = user
         self.name = name
         self.coverage_threshold = coverage_threshold
         self.pool_size = pool_size
         self.added = date.today()
-        self.coverage_profile = True
+        self.coverage_profile = coverage_profile
+        self.public = public
 
     def __repr__(self):
         return '<Sample %s of %i added %s by %r>' % (self.name, self.pool_size, str(self.added), self.user)
