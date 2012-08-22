@@ -250,6 +250,32 @@ def samples_add():
     return response, 201
 
 
+@api.route('/samples/<int:sample_id>', methods=['PUT'])
+@require_user
+@ensure(has_role('admin'), owns_sample, satisfy=any)
+def samples_update(sample_id):
+    """
+
+    Example usage::
+
+        curl -X PUT -d 'active=true' http://127.0.0.1:5000/samples/3
+    """
+    # Todo: I'm not sure if this is really the pattern we want the API to use
+    #     for updating objects. But works for now.
+    sample = Sample.query.get_or_404(sample_id)
+    data = request.json or request.form
+    for field, value in data.items():
+        if field == 'active' and str(value).lower() == 'true':
+            # Todo: Check if sample is ready to activate, e.g. if there are
+            #     expected imported data sources and no imports running at the
+            #     moment.
+            sample.active = True
+        else:
+            abort(400)
+    db.session.commit()
+    return jsonify(sample=serialize(sample))
+
+
 @api.route('/observations/wait/<task_id>', methods=['GET'])
 @require_user
 def observations_wait(task_id):

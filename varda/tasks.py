@@ -176,14 +176,14 @@ def write_annotation(vcf, annotation, ignore_sample_ids=None):
 
             try:
                 variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=reference, variant=allele).one()
-                observations.append(variant.observations.filter(~Observation.sample_id.in_(ignore_sample_ids)).count())
+                observations.append(variant.observations.join(DataSource).filter(~DataSource.sample_id.in_(ignore_sample_ids)).count())
             except NoResultFound:
                 observations.append(0)
-            coverage.append(Region.query.filter(Region.chromosome == chrom,
-                                                Region.begin <= entry.POS,
-                                                Region.end >= end,
-                                                Region.bin.in_(bins),
-                                                ~Region.sample_id.in_(ignore_sample_ids)).count())
+            coverage.append(Region.query.join(DataSource).filter(Region.chromosome == chrom,
+                                                                 Region.begin <= entry.POS,
+                                                                 Region.end >= end,
+                                                                 Region.bin.in_(bins),
+                                                                 ~DataSource.sample_id.in_(ignore_sample_ids)).count())
 
         entry.add_info('OBS', observations)
         entry.add_info('COV', coverage)
@@ -205,9 +205,8 @@ def import_bed(sample_id, data_source_id):
     if not data_source:
         raise TaskError('data_source_not_found', 'Data source not found')
 
-    # Todo: SQLAlchemy probably has something for this, has() or any() or exists()...
-    if sample.regions.filter_by(data_source=data_source).count() > 1:
-        raise TaskError('data_source_imported', 'Data source already imported in this sample')
+    if data_source.sample is not None:
+        raise TaskError('data_source_imported', 'Data source already imported')
 
     try:
         bed = data_source.data()
@@ -218,7 +217,7 @@ def import_bed(sample_id, data_source_id):
     # after each INSERT and manually rollback. Using builtin session rollback
     # would fill up all our memory.
     def delete_regions():
-        sample.regions.filter_by(data_source=data_source).delete()
+        data_source.regions.delete()
 
     with bed as bed, database_task(cleanup=delete_regions):
         for line in bed:
@@ -258,9 +257,8 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
     if not data_source:
         raise TaskError('data_source_not_found', 'Data source not found')
 
-    # Todo: SQLAlchemy probably has something for this, has() or any() or exists()...
-    if sample.observations.filter_by(data_source=data_source).count() > 1:
-        raise TaskError('data_source_imported', 'Data source already imported in this sample')
+    if data_source.sample is not None:
+        raise TaskError('data_source_imported', 'Data source already imported')
 
     try:
         vcf = data_source.data()
@@ -271,12 +269,12 @@ def import_vcf(sample_id, data_source_id, use_genotypes=True):
     # after each INSERT and manually rollback. Using builtin session rollback
     # would fill up all our memory.
     def delete_observations():
-        sample.observations.filter_by(data_source=data_source).delete()
+        data_source.observations.delete()
 
     with vcf as vcf, database_task(cleanup=delete_observations):
         # Todo: Create some sort of abstracted variant reader from the vcf
         #     file and pass that to import_variants.
-        import_variants(vcf, sample, data_source, use_genotypes)
+        import_variants(vcf, data_source, use_genotypes)
         data_source.sample = sample
 
     logger.info('Finished task: import_vcf(%d, %d)', sample_id, data_source_id)

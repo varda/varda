@@ -187,7 +187,7 @@ class TestApi():
 
     def test_trader(self):
         """
-        A trader can only annotate after importing.
+        A trader can only annotate after importing and activating.
         """
         # Create sample
         data = {'name': 'Test sample',
@@ -224,6 +224,15 @@ class TestApi():
         r = self.client.post(observations, data=data, headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 202)
         observations_wait = json.loads(r.data)['wait']
+
+        # Annotate observations
+        r = self.client.post(annotations, headers=[auth_header(login='trader', password='test')])
+        assert_equal(r.status_code, 400)
+
+        # Activate sample
+        data = {'active': True}
+        r = self.client.put(sample, data=data, headers=[auth_header(login='trader', password='test')])
+        assert_equal(r.status_code, 200)
 
         # Annotate observations
         r = self.client.post(annotations, headers=[auth_header(login='trader', password='test')])
