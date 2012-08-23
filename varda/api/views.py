@@ -39,7 +39,7 @@ from flask import abort, Blueprint, current_app, g, jsonify, redirect, request, 
 
 from .. import db, log
 from ..models import Annotation, DataSource, InvalidDataSource, Observation, Sample, User, Variant
-from ..tasks import annotate_vcf, import_bed, import_vcf, TaskError
+from ..tasks import write_annotation, import_variation, import_coverage, TaskError
 from .permissions import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
 from .serialize import serialize
 
@@ -106,6 +106,13 @@ def error_entity_too_large(error):
     return jsonify(error={
             'code': 'entity_too_large',
             'message': 'The request entity is too large'}), 413
+
+
+@api.errorhandler(501)
+def error_not_implemented(error):
+    return jsonify(error={
+            'code': 'not_implemented',
+            'message': 'The functionality required to fulfill the request is currently not implemented'}), 501
 
 
 @api.errorhandler(TaskError)
@@ -276,105 +283,153 @@ def samples_update(sample_id):
     return jsonify(sample=serialize(sample))
 
 
-@api.route('/observations/wait/<task_id>', methods=['GET'])
-@require_user
-def observations_wait(task_id):
-    """
-    Check status of import observations task.
-
-    .. todo:: Merge with other ``*_wait`` functions.
-
-    .. note:: For a non-existing ``task_id``, ``.AsyncResult`` just returns a
-        result with status ``PENDING``.
-    """
-    # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
-    # not get the task result afterwards anymore via .AsyncResult. We know it
-    # has been finished though, so we just return.
-    if current_app.config.get('CELERY_ALWAYS_EAGER'):
-        return jsonify(observations={'task_id': task_id, 'ready': True})
-    result = import_vcf.AsyncResult(task_id)
-    try:
-        # This re-raises a possible TaskError, handled by the error_task_error
-        # errorhandler above.
-        result.get(timeout=3)
-        ready = True
-    except TimeoutError:
-        ready = False
-    return jsonify(observations={'task_id': task_id, 'ready': ready})
-
-
-@api.route('/samples/<int:sample_id>/observations', methods=['POST'])
+@api.route('/samples/<int:sample_id>/variations', methods=['GET'])
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-def observations_add(sample_id):
+def variations_list(sample_id):
+    """
+    Get variations in a sample.
+    """
+    # Todo.
+    #return jsonify(variations=[serialize(v) for v in Sample.query.get_or_404(sample_id).variations])
+    abort(501)
+
+
+@api.route('/samples/<int:sample_id>/variations/<int:variation_id>/import_status', methods=['GET'])
+@require_user
+@ensure(has_role('admin'), owns_sample, satisfy=any)
+def variations_get(sample_id, variation_id):
+    """
+    Get variation import status.
+    """
+    # Todo.
+    #return jsonify(variation=serialize(Variation.query.get_or_404(variation_id)))
+    abort(501)
+
+
+@api.route('/samples/<int:sample_id>/variations/<int:variation_id>/import_status', methods=['GET'])
+@require_user
+@ensure(has_role('admin'), owns_sample, satisfy=any)
+def variations_import_status(sample_id, variation_id):
+    """
+    Get variation import status.
+    """
+    # We can do all sorts of complex things with querying the task status
+    # but the task itself writes .imported=True when it is done, so it should
+    # be enough to just check for that.
+
+    #result = import_variation.AsyncResult(variation.import_task_uuid)
+    #try:
+    #    result.get(timeout=3)
+    #    ready = True
+    #except TimeoutError:
+    #    ready = False
+
+    # Todo: We might want to handle the special (error) case where .imported
+    #     is False but no .import_task_uuid is set, or the task with that uuid
+    #     is not running. Instead of ready=True/False maybe this needs a
+    #     status=pending/importing/ready and if it is pending a way to restart
+    #     the import (it is now automatically imported when the Variation
+    #     instance is created at .variations_add).
+    ready = Variation.query.get_or_404.imported
+    uri = url_for('.variations_get', sample_id=sample_id, variation_id=variation_id)
+    return jsonify(variation={'variation': uri, 'ready': ready})
+
+
+@api.route('/samples/<int:sample_id>/variations', methods=['POST'])
+@require_user
+@ensure(has_role('admin'), owns_sample, satisfy=any)
+def variations_add(sample_id):
     """
 
     Example usage::
 
-        curl -i -d 'data_source=/data_sources/3' http://127.0.0.1:5000/samples/1/observations
+        curl -i -d 'data_source=/data_sources/3' http://127.0.0.1:5000/samples/1/variations
     """
+    # Todo: Only if sample is not active.
+    # Todo: Check for importer role.
     data = request.json or request.form
     try:
         # Todo: Get internal ID in a more elegant way from URI
         data_source_id = int(data['data_source'].split('/')[-1])
     except (KeyError, ValueError):
         abort(400)
-    Sample.query.get_or_404(sample_id)
-    DataSource.query.get_or_404(data_source_id)
-    result = import_vcf.delay(sample_id, data_source_id)
-    log.info('Called task: import_vcf(%d, %d) %s', sample_id, data_source_id, result.task_id)
-    uri = url_for('.observations_wait', task_id=result.task_id)
-    response = jsonify(wait=uri)
+    sample = Sample.query.get_or_404(sample_id)
+    data_source = DataSource.query.get_or_404(data_source_id)
+    variation = Variation(sample, data_source)
+    db.session.add(variation)
+    db.session.commit()
+    log.info('Added variation: %r', variation)
+    result = import_variation.delay(variation.id)
+    log.info('Called task: import_variation(%d) %s', variation_id, result.task_id)
+    uri = url_for('.variations_import_status', sample_id=sample.id, variation_id=variation.id)
+    response = jsonify(import_status=uri)
     response.location = uri
     return response, 202
 
 
-@api.route('/regions/wait/<task_id>', methods=['GET'])
-@require_user
-def regions_wait(task_id):
-    """
-    Check status of import regions task.
-
-    .. todo:: Merge with other ``*_wait`` functions.
-    """
-    # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
-    # not get the task result afterwards anymore via .AsyncResult. We know it
-    # has been finished though, so we just return.
-    if current_app.config.get('CELERY_ALWAYS_EAGER'):
-        return jsonify(regions={'task_id': task_id, 'ready': True})
-    result = import_bed.AsyncResult(task_id)
-    try:
-        # This re-raises a possible TaskError, handled by the error_task_error
-        # errorhandler above.
-        result.get(timeout=3)
-        ready = True
-    except TimeoutError:
-        ready = False
-    return jsonify(regions={'task_id': task_id, 'ready': ready})
-
-
-@api.route('/samples/<int:sample_id>/regions', methods=['POST'])
+@api.route('/samples/<int:sample_id>/coverages', methods=['GET'])
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-def regions_add(sample_id):
+def coverages_list(sample_id):
+    """
+    Get coverages in a sample.
+    """
+    # Todo.
+    abort(501)
+
+
+@api.route('/samples/<int:sample_id>/coverages/<int:coverage_id>/import_status', methods=['GET'])
+@require_user
+@ensure(has_role('admin'), owns_sample, satisfy=any)
+def coverages_get(sample_id, coverage_id):
+    """
+    Get coverage import status.
+    """
+    # Todo.
+    abort(501)
+
+
+@api.route('/samples/<int:sample_id>/coverages/<int:coverage_id>/import_status', methods=['GET'])
+@require_user
+@ensure(has_role('admin'), owns_sample, satisfy=any)
+def coverages_import_status(sample_id, coverage_id):
+    """
+    Get coverage import status.
+    """
+    ready = Coverage.query.get_or_404.imported
+    uri = url_for('.coverages_get', sample_id=sample_id, coverage_id=coverage_id)
+    return jsonify(coverage={'coverage': uri, 'ready': ready})
+
+
+@api.route('/samples/<int:sample_id>/coverages', methods=['POST'])
+@require_user
+@ensure(has_role('admin'), owns_sample, satisfy=any)
+def coverages_add(sample_id):
     """
 
     Example usage::
 
-        curl -i -d 'data_source=3' http://127.0.0.1:5000/samples/1/regions
-
-    .. todo:: Check for importer role.
+        curl -i -d 'data_source=/data_sources/3' http://127.0.0.1:5000/samples/1/coverages
     """
+    # Todo: Only if sample is not active.
+    # Todo: Check for importer role.
     data = request.json or request.form
     try:
         # Todo: Get internal ID in a more elegant way from URI
         data_source_id = int(data['data_source'].split('/')[-1])
     except (KeyError, ValueError):
         abort(400)
-    result = import_bed.delay(sample_id, data_source_id)
-    log.info('Called task: import_bed(%d, %d) %s', sample_id, data_source_id, result.task_id)
-    uri = url_for('.regions_wait', task_id=result.task_id)
-    response = jsonify(wait=uri)
+    sample = Sample.query.get_or_404(sample_id)
+    data_source = DataSource.query.get_or_404(data_source_id)
+    coverage = Coverage(sample, data_source)
+    db.session.add(coverage)
+    db.session.commit()
+    log.info('Added coverage: %r', coverage)
+    result = import_coverage.delay(coverage.id)
+    log.info('Called task: import_coverage(%d) %s', coverage_id, result.task_id)
+    uri = url_for('.coverages_import_status', sample_id=sample.id, coverage_id=coverage.id)
+    response = jsonify(import_status=uri)
     response.location = uri
     return response, 202
 
@@ -512,6 +567,19 @@ def annotations_add(data_source_id):
             raise InvalidDataSource('inactive_data_source', 'Data source '
                 'cannot be annotated unless it is imported and active')
     data = request.json or request.form
+
+
+    # Todo: not done
+
+    data_source = DataSource(g.user, name, filetype, upload=data, local_path=local_path, gzipped=gzipped)
+    db.session.add(data_source)
+    db.session.commit()
+    log.info('Added data source: %r', data_source)
+
+
+
+
+
     result = annotate_vcf.delay(data_source_id, ignore_sample_ids=[])
     log.info('Called task: annotate_vcf(%d) %s', data_source_id, result.task_id)
     uri = url_for('.annotations_wait', task_id=result.task_id)

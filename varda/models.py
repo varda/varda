@@ -187,7 +187,7 @@ class DataSource(db.Model):
 
     user = db.relationship(User, backref=db.backref('data_sources', lazy='dynamic'))
 
-    def __init__(self, user, name, filetype, upload=None, local_path=None, gzipped=False):
+    def __init__(self, user, name, filetype, upload=None, local_path=None, empty=False, gzipped=False):
         if not filetype in DATA_SOURCE_FILETYPES:
             raise InvalidDataSource('unknown_filetype', 'Data source filetype is unknown')
 
@@ -211,7 +211,7 @@ class DataSource(db.Model):
         elif local_path is not None:
             os.symlink(local_path, filepath)
 
-        if not self.is_valid():
+        if not empty and not self.is_valid():
             os.unlink(filepath)
             raise InvalidDataSource('invalid_data', 'Data source cannot be read')
 
@@ -239,6 +239,22 @@ class DataSource(db.Model):
                 return gzip.open(filepath)
             else:
                 return open(filepath)
+        except EnvironmentError:
+            raise DataUnavailable('data_source_not_cached', 'Data source is not in the cache')
+
+    def data_writer(self):
+        """
+        Get open file-like handle to data contained in this data source for
+        writing.
+
+        .. note:: Be sure to close after calling this.
+        """
+        filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
+        try:
+            if self.gzipped:
+                return gzip.open(filepath, 'wb')
+            else:
+                return open(filepath, 'wb')
         except EnvironmentError:
             raise DataUnavailable('data_source_not_cached', 'Data source is not in the cache')
 
@@ -277,7 +293,7 @@ class Variation(db.Model):
     sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
     data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
     imported = db.Column(db.Boolean, default=False)
-    task_uuid = db.Column(db.String(36))
+    import_task_uuid = db.Column(db.String(36))
 
     sample = db.relationship(Sample, backref=db.backref('variations', lazy='dynamic'))
     data_source = db.relationship(DataSource, backref=db.backref('variations', lazy='dynamic'))
@@ -300,7 +316,7 @@ class Coverage(db.Model):
     sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
     data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
     imported = db.Column(db.Boolean, default=False)
-    task_uuid = db.Column(db.String(36))
+    import_task_uuid = db.Column(db.String(36))
 
     sample = db.relationship(Sample, backref=db.backref('coverages', lazy='dynamic'))
     data_source = db.relationship(DataSource, backref=db.backref('coverages', lazy='dynamic'))
@@ -322,6 +338,8 @@ class Annotation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     original_data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
     annotated_data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
+    written = db.Column(db.Boolean, default=False)
+    write_task_uuid = db.Column(db.String(36))
 
     original_data_source = db.relationship(DataSource, primaryjoin='DataSource.id==Annotation.original_data_source_id', backref=db.backref('annotations', lazy='dynamic'))
     annotated_data_source = db.relationship(DataSource, primaryjoin='DataSource.id==Annotation.annotated_data_source_id', backref=db.backref('annotation', uselist=False, lazy='dynamic'))

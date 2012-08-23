@@ -21,7 +21,7 @@ from vcf.utils import trim_common_suffix
 import vcf
 
 from . import db, celery
-from .models import Annotation, DataSource, DataUnavailable, Observation, Sample, Region, Variant
+from .models import Coverage, Variation, Annotation, DataSource, DataUnavailable, Observation, Sample, Region, Variant
 from .region_binning import all_bins
 
 
@@ -216,7 +216,7 @@ def import_variation(variation_id):
     if variation.imported:
         raise TaskError('variation_imported', 'Variation already imported')
 
-    if variation.task_uuid is not None:
+    if variation.import_task_uuid is not None:
         # Todo: Check somehow if the importing task is still running.
         # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
         raise TaskError('variation_importing', 'Variation is being imported')
@@ -268,7 +268,7 @@ def import_coverage(coverage_id):
     if coverage.imported:
         raise TaskError('coverage_imported', 'Coverage already imported')
 
-    if coverage.task_uuid is not None:
+    if coverage.import_task_uuid is not None:
         # Todo: Check somehow if the importing task is still running.
         # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
         raise TaskError('coverage_importing', 'Coverage is being imported')
@@ -297,11 +297,11 @@ def import_coverage(coverage_id):
 
 
 @celery.task
-def annotate_vcf(data_source_id, ignore_sample_ids=None):
+def write_annotation(annotation_id, ignore_sample_ids=None):
     """
-    Annotate variants in VCF file.
+    Annotate variants with frequencies from the database.
     """
-    logger.info('Started task: annotate_vcf(%d)', data_source_id)
+    logger.info('Started task: write_annotation(%d)', annotation_id)
 
     ignore_sample_ids = ignore_sample_ids or []
 
