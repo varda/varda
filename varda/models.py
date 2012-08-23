@@ -88,11 +88,12 @@ class User(db.Model):
         self.added = date.today()
 
     def __repr__(self):
-        return '<User %s identified by %s added %s is %s>' % (self.name, self.login, str(self.added), ', '.join(self.roles()))
+        return 'User(%r, %r, %r, %r)' % (self.name, self.login, '***', list(self.roles))
 
     def check_password(self, password):
         return bcrypt.hashpw(password, self.password_hash) == self.password_hash
 
+    @property
     def roles(self):
         return {role for i, role in enumerate(USER_ROLES)
                 if self.roles_bitstring & pow(2, i)}
@@ -121,8 +122,8 @@ class Variant(db.Model):
         self.bin = assign_bin(self.begin, self.end)
 
     def __repr__(self):
-        return '<Variant %s at chr%s:%i-%i>' % (
-            self.variant, self.chromosome, self.begin, self.end)
+        return 'Variant(%r, %r, %r, %r, %r)' % (
+            self.chromosome, self.begin, self.end, self.reference, self.variant)
 
 
 Index('variant_location',
@@ -162,7 +163,7 @@ class Sample(db.Model):
         self.public = public
 
     def __repr__(self):
-        return '<Sample %s of %i added %s by %r>' % (self.name, self.pool_size, str(self.added), self.user)
+        return '<Sample "%s" of %d individuals added %s>' % (self.name, self.pool_size, str(self.added))
 
 
 class DataSource(db.Model):
@@ -216,15 +217,7 @@ class DataSource(db.Model):
             raise InvalidDataSource('invalid_data', 'Data source cannot be read')
 
     def __repr__(self):
-        return '<DataSource %s as %s added %s by %r>' % (self.name, self.filetype, str(self.added), self.user)
-
-    @property
-    def imported(self):
-        return self.sample_id is not None
-
-    @property
-    def active(self):
-        return self.imported and self.sample.active
+        return '<DataSource "%s" as %s added %s>' % (self.name, self.filetype, str(self.added))
 
     def data(self):
         """
@@ -303,7 +296,7 @@ class Variation(db.Model):
         self.data_source = data_source
 
     def __repr__(self):
-        return '<Variation from %r on %r>' % (self.data_source, self.sample)
+        return '<Variation ...>'
 
 
 class Coverage(db.Model):
@@ -326,7 +319,7 @@ class Coverage(db.Model):
         self.data_source = data_source
 
     def __repr__(self):
-        return '<Coverage from %r on %r>' % (self.data_source, self.sample)
+        return '<Coverage ...>'
 
 
 class Annotation(db.Model):
@@ -349,7 +342,7 @@ class Annotation(db.Model):
         self.annotated_data_source = annotated_data_source
 
     def __repr__(self):
-        return '<Annotation %r of %r>' % (self.annoated_data_source, self.original_data_source)
+        return '<Annotation ...>'
 
 
 class Observation(db.Model):
@@ -379,7 +372,7 @@ class Observation(db.Model):
         self.support = support
 
     def __repr__(self):
-        return '<Observation %r from %r>' % (self.variant, self.sample_data)
+        return '<Observation ...>'
 
 
 class Region(db.Model):
@@ -405,7 +398,7 @@ class Region(db.Model):
         self.bin = assign_bin(self.begin, self.end)
 
     def __repr__(self):
-        return '<Region from %r at chr%s:%i-%i>' % (self.sample_data, self.chromosome, self.begin, self.end)
+        return '<Region chr%s:%i-%i>' % (self.chromosome, self.begin, self.end)
 
 
 Index('region_location',

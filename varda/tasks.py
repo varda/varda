@@ -21,7 +21,7 @@ from vcf.utils import trim_common_suffix
 import vcf
 
 from . import db, celery
-from .models import Coverage, Variation, Annotation, DataSource, DataUnavailable, Observation, Sample, Region, Variant
+from .models import Annotation, Coverage, DataSource, DataUnavailable, Observation, Sample, Region, Variant, Variation
 from .region_binning import all_bins
 
 
@@ -77,55 +77,55 @@ def database_task(cleanup=None):
         db.session.commit()
 
 
-def _write_annotation(vcf, annotation, ignore_sample_ids=None):
+def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', ignore_sample_ids=None):
     """
-    .. todo:: Instead of reading from an open VCF, read from an abstracted
-        variant reader.
-
     .. todo:: Merge back population study annotation (see implementation in
         the old-population-study branch).
-
-    .. todo:: Use support field (and possibly total_coverage,
-        variant_coverage) for population studies.
     """
     ignore_sample_ids = ignore_sample_ids or []
 
-    reader = pyvcf.Reader(vcf)
+    if original_filetype != 'vcf':
+        raise ReadError('Original data must be in VCF format')
+
+    if annotated_filetype != 'vcf':
+        raise ReadError('Annotated data must be in VCF format')
+
+    reader = vcf.Reader(original_variants)
 
     reader.infos['OBS'] = VcfInfo('OBS', vcf_field_counts['A'], 'Integer',
         'Samples with variant (out of %i)' % Sample.query.count())
     reader.infos['COV'] = VcfInfo('COV', vcf_field_counts['A'], 'Integer',
         'Samples with coverage (out of %i)' % Sample.query.count())
-    writer = pyvcf.Writer(annotation, reader, lineterminator='\n')
+    writer = vcf.Writer(annotated_variants, reader, lineterminator='\n')
 
-    for entry in reader:
-        chrom = normalize_chromosome(entry.CHROM)
+    for record in reader:
+        chrom = normalize_chromosome(record.CHROM)
 
         observations = []
         coverage = []
-        for index, allele in enumerate(entry.ALT):
-            reference, allele = trim_common_suffix(entry.REF.upper(),
+        for index, allele in enumerate(record.ALT):
+            reference, allele = trim_common_suffix(record.REF.upper(),
                                                    str(allele).upper())
-            if 'INDEL' in entry.INFO and len(reference) >= len(allele):
-                end = entry.POS + len(reference) - 1
+            if 'INDEL' in record.INFO and len(reference) >= len(allele):
+                end = record.POS + len(reference) - 1
             else:
-                end = entry.POS
-            bins = all_bins(entry.POS, end)
+                end = record.POS
+            bins = all_bins(record.POS, end)
 
             try:
-                variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=reference, variant=allele).one()
-                observations.append(variant.observations.join(DataSource).filter(~DataSource.sample_id.in_(ignore_sample_ids)).count())
+                variant = Variant.query.filter_by(chromosome=chrom, begin=record.POS, end=end, reference=reference, variant=allele).one()
+                observations.append(variant.observations.join(Variation).filter(~Variation.sample_id.in_(ignore_sample_ids)).count())
             except NoResultFound:
                 observations.append(0)
-            coverage.append(Region.query.join(DataSource).filter(Region.chromosome == chrom,
-                                                                 Region.begin <= entry.POS,
-                                                                 Region.end >= end,
-                                                                 Region.bin.in_(bins),
-                                                                 ~DataSource.sample_id.in_(ignore_sample_ids)).count())
+            coverage.append(Region.query.join(Coverage).filter(Region.chromosome == chrom,
+                                                               Region.begin <= record.POS,
+                                                               Region.end >= end,
+                                                               Region.bin.in_(bins),
+                                                               ~Coverage.sample_id.in_(ignore_sample_ids)).count())
 
-        entry.add_info('OBS', observations)
-        entry.add_info('COV', coverage)
-        writer.write_record(entry)
+        record.add_info('OBS', observations)
+        record.add_info('COV', coverage)
+        writer.write_record(record)
 
 
 def read_observations(observations, filetype='vcf'):
@@ -221,6 +221,11 @@ def import_variation(variation_id):
         # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
         raise TaskError('variation_importing', 'Variation is being imported')
 
+    # Todo: This has a possible race condition, but I'm not bothered to fix it
+    #     at the moment. Reading and setting import_task_uuid should be an
+    #     atomic action.
+    variation.import_task_uuid = import_variation.request.id
+
     try:
         data = variation.data_source.data()
     except DataUnavailable as e:
@@ -273,6 +278,11 @@ def import_coverage(coverage_id):
         # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
         raise TaskError('coverage_importing', 'Coverage is being imported')
 
+    # Todo: This has a possible race condition, but I'm not bothered to fix it
+    #     at the moment. Reading and setting import_task_uuid should be an
+    #     atomic action.
+    coverage.import_task_uuid = import_coverage.request.id
+
     try:
         data = coverage.data_source.data()
     except DataUnavailable as e:
@@ -305,31 +315,39 @@ def write_annotation(annotation_id, ignore_sample_ids=None):
 
     ignore_sample_ids = ignore_sample_ids or []
 
-    data_source = DataSource.query.get(data_source_id)
-    if not data_source:
-        raise TaskError('data_source_not_found', 'Data source not found')
+    annotation = Annotation.query.get(annotation_id)
+    if annotation is None:
+        raise TaskError('annotation_not_found', 'Annotation not found')
+
+    if annotation.written:
+        raise TaskError('annotation_written', 'Annotation already written')
+
+    if annotation.write_task_uuid is not None:
+        # Todo: Check somehow if the writing task is still running.
+        # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
+        raise TaskError('annotation_writing', 'Annotation is being written')
+
+    # Todo: This has a possible race condition, but I'm not bothered to fix it
+    #     at the moment. Reading and setting write_task_uuid should be an
+    #     atomic action.
+    annotation.write_task_uuid = write_annotation.request.id
 
     try:
-        vcf = data_source.data()
+        original_data = annotation.original_data_source.data()
+        annotated_data = annotation.annotated_data_source.data_writer()
     except DataUnavailable as e:
         raise TaskError(e.code, e.message)
 
-    annotation = Annotation(data_source)
-    annotation_data = annotation.data_writer()
+    with original_data as original_variants, annotated_data as annotated_variants:
+        annotate_variants(original_variants, annotated_variants,
+                          original_filetype=annotation.original_data_source.filetype,
+                          annotated_filetype=annotation.annotated_data_source.filetype,
+                          ignore_sample_ids=ignore_sample_ids)
 
-    # Todo: Use context manager that deletes annotation file on error.
-    # Todo: In these kind of situations, maybe we also need to make sure that
-    #    the Annotation instance is deleted?
-    with vcf as vcf, annotation_data as annotation_data:
-        # Todo: Create some sort of abstracted variant reader from the vcf
-        #     file and pass that to annotate_variants.
-        _write_annotation(vcf, annotation_data, ignore_sample_ids)
-
-    db.session.add(annotation)
+    annotation.written = True
     db.session.commit()
 
-    logger.info('Finished task: annotate_vcf(%d)', data_source_id)
-    return annotation.id
+    logger.info('Finished task: write_annotation(%d)', annotation_id)
 
 
 @celery.task

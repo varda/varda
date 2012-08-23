@@ -11,7 +11,7 @@ from functools import wraps
 
 from flask import url_for
 
-from ..models import Annotation, DataSource, InvalidDataSource, Sample, User
+from ..models import Annotation, Coverage, DataSource, InvalidDataSource, Sample, User, Variation
 from ..tasks import TaskError
 
 
@@ -41,7 +41,7 @@ def serialize_user(instance):
     return {'uri':   url_for('.users_get', login=instance.login),
             'name':  instance.name,
             'login': instance.login,
-            'roles': list(instance.roles()),
+            'roles': list(instance.roles),
             'added': str(instance.added)}
 
 
@@ -83,11 +83,9 @@ def serialize_annotation(instance):
     """
     Create a RESTfull representation of an annotation as dictionary.
     """
-    return {'uri':                    url_for('.annotations_get', data_source_id=instance.data_source_id, annotation_id=instance.id),
-            'original_data_source':   url_for('.data_sources_get', data_source_id=instance.original_data_source_id),
-            'annotation_data_source': url_for('.data_sources_get', data_source_id=instance.annotated_data_source_id),
-            'gzipped':                instance.data_source.gzipped,
-            'added':                  str(instance.added)}
+    return {'uri':                   url_for('.annotations_get', data_source_id=instance.original_data_source_id, annotation_id=instance.id),
+            'original_data_source':  url_for('.data_sources_get', data_source_id=instance.original_data_source_id),
+            'annotated_data_source': url_for('.data_sources_get', data_source_id=instance.annotated_data_source_id)}
 
 
 @serializes(Sample)
@@ -97,8 +95,8 @@ def serialize_sample(instance):
     """
     return {'uri':                url_for('.samples_get', sample_id=instance.id),
             'user':               url_for('.users_get', login=instance.user.login),
-            'observations':       url_for('.observations_add', sample_id=instance.id),
-            'regions':            url_for('.regions_add', sample_id=instance.id),
+            'variations':         url_for('.variations_list', sample_id=instance.id),
+            'coverages':          url_for('.coverages_list', sample_id=instance.id),
             'name':               instance.name,
             'coverage_threshold': instance.coverage_threshold,
             'pool_size':          instance.pool_size,

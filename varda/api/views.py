@@ -21,6 +21,9 @@ REST server views.
     HTTP range headers. This is related to sorting and filtering. See e.g.
     `this document <http://dojotoolkit.org/reference-guide/quickstart/rest.html>`_.
 
+.. todo:: Less granular API, e.g. way to import and annotate sample with fewer
+    requests.
+
 .. todo:: Use accept HTTP headers.
 .. todo:: `Correctly use HTTP verbs <http://news.ycombinator.com/item?id=3514668>`_.
 
@@ -38,7 +41,7 @@ from celery.exceptions import TimeoutError
 from flask import abort, Blueprint, current_app, g, jsonify, redirect, request, send_from_directory, url_for
 
 from .. import db, log
-from ..models import Annotation, DataSource, InvalidDataSource, Observation, Sample, User, Variant
+from ..models import Annotation, Coverage, DataSource, InvalidDataSource, Observation, Sample, User, Variant, Variation
 from ..tasks import write_annotation, import_variation, import_coverage, TaskError
 from .permissions import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
 from .serialize import serialize
@@ -295,12 +298,12 @@ def variations_list(sample_id):
     abort(501)
 
 
-@api.route('/samples/<int:sample_id>/variations/<int:variation_id>/import_status', methods=['GET'])
+@api.route('/samples/<int:sample_id>/variations/<int:variation_id>', methods=['GET'])
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def variations_get(sample_id, variation_id):
     """
-    Get variation import status.
+    Get variation.
     """
     # Todo.
     #return jsonify(variation=serialize(Variation.query.get_or_404(variation_id)))
@@ -333,7 +336,7 @@ def variations_import_status(sample_id, variation_id):
     #     instance is created at .variations_add).
     ready = Variation.query.get_or_404(variation_id).imported
     uri = url_for('.variations_get', sample_id=sample_id, variation_id=variation_id)
-    return jsonify(variation={'variation': uri, 'ready': ready})
+    return jsonify(status={'variation': uri, 'ready': ready})
 
 
 @api.route('/samples/<int:sample_id>/variations', methods=['POST'])
@@ -363,7 +366,7 @@ def variations_add(sample_id):
     result = import_variation.delay(variation.id)
     log.info('Called task: import_variation(%d) %s', variation.id, result.task_id)
     uri = url_for('.variations_import_status', sample_id=sample.id, variation_id=variation.id)
-    response = jsonify(import_status=uri)
+    response = jsonify(variation_import_status=uri)
     response.location = uri
     return response, 202
 
@@ -379,12 +382,12 @@ def coverages_list(sample_id):
     abort(501)
 
 
-@api.route('/samples/<int:sample_id>/coverages/<int:coverage_id>/import_status', methods=['GET'])
+@api.route('/samples/<int:sample_id>/coverages/<int:coverage_id>', methods=['GET'])
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def coverages_get(sample_id, coverage_id):
     """
-    Get coverage import status.
+    Get coverage.
     """
     # Todo.
     abort(501)
@@ -399,7 +402,7 @@ def coverages_import_status(sample_id, coverage_id):
     """
     ready = Coverage.query.get_or_404(coverage_id).imported
     uri = url_for('.coverages_get', sample_id=sample_id, coverage_id=coverage_id)
-    return jsonify(coverage={'coverage': uri, 'ready': ready})
+    return jsonify(status={'coverage': uri, 'ready': ready})
 
 
 @api.route('/samples/<int:sample_id>/coverages', methods=['POST'])
@@ -429,7 +432,7 @@ def coverages_add(sample_id):
     result = import_coverage.delay(coverage.id)
     log.info('Called task: import_coverage(%d) %s', coverage.id, result.task_id)
     uri = url_for('.coverages_import_status', sample_id=sample.id, coverage_id=coverage.id)
-    response = jsonify(import_status=uri)
+    response = jsonify(coverage_import_status=uri)
     response.location = uri
     return response, 202
 
@@ -454,7 +457,7 @@ def data_sources_get(data_source_id):
     return jsonify(data_source=serialize(DataSource.query.get_or_404(data_source_id)))
 
 
-@api.route('/data_sources/<int:data_source_id>', methods=['GET'])
+@api.route('/data_sources/<int:data_source_id>/data', methods=['GET'])
 @require_user
 @ensure(has_role('admin'), owns_data_source, satisfy=any)
 def data_sources_data(data_source_id):
@@ -528,7 +531,7 @@ def annotations_write_status(data_source_id, annotation_id):
     """
     ready = Annotation.query.get_or_404(annotation_id).written
     uri = url_for('.annotations_get', data_source_id=data_source_id, annotation_id=annotation_id)
-    return jsonify(annotation={'annotation': uri, 'ready': ready})
+    return jsonify(status={'annotation': uri, 'ready': ready})
 
 
 @api.route('/data_sources/<int:data_source_id>/annotations', methods=['POST'])
@@ -549,17 +552,17 @@ def annotations_add(data_source_id):
     # - admin
     # - owns_data_source AND annotator
     # - owns_data_source AND trader
-
-    if 'admin' not in g.user.roles() and 'annotator' not in g.user.roles():
-        # This is a trader, so check if the data source has been imported in
-        # an active sample.
-        # Todo: Anyone should be able to annotate against the public samples.
-        if not DataSource.query.get(data_source_id).active:
-            raise InvalidDataSource('inactive_data_source', 'Data source '
-                'cannot be annotated unless it is imported and active')
     data = request.json or request.form
 
     original_data_source = DataSource.query.get_or_404(data_source_id)
+
+    if 'admin' not in g.user.roles and 'annotator' not in g.user.roles:
+        # This is a trader, so check if the data source has been imported in
+        # an active sample.
+        # Todo: Anyone should be able to annotate against the public samples.
+        if not original_data_source.variations.join(Sample).filter_by(active=True).count():
+            raise InvalidDataSource('inactive_data_source', 'Data source '
+                'cannot be annotated unless it is imported in an active sample')
 
     annotated_data_source = DataSource(g.user, '%s (annotated)' % original_data_source.name, original_data_source.filetype, empty=True, gzipped=True)
     db.session.add(annotated_data_source)
@@ -573,7 +576,7 @@ def annotations_add(data_source_id):
     result = write_annotation.delay(annotation.id)
     log.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
     uri = url_for('.annotations_write_status', data_source_id=original_data_source.id, annotation_id=annotation.id)
-    response = jsonify(write_status=uri)
+    response = jsonify(annotation_write_status=uri)
     response.location = uri
     return response, 202
 

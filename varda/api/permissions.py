@@ -52,7 +52,7 @@ def ensure(*conditions, **options):
     the ``require_user`` decorator first, for example::
 
         >>> def is_admin():
-        ...     return 'admin' in g.user.roles()
+        ...     return 'admin' in g.user.roles
         ...
         >>> @app.route('/samples', methods=['GET'])
         >>> @require_user
@@ -167,7 +167,7 @@ def has_role(role):
         if there are unrelated keyword arguments for the decorated rule.
     """
     def condition(**_):
-        return g.user is not None and role in g.user.roles()
+        return g.user is not None and role in g.user.roles
     return condition
 
 
