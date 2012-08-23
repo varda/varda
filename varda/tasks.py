@@ -83,6 +83,8 @@ def import_variants(vcf, data_source, use_genotypes=True):
     reader = pyvcf.Reader(vcf)
 
     for entry in reader:
+        # Todo: Check if it is in settings.CHROMOSOMES, but support
+        #     defaultdict (allowing any chromosome).
         chrom = normalize_chromosome(entry.CHROM)
 
         # DP: Raw read depth.
