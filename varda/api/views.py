@@ -331,7 +331,7 @@ def variations_import_status(sample_id, variation_id):
     #     status=pending/importing/ready and if it is pending a way to restart
     #     the import (it is now automatically imported when the Variation
     #     instance is created at .variations_add).
-    ready = Variation.query.get_or_404.imported
+    ready = Variation.query.get_or_404(variation_id).imported
     uri = url_for('.variations_get', sample_id=sample_id, variation_id=variation_id)
     return jsonify(variation={'variation': uri, 'ready': ready})
 
@@ -361,7 +361,7 @@ def variations_add(sample_id):
     db.session.commit()
     log.info('Added variation: %r', variation)
     result = import_variation.delay(variation.id)
-    log.info('Called task: import_variation(%d) %s', variation_id, result.task_id)
+    log.info('Called task: import_variation(%d) %s', variation.id, result.task_id)
     uri = url_for('.variations_import_status', sample_id=sample.id, variation_id=variation.id)
     response = jsonify(import_status=uri)
     response.location = uri
@@ -397,7 +397,7 @@ def coverages_import_status(sample_id, coverage_id):
     """
     Get coverage import status.
     """
-    ready = Coverage.query.get_or_404.imported
+    ready = Coverage.query.get_or_404(coverage_id).imported
     uri = url_for('.coverages_get', sample_id=sample_id, coverage_id=coverage_id)
     return jsonify(coverage={'coverage': uri, 'ready': ready})
 
@@ -427,7 +427,7 @@ def coverages_add(sample_id):
     db.session.commit()
     log.info('Added coverage: %r', coverage)
     result = import_coverage.delay(coverage.id)
-    log.info('Called task: import_coverage(%d) %s', coverage_id, result.task_id)
+    log.info('Called task: import_coverage(%d) %s', coverage.id, result.task_id)
     uri = url_for('.coverages_import_status', sample_id=sample.id, coverage_id=coverage.id)
     response = jsonify(import_status=uri)
     response.location = uri
@@ -439,7 +439,7 @@ def coverages_add(sample_id):
 @ensure(has_role('admin'))
 def data_sources_list():
     """
-    List all uploaded files.
+    List all data_sources.
     """
     return jsonify(data_sources=[serialize(d) for d in DataSource.query])
 
@@ -449,9 +449,21 @@ def data_sources_list():
 @ensure(has_role('admin'), owns_data_source, satisfy=any)
 def data_sources_get(data_source_id):
     """
-    Get an uploaded file id.
+    Get data source.
     """
     return jsonify(data_source=serialize(DataSource.query.get_or_404(data_source_id)))
+
+
+@api.route('/data_sources/<int:data_source_id>', methods=['GET'])
+@require_user
+@ensure(has_role('admin'), owns_data_source, satisfy=any)
+def data_sources_data(data_source_id):
+    """
+    Download data source data.
+    """
+    data_source = DataSource.query.get_or_404(data_source_id)
+    # Todo: Choose mimetype.
+    return send_from_directory(current_app.config['FILES_DIR'], data_source.filename, mimetype='application/x-gzip')
 
 
 @api.route('/data_sources', methods=['POST'])
@@ -502,42 +514,21 @@ def annotations_get(data_source_id, annotation_id):
     Get annotated version of a data source.
     """
     annotation = Annotation.query.get_or_404(annotation_id)
-    if annotation.data_source_id != data_source_id:
+    if not annotation.written:
         abort(404)
-    return send_from_directory(*os.path.split(annotation.local_path()), mimetype='application/x-gzip')
+    return jsonify(annotation=serialize(annotation))
 
 
-@api.route('/annotations/wait/<task_id>', methods=['GET'])
+@api.route('/data_sources/<int:data_source_id>/annotations/<int:annotation_id>/write_status', methods=['GET'])
 @require_user
-def annotations_wait(task_id):
+@ensure(has_role('admin'), owns_data_source, satisfy=any)
+def annotations_write_status(data_source_id, annotation_id):
     """
-    Wait for annotated version of a data source.
-
-    .. todo:: Merge with other ``*_wait`` functions.
+    Get annotation write status.
     """
-    # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
-    # not get the task result afterwards anymore via .AsyncResult. We know it
-    # has been finished though, so we just return.
-    # This does mean that we cannot add the full annotation data to this
-    # response. See annotations_add for how to get this in the unit tests.
-    # Note that the API thus diverges a bit for the unit tests.
-    if current_app.config.get('CELERY_ALWAYS_EAGER'):
-        return jsonify(annotation={'task_id': task_id, 'ready': True})
-    annotation = {'task_id': task_id}
-    result = annotate_vcf.AsyncResult(task_id)
-    try:
-        # This re-raises a possible TaskError, handled by the error_task_error
-        # errorhandler above.
-        # Todo: There is no permissions checking in this view, so we shouldn't
-        #     have any data in the response. The issue is that the client
-        #     needs the URI to the created Annotation (this is not needed in
-        #     the other *_wait views). Perhaps do an additional check on
-        #     ownership and a possible 403 response?
-        annotation.update(serialize(Annotation.query.get(result.get(timeout=3))))
-        annotation['ready'] = True
-    except TimeoutError:
-        annotation['ready'] = False
-    return jsonify(annotation=annotation)
+    ready = Annotation.query.get_or_404(annotation_id).written
+    uri = url_for('.annotations_get', data_source_id=data_source_id, annotation_id=annotation_id)
+    return jsonify(annotation={'annotation': uri, 'ready': ready})
 
 
 @api.route('/data_sources/<int:data_source_id>/annotations', methods=['POST'])
@@ -568,30 +559,21 @@ def annotations_add(data_source_id):
                 'cannot be annotated unless it is imported and active')
     data = request.json or request.form
 
+    original_data_source = DataSource.query.get_or_404(data_source_id)
 
-    # Todo: not done
-
-    data_source = DataSource(g.user, name, filetype, upload=data, local_path=local_path, gzipped=gzipped)
-    db.session.add(data_source)
+    annotated_data_source = DataSource(g.user, '%s (annotated)' % original_data_source.name, original_data_source.filetype, empty=True, gzipped=True)
+    db.session.add(annotated_data_source)
+    annotation = Annotation(original_data_source, annotated_data_source)
+    db.session.add(annotation)
     db.session.commit()
-    log.info('Added data source: %r', data_source)
+    log.info('Added data source: %r', annotated_data_source)
+    log.info('Added annotation: %r', annotation)
 
 
-
-
-
-    result = annotate_vcf.delay(data_source_id, ignore_sample_ids=[])
-    log.info('Called task: annotate_vcf(%d) %s', data_source_id, result.task_id)
-    uri = url_for('.annotations_wait', task_id=result.task_id)
-    # In our unit tests we use CELERY_ALWAYS_EAGER, but in that case we can
-    # not get the task result afterwards anymore via .AsyncResult. We know it
-    # has been finished directly though, so we just add the resulting
-    # annotation to this response, so it can be used in the unit tests.
-    # Note that the API thus diverges a bit for the unit tests.
-    if current_app.config.get('CELERY_ALWAYS_EAGER'):
-        response = jsonify(wait=uri, annotation=serialize(Annotation.query.get(result.result)))
-    else:
-        response = jsonify(wait=uri)
+    result = write_annotation.delay(annotation.id)
+    log.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
+    uri = url_for('.annotations_write_status', data_source_id=original_data_source.id, annotation_id=annotation.id)
+    response = jsonify(write_status=uri)
     response.location = uri
     return response, 202
 

@@ -56,7 +56,26 @@ def serialize_data_source(instance):
             'name':        instance.name,
             'filetype':    instance.filetype,
             'gzipped':     instance.gzipped,
-            'added':       str(instance.added)}
+            'added':       str(instance.added),
+            'data':        url_for('.data_sources_data', data_source_id=instance.id)}
+
+
+@serializes(Variation)
+def serialize_variation(instance):
+    """
+    Create a RESTfull representation of a variation as dictionary.
+    """
+    return {'uri':         url_for('.variations_get', sample_id=instance.sample_id, variation_id=instance.id),
+            'data_source': url_for('.data_sources_get', data_source_id=instance.data_source_id)}
+
+
+@serializes(Coverage)
+def serialize_coverage(instance):
+    """
+    Create a RESTfull representation of a coverage as dictionary.
+    """
+    return {'uri':         url_for('.coverages_get', sample_id=instance.sample_id, coverage_id=instance.id),
+            'data_source': url_for('.data_sources_get', data_source_id=instance.data_source_id)}
 
 
 @serializes(Annotation)
@@ -64,10 +83,11 @@ def serialize_annotation(instance):
     """
     Create a RESTfull representation of an annotation as dictionary.
     """
-    return {'uri':         url_for('.annotations_get', data_source_id=instance.data_source_id, annotation_id=instance.id),
-            'data_source': url_for('.data_sources_get', data_source_id=instance.data_source_id),
-            'gzipped':     instance.data_source.gzipped,
-            'added':       str(instance.added)}
+    return {'uri':                    url_for('.annotations_get', data_source_id=instance.data_source_id, annotation_id=instance.id),
+            'original_data_source':   url_for('.data_sources_get', data_source_id=instance.original_data_source_id),
+            'annotation_data_source': url_for('.data_sources_get', data_source_id=instance.annotated_data_source_id),
+            'gzipped':                instance.data_source.gzipped,
+            'added':                  str(instance.added)}
 
 
 @serializes(Sample)
