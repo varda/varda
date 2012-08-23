@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from vcf.parser import _Info as VcfInfo, field_counts as vcf_field_counts
 from vcf.utils import trim_common_suffix
-import vcf as pyvcf
+import vcf
 
 from . import db, celery
 from .models import Annotation, DataSource, DataUnavailable, Observation, Sample, Region, Variant
@@ -26,6 +26,13 @@ from .region_binning import all_bins
 
 
 logger = get_task_logger(__name__)
+
+
+class ReadError(Exception):
+    """
+    Exception thrown on failed data reading.
+    """
+    pass
 
 
 class TaskError(Exception):
@@ -70,78 +77,7 @@ def database_task(cleanup=None):
         db.session.commit()
 
 
-def import_variants(vcf, data_source, use_genotypes=True):
-    """
-    .. todo:: Instead of reading from an open VCF, read from an abstracted
-        variant reader.
-
-    .. todo:: Rename import_variants to import_observations?
-
-    .. todo:: Merge back population study importing (see implementation in the
-        old-population-study branch).
-    """
-    reader = pyvcf.Reader(vcf)
-
-    for entry in reader:
-        # Todo: Check if it is in settings.CHROMOSOMES, but support
-        #     defaultdict (allowing any chromosome).
-        chrom = normalize_chromosome(entry.CHROM)
-
-        # DP: Raw read depth.
-        if 'DP4' not in entry.INFO:
-            coverage = entry.INFO['DP']
-
-            # AF: Allele Frequency, for each ALT allele, in the same order as
-            # listed.
-            if 'AF' in entry.INFO:
-                if isinstance(entry.INFO['AF'], (list, tuple)):
-                    # Todo: Shouldn't we use an AF entry per allele?
-                    support = coverage * entry.INFO['AF'][0]
-                else:
-                    support = coverage * entry.INFO['AF']
-            # AF1: EM estimate of the site allele frequency of the strongest
-            # non-reference allele.
-            elif 'AF1' in entry.INFO:
-                support = coverage * entry.INFO['AF1']
-            else:
-                raise TaskError('data_source_invalid',
-                                'Cannot read variant support')
-
-        else:
-            # DP4: Number of 1) forward ref alleles; 2) reverse ref;
-            # 3) forward non-ref; 4) reverse non-ref alleles, used in variant
-            # calling. Sum can be smaller than DP because low-quality bases
-            # are not counted.
-            coverage = sum(entry.INFO['DP4'])
-            support = sum(entry.INFO['DP4'][2:])
-
-        for index, allele in enumerate(entry.ALT):
-            reference, allele = trim_common_suffix(entry.REF.upper(),
-                                                   str(allele).upper())
-            if 'INDEL' in entry.INFO and len(reference) >= len(allele):
-                end = entry.POS + len(reference) - 1
-            else:
-                end = entry.POS
-
-            try:
-                variant = Variant.query.filter_by(chromosome=chrom, begin=entry.POS, end=end, reference=reference, variant=allele).one()
-            except NoResultFound:
-                variant = Variant(chrom, entry.POS, end, reference, allele)
-                db.session.add(variant)
-                db.session.commit()
-            try:
-                # Todo: variant_coverage calculation is not correct with
-                #     multiple non-ref alleles.
-                observation = Observation(variant, data_source, total_coverage=coverage, variant_coverage=(support // len(entry.ALT)))
-            except IntegrityError:
-                # This should never happen since we check this above.
-                # Todo: Is this true?
-                raise TaskError('data_source_imported', 'Observation already exists')
-            db.session.add(observation)
-            db.session.commit()
-
-
-def write_annotation(vcf, annotation, ignore_sample_ids=None):
+def _write_annotation(vcf, annotation, ignore_sample_ids=None):
     """
     .. todo:: Instead of reading from an open VCF, read from an abstracted
         variant reader.
@@ -192,94 +128,172 @@ def write_annotation(vcf, annotation, ignore_sample_ids=None):
         writer.write_record(entry)
 
 
+def read_observations(observations, filetype='vcf'):
+    # Todo: Merge back population study importing (see implementation in the
+    #     old-population-study branch).
+    if filetype != 'vcf':
+        raise ReadError('Data must be in VCF format')
+
+    reader = vcf.Reader(observations)
+
+    for record in reader:
+        # Todo: Check if it is in settings.CHROMOSOMES, but support
+        #     defaultdict (allowing any chromosome).
+        chrom = normalize_chromosome(record.CHROM)
+
+        # DP: Raw read depth.
+        if 'DP4' not in record.INFO:
+            coverage = record.INFO['DP']
+
+            # AF: Allele Frequency, for each ALT allele, in the same order as
+            # listed.
+            if 'AF' in record.INFO:
+                if isinstance(record.INFO['AF'], (list, tuple)):
+                    # Todo: Shouldn't we use an AF record per allele?
+                    support = coverage * record.INFO['AF'][0]
+                else:
+                    support = coverage * record.INFO['AF']
+            # AF1: EM estimate of the site allele frequency of the strongest
+            # non-reference allele.
+            elif 'AF1' in record.INFO:
+                support = coverage * record.INFO['AF1']
+            else:
+                raise TaskError('data_source_invalid',
+                                'Cannot read variant support')
+
+        else:
+            # DP4: Number of 1) forward ref alleles; 2) reverse ref;
+            # 3) forward non-ref; 4) reverse non-ref alleles, used in variant
+            # calling. Sum can be smaller than DP because low-quality bases
+            # are not counted.
+            coverage = sum(record.INFO['DP4'])
+            support = sum(record.INFO['DP4'][2:])
+
+        for index, allele in enumerate(record.ALT):
+            reference, allele = trim_common_suffix(record.REF.upper(),
+                                                   str(allele).upper())
+            if 'INDEL' in record.INFO and len(reference) >= len(allele):
+                end = record.POS + len(reference) - 1
+            else:
+                end = record.POS
+
+            # Todo: variant_coverage calculation is not correct with multiple
+            #     non-ref alleles.
+            yield chrom, record.POS, end, reference, allele, coverage, support // len(record.ALT)
+
+
+def read_regions(regions, filetype='bed'):
+    if filetype != 'bed':
+        raise ReadError('Data must be in BED format')
+
+    for line in regions:
+        fields = line.split()
+        if len(fields) < 1 or fields[0] == 'track':
+            continue
+        try:
+            chromosome = normalize_chromosome(fields[0])
+            begin = int(fields[1])
+            end = int(fields[2])
+        except (IndexError, ValueError):
+            raise ReadError('Invalid line in BED file: "%s"' % line)
+        yield chromosome, begin, end
+
+
 @celery.task
-def import_bed(sample_id, data_source_id):
+def import_variation(variation_id):
     """
-    Import regions from BED file.
-    """
-    logger.info('Started task: import_bed(%d, %d)', sample_id, data_source_id)
+    Import variation as observations.
 
-    sample = Sample.query.get(sample_id)
-    if not sample:
-        raise TaskError('sample_not_found', 'Sample not found')
-
-    data_source = DataSource.query.get(data_source_id)
-    if not data_source:
-        raise TaskError('data_source_not_found', 'Data source not found')
-
-    if data_source.sample is not None:
-        raise TaskError('data_source_imported', 'Data source already imported')
-
-    try:
-        bed = data_source.data()
-    except DataUnavailable as e:
-        raise TaskError(e.code, e.message)
-
-    # Note: Since we are dealing with huge numbers of entries here, we commit
-    # after each INSERT and manually rollback. Using builtin session rollback
-    # would fill up all our memory.
-    def delete_regions():
-        data_source.regions.delete()
-
-    with bed as bed, database_task(cleanup=delete_regions):
-        for line in bed:
-            fields = line.split()
-            if len(fields) < 1 or fields[0] == 'track':
-                continue
-            try:
-                chromosome = normalize_chromosome(fields[0])
-                begin = int(fields[1])
-                end = int(fields[2])
-            except (IndexError, ValueError):
-                raise TaskError('data_source_invalid', 'Invalid line in BED file: "%s"' % line)
-            region = Region(data_source, chromosome, begin, end)
-            db.session.add(region)
-            db.session.commit()
-        data_source.sample = sample
-
-    logger.info('Finished task: import_bed(%d, %d)', sample_id, data_source_id)
-
-
-@celery.task
-def import_vcf(sample_id, data_source_id, use_genotypes=True):
-    """
-    Import observed variants from VCF file.
-
-    .. todo:: This only works for merged population studies at the moment.
     .. todo:: Use `custom state <http://docs.celeryproject.org/en/latest/userguide/tasks.html#custom-states>`_
-           to report progress:
+           to report progress.
     """
-    logger.info('Started task: import_vcf(%d, %d)', sample_id, data_source_id)
+    logger.info('Started task: import_variation(%d)', variation_id)
 
-    sample = Sample.query.get(sample_id)
-    if not sample:
-        raise TaskError('sample_not_found', 'Sample not found')
+    variation = Variation.query.get(variation_id)
+    if variation is None:
+        raise TaskError('variation_not_found', 'Variation not found')
 
-    data_source = DataSource.query.get(data_source_id)
-    if not data_source:
-        raise TaskError('data_source_not_found', 'Data source not found')
+    if variation.imported:
+        raise TaskError('variation_imported', 'Variation already imported')
 
-    if data_source.sample is not None:
-        raise TaskError('data_source_imported', 'Data source already imported')
+    if variation.task_uuid is not None:
+        # Todo: Check somehow if the importing task is still running.
+        # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
+        raise TaskError('variation_importing', 'Variation is being imported')
 
     try:
-        vcf = data_source.data()
+        data = variation.data_source.data()
     except DataUnavailable as e:
         raise TaskError(e.code, e.message)
+
+    def delete_observations():
+        variation.observations.delete()
 
     # Note: Since we are dealing with huge numbers of entries here, we commit
     # after each INSERT and manually rollback. Using builtin session rollback
     # would fill up all our memory.
-    def delete_observations():
-        data_source.observations.delete()
+    with data as observations, database_task(cleanup=delete_observations):
+        try:
+            for chromosome, begin, end, reference, variant_seq, total_coverage, variant_coverage in read_observations(observations, filetype=variation.data_source.filetype):
+                try:
+                    variant = Variant.query.filter_by(chromosome=chromosome, begin=begin, end=end, reference=reference, variant=variant_seq).one()
+                except NoResultFound:
+                    variant = Variant(chromosome, begin, end, reference, variant_seq)
+                    db.session.add(variant)
+                    db.session.commit()
+                observation = Observation(variant, variation, total_coverage=total_coverage, variant_coverage=variant_coverage)
+                db.session.add(observation)
+                db.session.commit()
+        except ReadError as e:
+            raise TaskError('invalid_observations', str(e))
+        variation.imported = True
 
-    with vcf as vcf, database_task(cleanup=delete_observations):
-        # Todo: Create some sort of abstracted variant reader from the vcf
-        #     file and pass that to import_variants.
-        import_variants(vcf, data_source, use_genotypes)
-        data_source.sample = sample
+    logger.info('Finished task: import_variation(%d)', variation_id)
 
-    logger.info('Finished task: import_vcf(%d, %d)', sample_id, data_source_id)
+
+@celery.task
+def import_coverage(coverage_id):
+    """
+    Import coverage as regions.
+
+    .. todo:: Use `custom state <http://docs.celeryproject.org/en/latest/userguide/tasks.html#custom-states>`_
+           to report progress.
+    """
+    logger.info('Started task: import_coverage(%d)', coverage_id)
+
+    coverage = Coverage.query.get(coverage_id)
+    if coverage is None:
+        raise TaskError('coverage_not_found', 'Coverage not found')
+
+    if coverage.imported:
+        raise TaskError('coverage_imported', 'Coverage already imported')
+
+    if coverage.task_uuid is not None:
+        # Todo: Check somehow if the importing task is still running.
+        # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
+        raise TaskError('coverage_importing', 'Coverage is being imported')
+
+    try:
+        data = coverage.data_source.data()
+    except DataUnavailable as e:
+        raise TaskError(e.code, e.message)
+
+    def delete_regions():
+        coverage.regions.delete()
+
+    # Note: Since we are dealing with huge numbers of entries here, we commit
+    # after each INSERT and manually rollback. Using builtin session rollback
+    # would fill up all our memory.
+    with data as regions, database_task(cleanup=delete_regions):
+        try:
+            for chromosome, begin, end in read_regions(regions, filetype=coverage.data_source.filetype):
+                db.session.add(Region(coverage, chromosome, begin, end))
+                db.session.commit()
+        except ReadError as e:
+            raise TaskError('invalid_regions', str(e))
+        coverage.imported = True
+
+    logger.info('Finished task: import_coverage(%d)', coverage_id)
 
 
 @celery.task
@@ -309,7 +323,7 @@ def annotate_vcf(data_source_id, ignore_sample_ids=None):
     with vcf as vcf, annotation_data as annotation_data:
         # Todo: Create some sort of abstracted variant reader from the vcf
         #     file and pass that to annotate_variants.
-        write_annotation(vcf, annotation_data, ignore_sample_ids)
+        _write_annotation(vcf, annotation_data, ignore_sample_ids)
 
     db.session.add(annotation)
     db.session.commit()

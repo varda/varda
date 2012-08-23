@@ -267,25 +267,50 @@ class DataSource(db.Model):
             return validators[self.filetype]()
 
 
-class SampleData(db.Model):
+class Variation(db.Model):
     """
-    Coupling between a Sample, a DataSource, and Observations or Regions.
+    Coupling between a Sample, a DataSource, and Observations.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
     sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
     data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
+    imported = db.Column(db.Boolean, default=False)
+    task_uuid = db.Column(db.String(36))
 
-    sample = db.relationship(Sample, backref=db.backref('data_sources', lazy='dynamic'))
-    data_source = db.relationship(DataSource, backref=db.backref('regions', lazy='dynamic'))
+    sample = db.relationship(Sample, backref=db.backref('variations', lazy='dynamic'))
+    data_source = db.relationship(DataSource, backref=db.backref('variations', lazy='dynamic'))
 
     def __init__(self, sample, data_source):
         self.sample = sample
         self.data_source = data_source
 
     def __repr__(self):
-        return '<SampleData from %r on %r>' % (self.data_source, self.sample)
+        return '<Variation from %r on %r>' % (self.data_source, self.sample)
+
+
+class Coverage(db.Model):
+    """
+    Coupling between a Sample, a DataSource, and Regions.
+    """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
+    data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
+    imported = db.Column(db.Boolean, default=False)
+    task_uuid = db.Column(db.String(36))
+
+    sample = db.relationship(Sample, backref=db.backref('coverages', lazy='dynamic'))
+    data_source = db.relationship(DataSource, backref=db.backref('coverages', lazy='dynamic'))
+
+    def __init__(self, sample, data_source):
+        self.sample = sample
+        self.data_source = data_source
+
+    def __repr__(self):
+        return '<Coverage from %r on %r>' % (self.data_source, self.sample)
 
 
 class Annotation(db.Model):
@@ -317,7 +342,7 @@ class Observation(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     variant_id = db.Column(db.Integer, db.ForeignKey('variant.id'))
-    sample_data_id = db.Column(db.Integer, db.ForeignKey('sample_data.id'))
+    variation_id = db.Column(db.Integer, db.ForeignKey('variation.id'))
 
     # Depending on the type of sample, the following 3 fields may or may not
     # have data. If we have no data, we store None.
@@ -326,11 +351,11 @@ class Observation(db.Model):
     support = db.Column(db.Integer)  # Number of individuals.
 
     variant = db.relationship(Variant, backref=db.backref('observations', lazy='dynamic'))
-    sample_data = db.relationship(SampleData, backref=db.backref('regions', lazy='dynamic'))
+    variation = db.relationship(Variation, backref=db.backref('observations', lazy='dynamic'))
 
-    def __init__(self, variant, sample_data, support=1, total_coverage=None, variant_coverage=None):
+    def __init__(self, variant, variation, support=1, total_coverage=None, variant_coverage=None):
         self.variant = variant
-        self.sample_data = sample_data
+        self.variation = variation
         self.total_coverage = total_coverage
         self.variant_coverage = variant_coverage
         self.support = support
@@ -346,16 +371,16 @@ class Region(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    sample_data_id = db.Column(db.Integer, db.ForeignKey('sample_data.id'))
+    coverage_id = db.Column(db.Integer, db.ForeignKey('coverage.id'))
     chromosome = db.Column(db.String(2))
     begin = db.Column(db.Integer)
     end = db.Column(db.Integer)
     bin = db.Column(db.Integer)
 
-    sample_data = db.relationship(SampleData, backref=db.backref('regions', lazy='dynamic'))
+    coverage = db.relationship(Coverage, backref=db.backref('regions', lazy='dynamic'))
 
-    def __init__(self, sample_data, chromosome, begin, end):
-        self.sample_data = sample_data
+    def __init__(self, coverage, chromosome, begin, end):
+        self.coverage = coverage
         self.chromosome = chromosome
         self.begin = begin
         self.end = end
