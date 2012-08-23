@@ -174,7 +174,8 @@ class DataSource(db.Model):
     .. todo:: We can now provide data as an uploaded file or as a path to a
         local file. We also want to be able to give a link to an internet
         resource.
-    .. todo:: Checksums of data sources?
+    .. todo:: Checksums of data sources? Or in Variation/Observation? We could
+        calculate the checksum in a task and wait for it when importing.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
