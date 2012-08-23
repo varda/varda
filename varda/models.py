@@ -184,10 +184,8 @@ class DataSource(db.Model):
     filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES, name='filetype'))
     gzipped = db.Column(db.Boolean)
     added = db.Column(db.Date)
-    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'), default=None)
 
     user = db.relationship(User, backref=db.backref('data_sources', lazy='dynamic'))
-    sample = db.relationship(Sample, backref=db.backref('data_sources', lazy='dynamic'))
 
     def __init__(self, user, name, filetype, upload=None, local_path=None, gzipped=False):
         if not filetype in DATA_SOURCE_FILETYPES:
@@ -269,6 +267,27 @@ class DataSource(db.Model):
             return validators[self.filetype]()
 
 
+class SampleData(db.Model):
+    """
+    Coupling between a Sample, a DataSource, and Observations or Regions.
+    """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
+    data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
+
+    sample = db.relationship(Sample, backref=db.backref('data_sources', lazy='dynamic'))
+    data_source = db.relationship(DataSource, backref=db.backref('regions', lazy='dynamic'))
+
+    def __init__(self, sample, data_source):
+        self.sample = sample
+        self.data_source = data_source
+
+    def __repr__(self):
+        return '<SampleData from %r on %r>' % (self.data_source, self.sample)
+
+
 class Annotation(db.Model):
     """
     Annotated data source.
@@ -325,7 +344,7 @@ class Observation(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     variant_id = db.Column(db.Integer, db.ForeignKey('variant.id'))
-    data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
+    sample_data_id = db.Column(db.Integer, db.ForeignKey('sample_data.id'))
 
     # Depending on the type of sample, the following 3 fields may or may not
     # have data. If we have no data, we store None.
@@ -334,17 +353,17 @@ class Observation(db.Model):
     support = db.Column(db.Integer)  # Number of individuals.
 
     variant = db.relationship(Variant, backref=db.backref('observations', lazy='dynamic'))
-    data_source = db.relationship(DataSource, backref=db.backref('observations', lazy='dynamic'))
+    sample_data = db.relationship(SampleData, backref=db.backref('regions', lazy='dynamic'))
 
-    def __init__(self, variant, data_source, support=1, total_coverage=None, variant_coverage=None):
+    def __init__(self, variant, sample_data, support=1, total_coverage=None, variant_coverage=None):
         self.variant = variant
-        self.data_source = data_source
+        self.sample_data = sample_data
         self.total_coverage = total_coverage
         self.variant_coverage = variant_coverage
         self.support = support
 
     def __repr__(self):
-        return '<Observation %r from %r>' % (self.variant, self.data_source)
+        return '<Observation %r from %r>' % (self.variant, self.sample_data)
 
 
 class Region(db.Model):
@@ -354,23 +373,23 @@ class Region(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
+    sample_data_id = db.Column(db.Integer, db.ForeignKey('sample_data.id'))
     chromosome = db.Column(db.String(2))
     begin = db.Column(db.Integer)
     end = db.Column(db.Integer)
     bin = db.Column(db.Integer)
 
-    data_source = db.relationship(DataSource, backref=db.backref('regions', lazy='dynamic'))
+    sample_data = db.relationship(SampleData, backref=db.backref('regions', lazy='dynamic'))
 
-    def __init__(self, data_source, chromosome, begin, end):
-        self.data_source = data_source
+    def __init__(self, sample_data, chromosome, begin, end):
+        self.sample_data = sample_data
         self.chromosome = chromosome
         self.begin = begin
         self.end = end
         self.bin = assign_bin(self.begin, self.end)
 
     def __repr__(self):
-        return '<Region from %r at chr%s:%i-%i>' % (self.data_source, self.chromosome, self.begin, self.end)
+        return '<Region from %r at chr%s:%i-%i>' % (self.sample_data, self.chromosome, self.begin, self.end)
 
 
 Index('region_location',
