@@ -507,6 +507,7 @@ def annotations_add(data_source_id):
     if 'admin' not in g.user.roles() and 'annotator' not in g.user.roles():
         # This is a trader, so check if the data source has been imported in
         # an active sample.
+        # Todo: Anyone should be able to annotate against the public samples.
         if not DataSource.query.get(data_source_id).active:
             raise InvalidDataSource('inactive_data_source', 'Data source '
                 'cannot be annotated unless it is imported and active')

@@ -295,45 +295,18 @@ class Annotation(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
-    filename = db.Column(db.String(50))
-    added = db.Column(db.Date)
+    original_data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
+    annotated_data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
 
-    data_source = db.relationship(DataSource, backref=db.backref('annotations', lazy='dynamic'))
+    original_data_source = db.relationship(DataSource, primaryjoin='DataSource.id==Annotation.original_data_source_id', backref=db.backref('annotations', lazy='dynamic'))
+    annotated_data_source = db.relationship(DataSource, primaryjoin='DataSource.id==Annotation.annotated_data_source_id', backref=db.backref('annotation', uselist=False, lazy='dynamic'))
 
-    def __init__(self, data_source):
-        self.data_source = data_source
-        self.filename = str(uuid.uuid4())
-        self.added = date.today()
+    def __init__(self, original_data_source, annotated_data_source):
+        self.original_data_source = original_data_source
+        self.annotated_data_source = annotated_data_source
 
     def __repr__(self):
-        return '<Annotation for %r added %s>' % (self.data_source, str(self.added))
-
-    def data(self):
-        """
-        Get open file-like handle to data contained in this annotation for
-        reading.
-
-        .. note:: Be sure to close after calling this.
-        """
-        filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
-        return gzip.open(filepath)
-
-    def data_writer(self):
-        """
-        Get open file-like handle to data contained in this annotation for
-        writing.
-
-        .. note:: Be sure to close after calling this.
-        """
-        filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
-        return gzip.open(filepath, 'wb')
-
-    def local_path(self):
-        """
-        Get a local filepath for the data.
-        """
-        return os.path.join(current_app.config['FILES_DIR'], self.filename)
+        return '<Annotation %r of %r>' % (self.annoated_data_source, self.original_data_source)
 
 
 class Observation(db.Model):
