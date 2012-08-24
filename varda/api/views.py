@@ -323,28 +323,25 @@ def variations_import_status(sample_id, variation_id):
     """
     Get variation import status.
     """
-    # We can do all sorts of complex things with querying the task status
-    # but the task itself writes .imported=True when it is done, so it should
-    # be enough to just check for that.
-
-    #result = import_variation.AsyncResult(variation.import_task_uuid)
-    #try:
-    #    result.get(timeout=3)
-    #    ready = True
-    #except TimeoutError:
-    #    ready = False
-
     # Todo: We might want to handle the special (error) case where .imported
     #     is False but no .import_task_uuid is set, or the task with that uuid
     #     is not running. Instead of ready=True/False maybe this needs a
     #     status=pending/importing/ready and if it is pending a way to restart
     #     the import (it is now automatically imported when the Variation
     #     instance is created at .variations_add).
-    # Todo: We also want to check for any exceptions thrown by the task.
-    # Todo: During testing, we may already want to do that in variations_add.
-    ready = Variation.query.get_or_404(variation_id).imported
+    variation = Variation.query.get_or_404(variation_id)
+
+    if variation.import_task_uuid:
+        result = import_variation.AsyncResult(variation.import_task_uuid)
+        try:
+            # This re-raises a possible TaskError, handled by error_task_error
+            # above.
+            result.get(timeout=3)
+        except TimeoutError:
+            pass
+
     uri = url_for('.variations_get', sample_id=sample_id, variation_id=variation_id)
-    return jsonify(status={'variation': uri, 'ready': ready})
+    return jsonify(status={'variation': uri, 'ready': variation.imported})
 
 
 @api.route('/samples/<int:sample_id>/variations', methods=['POST'])
@@ -408,9 +405,19 @@ def coverages_import_status(sample_id, coverage_id):
     """
     Get coverage import status.
     """
-    ready = Coverage.query.get_or_404(coverage_id).imported
+    coverage = Coverage.query.get_or_404(coverage_id)
+
+    if coverage.import_task_uuid:
+        result = import_coverage.AsyncResult(coverage.import_task_uuid)
+        try:
+            # This re-raises a possible TaskError, handled by error_task_error
+            # above.
+            result.get(timeout=3)
+        except TimeoutError:
+            pass
+
     uri = url_for('.coverages_get', sample_id=sample_id, coverage_id=coverage_id)
-    return jsonify(status={'coverage': uri, 'ready': ready})
+    return jsonify(status={'coverage': uri, 'ready': coverage.imported})
 
 
 @api.route('/samples/<int:sample_id>/coverages', methods=['POST'])
@@ -537,9 +544,19 @@ def annotations_write_status(data_source_id, annotation_id):
     """
     Get annotation write status.
     """
-    ready = Annotation.query.get_or_404(annotation_id).written
+    annotation = Annotation.query.get_or_404(annotation_id)
+
+    if annotation.write_task_uuid:
+        result = write_annotation.AsyncResult(annotation.write_task_uuid)
+        try:
+            # This re-raises a possible TaskError, handled by error_task_error
+            # above.
+            result.get(timeout=3)
+        except TimeoutError:
+            pass
+
     uri = url_for('.annotations_get', data_source_id=data_source_id, annotation_id=annotation_id)
-    return jsonify(status={'annotation': uri, 'ready': ready})
+    return jsonify(status={'annotation': uri, 'ready': annotation.written})
 
 
 @api.route('/data_sources/<int:data_source_id>/annotations', methods=['POST'])

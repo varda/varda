@@ -16,6 +16,7 @@ import uuid
 
 from flask import current_app
 from sqlalchemy import Index
+from sqlalchemy.orm.exc import DetachedInstanceError
 import bcrypt
 
 from . import db
@@ -219,7 +220,16 @@ class DataSource(db.Model):
             raise InvalidDataSource('invalid_data', 'Data source cannot be read')
 
     def __repr__(self):
-        return '<DataSource "%s" as %s added %s>' % (self.name, self.filetype, str(self.added))
+        # Todo: If CELERY_ALWAYS_EAGER=True, the worker can end up with a
+        #     detached session when printing its log after an error. This
+        #     is a hacky workaround, we might implement it as a decorator
+        #     on the __repr__ method or the model itself, but it will still
+        #     be a hack. I think this is something that could be fixed in
+        #     celery itself.
+        try:
+            return '<DataSource "%s" as %s added %s>' % (self.name, self.filetype, str(self.added))
+        except DetachedInstanceError:
+            return '<DataSource ...>'
 
     def data(self):
         """

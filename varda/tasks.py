@@ -238,7 +238,7 @@ def import_variation(variation_id):
     if variation.imported:
         raise TaskError('variation_imported', 'Variation already imported')
 
-    if not variation.import_task_uuid:
+    if variation.import_task_uuid:
         # Todo: Check somehow if the importing task is still running.
         # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
         raise TaskError('variation_importing', 'Variation is being imported')

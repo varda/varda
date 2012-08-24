@@ -2,7 +2,6 @@
 High-level REST API unit tests.
 
 Todo: Look at http://packages.python.org/Flask-Testing/
-Todo: Suppress the annoying log messages.
 """
 
 
@@ -24,6 +23,7 @@ TEST_SETTINGS = {
     'SQLALCHEMY_DATABASE_URI': 'sqlite://',
     'BROKER_TRANSPORT': 'memory',
     'CELERY_ALWAYS_EAGER': True,
+    # Note: If exceptions are propagated, on_failure handlers are not called.
     'CELERY_EAGER_PROPAGATES_EXCEPTIONS': True
 }
 
@@ -198,6 +198,19 @@ class TestApi():
         open('/tmp/test_exome_superset.vcf.gz', 'w').write(r.data)
         for _ in vcf.Reader(StringIO(r.data), compressed=True):
             pass
+
+    def test_duplicate_import(self):
+        """
+        Importing the same file twice should not be possible.
+        """
+        # Todo: Better test.
+        self._import('Test sample 1', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
+        try:
+            self._import('Test sample 2', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
+        except AssertionError:
+            pass
+        else:
+            assert False
 
     def test_trader(self):
         """
