@@ -9,10 +9,13 @@ Celery tasks.
 
 from __future__ import division
 
+from collections import defaultdict
 from contextlib import contextmanager
+import hashlib
 import os
 import uuid
 
+from celery import current_task, Task
 from celery.utils.log import get_task_logger
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
@@ -42,7 +45,47 @@ class TaskError(Exception):
     def __init__(self, code, message):
         self.code = code
         self.message = message
-        super(Exception, self).__init__(code, message)
+        super(TaskError, self).__init__(code, message)
+
+
+class CleanTask(Task):
+    """
+    Ordinary Celery task, but with a way of registering cleanup routines that
+    are executed after the task failed (on the worker node).
+    """
+    abstract = True
+
+    # We maintain a list of cleanups per task id since the worker node only
+    # instantiates the task class once (not for every run). Just storing one
+    # list of cleanups in this instance would mean they are shared between
+    # different task runs.
+    _cleanups = defaultdict(list)
+
+    def register_cleanup(self, task_id, cleanup):
+        self._cleanups[task_id].append(cleanup)
+
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        for cleanup in reversed(self._cleanups[task_id]):
+            cleanup()
+        del self._cleanups[task_id]
+
+
+def calculate_digest(data):
+    """
+    .. todo:: This should be in util.py or something.
+    """
+    def read_chunks(data, chunksize=0xf00000):
+        # Default chunksize is 16 megabytes.
+        while True:
+            chunk = data.read(chunksize)
+            if not chunk:
+                break
+            yield chunk
+
+    sha1 = hashlib.sha1()
+    for chunk in read_chunks(data):
+        sha1.update(chunk)
+    return sha1.hexdigest()
 
 
 def normalize_chromosome(chromosome):
@@ -54,27 +97,6 @@ def normalize_chromosome(chromosome):
     if chromosome.startswith('chr'):
         return chromosome[3:]
     return chromosome
-
-
-@contextmanager
-def database_task(cleanup=None):
-    """
-    Context manager for a Celery task using the database.
-
-    Upon closing, the database session is committed and if a
-    :exc:`TaskError` was raised, the cleanup function argument is called
-    first.
-
-    .. todo:: We might add a setup function as argument.
-    """
-    try:
-        yield
-    except TaskError:
-        if cleanup is not None:
-            cleanup()
-        raise
-    finally:
-        db.session.commit()
 
 
 def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', ignore_sample_ids=None):
@@ -199,7 +221,7 @@ def read_regions(regions, filetype='bed'):
         yield chromosome, begin, end
 
 
-@celery.task
+@celery.task(base=CleanTask)
 def import_variation(variation_id):
     """
     Import variation as observations.
@@ -216,7 +238,7 @@ def import_variation(variation_id):
     if variation.imported:
         raise TaskError('variation_imported', 'Variation already imported')
 
-    if variation.import_task_uuid is not None:
+    if not variation.import_task_uuid:
         # Todo: Check somehow if the importing task is still running.
         # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
         raise TaskError('variation_importing', 'Variation is being imported')
@@ -224,22 +246,40 @@ def import_variation(variation_id):
     # Todo: This has a possible race condition, but I'm not bothered to fix it
     #     at the moment. Reading and setting import_task_uuid should be an
     #     atomic action.
-    variation.import_task_uuid = import_variation.request.id
+    variation.import_task_uuid = current_task.request.id
+
+    def reset_import_task_uuid():
+        variation.import_task_uuid = None
+        db.session.commit()
+    current_task.register_cleanup(current_task.request.id, reset_import_task_uuid)
+
+    data_source = variation.data_source
+
+    # Calculate data digest if it is not yet known.
+    if not data_source.digest:
+        data_source.digest = calculate_digest(data_source.data())
+        db.session.commit()
+
+    # Check if digest is not in imported data sources.
+    if DataSource.query.filter_by(digest=data_source.digest).join(Variation).filter_by(imported=True).count() > 0:
+        raise TaskError('duplicate_data_source', 'Identical data source already imported')
 
     try:
-        data = variation.data_source.data()
+        data = data_source.data()
     except DataUnavailable as e:
         raise TaskError(e.code, e.message)
-
-    def delete_observations():
-        variation.observations.delete()
 
     # Note: Since we are dealing with huge numbers of entries here, we commit
     # after each INSERT and manually rollback. Using builtin session rollback
     # would fill up all our memory.
-    with data as observations, database_task(cleanup=delete_observations):
+    def delete_observations():
+        variation.observations.delete()
+        db.session.commit()
+    current_task.register_cleanup(current_task.request.id, delete_observations)
+
+    with data as observations:
         try:
-            for chromosome, begin, end, reference, variant_seq, total_coverage, variant_coverage in read_observations(observations, filetype=variation.data_source.filetype):
+            for chromosome, begin, end, reference, variant_seq, total_coverage, variant_coverage in read_observations(observations, filetype=data_source.filetype):
                 try:
                     variant = Variant.query.filter_by(chromosome=chromosome, begin=begin, end=end, reference=reference, variant=variant_seq).one()
                 except NoResultFound:
@@ -251,12 +291,14 @@ def import_variation(variation_id):
                 db.session.commit()
         except ReadError as e:
             raise TaskError('invalid_observations', str(e))
-        variation.imported = True
+
+    variation.imported = True
+    db.session.commit()
 
     logger.info('Finished task: import_variation(%d)', variation_id)
 
 
-@celery.task
+@celery.task(base=CleanTask)
 def import_coverage(coverage_id):
     """
     Import coverage as regions.
@@ -281,32 +323,52 @@ def import_coverage(coverage_id):
     # Todo: This has a possible race condition, but I'm not bothered to fix it
     #     at the moment. Reading and setting import_task_uuid should be an
     #     atomic action.
-    coverage.import_task_uuid = import_coverage.request.id
+    coverage.import_task_uuid = current_task.request.id
+
+    def reset_import_task_uuid():
+        coverage.import_task_uuid = None
+        db.session.commit()
+    current_task.register_cleanup(current_task.request.id, reset_import_task_uuid)
+
+    data_source = coverage.data_source
+
+    # Calculate data digest if it is not yet known.
+    if not data_source.digest:
+        data_source.digest = calculate_digest(data_source.data())
+        db.session.commit()
+
+    # Check if digest is not in imported data sources.
+    if DataSource.query.filter_by(digest=data_source.digest).join(Coverage).filter_by(imported=True).count() > 0:
+        raise TaskError('duplicate_data_source', 'Identical data source already imported')
 
     try:
-        data = coverage.data_source.data()
+        data = data_source.data()
     except DataUnavailable as e:
         raise TaskError(e.code, e.message)
-
-    def delete_regions():
-        coverage.regions.delete()
 
     # Note: Since we are dealing with huge numbers of entries here, we commit
     # after each INSERT and manually rollback. Using builtin session rollback
     # would fill up all our memory.
-    with data as regions, database_task(cleanup=delete_regions):
+    def delete_regions():
+        coverage.regions.delete()
+        db.session.commit()
+    current_task.register_cleanup(current_task.request.id, delete_regions)
+
+    with data as regions:
         try:
-            for chromosome, begin, end in read_regions(regions, filetype=coverage.data_source.filetype):
+            for chromosome, begin, end in read_regions(regions, filetype=data_source.filetype):
                 db.session.add(Region(coverage, chromosome, begin, end))
                 db.session.commit()
         except ReadError as e:
             raise TaskError('invalid_regions', str(e))
-        coverage.imported = True
+
+    coverage.imported = True
+    db.session.commit()
 
     logger.info('Finished task: import_coverage(%d)', coverage_id)
 
 
-@celery.task
+@celery.task(base=CleanTask)
 def write_annotation(annotation_id, ignore_sample_ids=None):
     """
     Annotate variants with frequencies from the database.
@@ -330,7 +392,12 @@ def write_annotation(annotation_id, ignore_sample_ids=None):
     # Todo: This has a possible race condition, but I'm not bothered to fix it
     #     at the moment. Reading and setting write_task_uuid should be an
     #     atomic action.
-    annotation.write_task_uuid = write_annotation.request.id
+    annotation.write_task_uuid = current_task.request.id
+
+    def reset_write_task_uuid():
+        annotation.write_task_uuid = None
+        db.session.commit()
+    current_task.register_cleanup(current_task.request.id, reset_write_task_uuid)
 
     try:
         original_data = annotation.original_data_source.data()

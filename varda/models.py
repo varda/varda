@@ -43,7 +43,7 @@ class InvalidDataSource(Exception):
     def __init__(self, code, message):
         self.code = code
         self.message = message
-        super(Exception, self).__init__(code, message)
+        super(InvalidDataSource, self).__init__(code, message)
 
 
 class DataUnavailable(Exception):
@@ -55,7 +55,7 @@ class DataUnavailable(Exception):
     def __init__(self, code, message):
         self.code = code
         self.message = message
-        super(Exception, self).__init__(code, message)
+        super(DataUnavailable, self).__init__(code, message)
 
 
 class User(db.Model):
@@ -186,6 +186,7 @@ class DataSource(db.Model):
     filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES, name='filetype'))
     gzipped = db.Column(db.Boolean)
     added = db.Column(db.Date)
+    digest = db.Column(db.String(40))
 
     user = db.relationship(User, backref=db.backref('data_sources', lazy='dynamic'))
 
