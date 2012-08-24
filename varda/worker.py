@@ -10,4 +10,4 @@ Helper module for celery to run a worker.
 from . import celery, create_app
 
 
-create_app()
+create_app().app_context().push()
