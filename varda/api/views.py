@@ -44,7 +44,7 @@ from .. import db, log
 from ..models import Annotation, Coverage, DataSource, InvalidDataSource, Observation, Sample, User, Variant, Variation
 from ..tasks import write_annotation, import_variation, import_coverage, TaskError
 from .permissions import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
-from .serialize import serialize
+from .serialize import ActivationFailure, serialize
 
 
 API_VERSION = 1
@@ -125,6 +125,11 @@ def error_task_error(error):
 
 @api.errorhandler(InvalidDataSource)
 def error_invalid_data_source(error):
+    return jsonify(error=serialize(error)), 400
+
+
+@api.errorhandler(ActivationFailure)
+def error_activation_failure(error):
     return jsonify(error=serialize(error)), 400
 
 
@@ -279,6 +284,7 @@ def samples_update(sample_id):
             # Todo: Check if sample is ready to activate, e.g. if there are
             #     expected imported data sources and no imports running at the
             #     moment.
+            #raise ActivationFailure('reason', 'This is the reason')
             sample.active = True
         else:
             abort(400)
@@ -334,6 +340,8 @@ def variations_import_status(sample_id, variation_id):
     #     status=pending/importing/ready and if it is pending a way to restart
     #     the import (it is now automatically imported when the Variation
     #     instance is created at .variations_add).
+    # Todo: We also want to check for any exceptions thrown by the task.
+    # Todo: During testing, we may already want to do that in variations_add.
     ready = Variation.query.get_or_404(variation_id).imported
     uri = url_for('.variations_get', sample_id=sample_id, variation_id=variation_id)
     return jsonify(status={'variation': uri, 'ready': ready})
@@ -571,7 +579,6 @@ def annotations_add(data_source_id):
     db.session.commit()
     log.info('Added data source: %r', annotated_data_source)
     log.info('Added annotation: %r', annotation)
-
 
     result = write_annotation.delay(annotation.id)
     log.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)

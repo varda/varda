@@ -19,6 +19,18 @@ from ..tasks import TaskError
 _serializers = []
 
 
+class ActivationFailure(Exception):
+    """
+    Exception thrown on failed task execution.
+
+    .. todo:: Move custom exceptions to their own module.
+    """
+    def __init__(self, code, message):
+        self.code = code
+        self.message = message
+        super(ActivationFailure, self).__init__(code, message)
+
+
 def serializes(model):
     """
     Decorator to specify that a function creates a representation for a
@@ -103,6 +115,7 @@ def serialize_sample(instance):
             'added':              str(instance.added)}
 
 
+@serializes(ActivationFailure)
 @serializes(InvalidDataSource)
 @serializes(TaskError)
 def serialize_exception(instance):
