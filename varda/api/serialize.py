@@ -13,22 +13,11 @@ from flask import url_for
 
 from ..models import Annotation, Coverage, DataSource, InvalidDataSource, Sample, User, Variation
 from ..tasks import TaskError
+from .errors import ActivationFailure
 
 
 # Dispatch table for the serialize function below.
 _serializers = []
-
-
-class ActivationFailure(Exception):
-    """
-    Exception thrown on failed task execution.
-
-    .. todo:: Move custom exceptions to their own module.
-    """
-    def __init__(self, code, message):
-        self.code = code
-        self.message = message
-        super(ActivationFailure, self).__init__(code, message)
 
 
 def serializes(model):

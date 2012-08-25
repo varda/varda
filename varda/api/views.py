@@ -43,8 +43,9 @@ from flask import abort, Blueprint, current_app, g, jsonify, redirect, request, 
 from .. import db, log
 from ..models import Annotation, Coverage, DataSource, InvalidDataSource, Observation, Sample, User, Variant, Variation
 from ..tasks import write_annotation, import_variation, import_coverage, TaskError
+from .errors import ActivationFailure
 from .permissions import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
-from .serialize import ActivationFailure, serialize
+from .serialize import serialize
 
 
 API_VERSION = 1
