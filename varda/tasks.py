@@ -26,6 +26,7 @@ import vcf
 from . import db, celery
 from .models import Annotation, Coverage, DataSource, DataUnavailable, Observation, Sample, Region, Variant, Variation
 from .region_binning import all_bins
+from .utils import calculate_digest, normalize_chromosome
 
 
 logger = get_task_logger(__name__)
@@ -68,35 +69,6 @@ class CleanTask(Task):
         for cleanup in reversed(self._cleanups[task_id]):
             cleanup()
         del self._cleanups[task_id]
-
-
-def calculate_digest(data):
-    """
-    .. todo:: This should be in util.py or something.
-    """
-    def read_chunks(data, chunksize=0xf00000):
-        # Default chunksize is 16 megabytes.
-        while True:
-            chunk = data.read(chunksize)
-            if not chunk:
-                break
-            yield chunk
-
-    sha1 = hashlib.sha1()
-    for chunk in read_chunks(data):
-        sha1.update(chunk)
-    return sha1.hexdigest()
-
-
-def normalize_chromosome(chromosome):
-    """
-    .. todo:: This should be in util.py or something.
-    """
-    if chromosome.startswith('NC_012920'):
-        return 'M'
-    if chromosome.startswith('chr'):
-        return chromosome[3:]
-    return chromosome
 
 
 def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', ignore_sample_ids=None):
