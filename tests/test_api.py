@@ -21,9 +21,9 @@ TEST_SETTINGS = {
     'TESTING': True,
     'FILES_DIR': tempfile.mkdtemp(),
     'SQLALCHEMY_DATABASE_URI': 'sqlite://',
-    'BROKER_TRANSPORT': 'memory',
-    'CELERY_RESULT_BACKEND': 'database',
-    'CELERY_RESULT_DBURI': 'sqlite://',
+    'BROKER_URL': 'memory://',
+    'CELERY_RESULT_BACKEND': 'cache',
+    'CELERY_CACHE_BACKEND': 'memory',
     'CELERY_ALWAYS_EAGER': True,
     # Note: If exceptions are propagated, on_failure handlers are not called.
     'CELERY_EAGER_PROPAGATES_EXCEPTIONS': True
