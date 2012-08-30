@@ -273,7 +273,7 @@ class TestApi():
 
         # Activate sample
         data = {'active': True}
-        r = self.client.put(sample, data=data, headers=[auth_header(login='trader', password='test')])
+        r = self.client.patch(sample, data=data, headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 200)
 
         # Annotate observations

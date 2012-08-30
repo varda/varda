@@ -266,7 +266,7 @@ def samples_add():
     return response, 201
 
 
-@api.route('/samples/<int:sample_id>', methods=['PUT'])
+@api.route('/samples/<int:sample_id>', methods=['PATCH'])
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def samples_update(sample_id):
@@ -274,7 +274,7 @@ def samples_update(sample_id):
 
     Example usage::
 
-        curl -X PUT -d 'active=true' http://127.0.0.1:5000/samples/3
+        curl -X PATCH -d 'active=true' http://127.0.0.1:5000/samples/3
     """
     # Todo: I'm not sure if this is really the pattern we want the API to use
     #     for updating objects. But works for now.
