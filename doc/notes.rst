@@ -50,3 +50,5 @@ Relevant links
 * `How I learned to stop worrying and love REST <http://news.ycombinator.com/item?id=3554973>`_
 * `REST Done Right with Steve Klabnik podcast <http://rubyrogues.com/rest-done-right-with-steve-klabnik/>`_
 * `Django REST framework <http://django-rest-framework.org/>`_
+* `Designing a RESTful Web API <http://publish.luisrei.com/articles/rest.html>`_
+* `Hypermedia APIs - Jon Moore <http://vimeo.com/20781278>`_
