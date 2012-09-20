@@ -252,12 +252,20 @@ def import_variation(variation_id):
     with data as observations:
         try:
             for chromosome, begin, end, reference, variant_seq, total_coverage, variant_coverage in read_observations(observations, filetype=data_source.filetype):
+                # SQLAlchemy doesn't seem to have anything like INSERT IGNORE
+                # or INSERT ... ON DUPLICATE KEY UPDATE, so we have to work
+                # our way around the situation.
                 try:
-                    variant = Variant.query.filter_by(chromosome=chromosome, begin=begin, end=end, reference=reference, variant=variant_seq).one()
-                except NoResultFound:
                     variant = Variant(chromosome, begin, end, reference, variant_seq)
                     db.session.add(variant)
                     db.session.commit()
+                except IntegrityError:
+                    db.session.rollback()
+                    try:
+                        variant = Variant.query.filter_by(chromosome=chromosome, begin=begin, end=end, reference=reference, variant=variant_seq).one()
+                    except NoResultFound:
+                        # Should never happen.
+                        raise TaskError('database_inconsistency', 'Unrecoverable inconsistency of the database observed')
                 observation = Observation(variant, variation, total_coverage=total_coverage, variant_coverage=variant_coverage)
                 db.session.add(observation)
                 db.session.commit()
