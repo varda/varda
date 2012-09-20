@@ -252,7 +252,7 @@ def samples_add():
     data = request.json or request.form
     try:
         name = data['name']
-        coverage_threshold = int(data.get('coverage_threshold'))
+        coverage_threshold = int(data.get('coverage_threshold'), 8)
         pool_size = int(data.get('pool_size'), 1)
     except (KeyError, ValueError):
         abort(400)
