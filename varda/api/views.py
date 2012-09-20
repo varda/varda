@@ -253,7 +253,7 @@ def samples_add():
     try:
         name = data['name']
         coverage_threshold = int(data.get('coverage_threshold', 8))
-        pool_size = int(data.get('pool_size'), 1)
+        pool_size = int(data.get('pool_size', 1))
     except (KeyError, ValueError):
         abort(400)
     sample = Sample(g.user, name, pool_size=pool_size, coverage_threshold=coverage_threshold)
