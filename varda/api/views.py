@@ -252,11 +252,11 @@ def samples_add():
     data = request.json or request.form
     try:
         name = data['name']
-        coverage_threshold = int(data.get('coverage_threshold', 8))
-        pool_size = int(data.get('pool_size', 1))
+        coverage_threshold = int(data.get('coverage_threshold'))
+        pool_size = int(data.get('pool_size'), 1)
     except (KeyError, ValueError):
         abort(400)
-    sample = Sample(g.user, name, coverage_threshold, pool_size)
+    sample = Sample(g.user, name, pool_size=pool_size, coverage_threshold=coverage_threshold)
     db.session.add(sample)
     db.session.commit()
     log.info('Added sample: %r', sample)
@@ -337,6 +337,7 @@ def variations_import_status(sample_id, variation_id):
         try:
             # This re-raises a possible TaskError, handled by error_task_error
             # above.
+            # Todo: Re-raising doesn't seem to work at the moment...
             result.get(timeout=3)
         except TimeoutError:
             pass
