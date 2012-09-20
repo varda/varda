@@ -190,7 +190,7 @@ def read_regions(regions, filetype='bed'):
             end = int(fields[2])
         except (IndexError, ValueError):
             raise ReadError('Invalid line in BED file: "%s"' % line)
-        yield chromosome, begin, end
+        yield chromosome, begin + 1, end
 
 
 @celery.task(base=CleanTask)
