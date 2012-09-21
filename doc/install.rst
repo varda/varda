@@ -154,6 +154,7 @@ configuration settings, for example::
     $ export VARDA_SETTINGS=~/varda-server/settings.py
     $ cat > $VARDA_SETTINGS
     ADMINS = ['martijn@vermaat.name']
+    FILES_DIR = '/tmp/varda'
     SQLALCHEMY_DATABASE_URI = 'postgresql://varda:varda@localhost/varda'
     CELERY_RESULT_BACKEND = 'database'
     CELERY_RESULT_DBURI = 'postgresql://varda:varda@localhost/vardaresults'
