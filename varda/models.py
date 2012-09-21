@@ -109,7 +109,7 @@ class Variant(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    chromosome = db.Column(db.String(2))
+    chromosome = db.Column(db.String(30))
     begin = db.Column(db.Integer)
     end = db.Column(db.Integer)
     reference = db.Column(db.String(200))
@@ -397,7 +397,7 @@ class Region(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     coverage_id = db.Column(db.Integer, db.ForeignKey('coverage.id'))
-    chromosome = db.Column(db.String(2))
+    chromosome = db.Column(db.String(30))
     begin = db.Column(db.Integer)
     end = db.Column(db.Integer)
     bin = db.Column(db.Integer)

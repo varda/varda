@@ -15,7 +15,7 @@ import hashlib
 import os
 import uuid
 
-from celery import current_task, Task
+from celery import current_task, current_app, Task
 from celery.utils.log import get_task_logger
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
@@ -75,6 +75,9 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
     """
     .. todo:: Merge back population study annotation (see implementation in
         the old-population-study branch).
+
+    .. todo:: Calculate frequencies instead of counts, and take chromosome
+        into account (config.CHROMOSOMES).
     """
     ignore_sample_ids = ignore_sample_ids or []
 
@@ -94,6 +97,10 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
 
     for record in reader:
         chrom = normalize_chromosome(record.CHROM)
+        try:
+            current_app.conf.CHROMOSOMES[chrom]
+        except KeyError:
+            raise ReadError('Chromosome "%s" not supported' % chrom)
 
         observations = []
         coverage = []
@@ -131,9 +138,11 @@ def read_observations(observations, filetype='vcf'):
     reader = vcf.Reader(observations)
 
     for record in reader:
-        # Todo: Check if it is in settings.CHROMOSOMES, but support
-        #     defaultdict (allowing any chromosome).
         chrom = normalize_chromosome(record.CHROM)
+        try:
+            current_app.conf.CHROMOSOMES[chrom]
+        except KeyError:
+            raise ReadError('Chromosome "%s" not supported' % chrom)
 
         # DP: Raw read depth.
         if 'DP4' not in record.INFO:
@@ -190,6 +199,10 @@ def read_regions(regions, filetype='bed'):
             end = int(fields[2])
         except (IndexError, ValueError):
             raise ReadError('Invalid line in BED file: "%s"' % line)
+        try:
+            current_app.conf.CHROMOSOMES[chromosome]
+        except KeyError:
+            raise ReadError('Chromosome "%s" not supported' % chromosome)
         yield chromosome, begin + 1, end
 
 
