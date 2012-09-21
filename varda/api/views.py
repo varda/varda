@@ -254,9 +254,11 @@ def samples_add():
         name = data['name']
         coverage_threshold = int(data.get('coverage_threshold', 8))
         pool_size = int(data.get('pool_size', 1))
+        public = data.get('public', '').lower() == 'true'
+        coverage_profile = data.get('coverage_profile', '').lower() == 'true'
     except (KeyError, ValueError):
         abort(400)
-    sample = Sample(g.user, name, pool_size=pool_size, coverage_threshold=coverage_threshold)
+    sample = Sample(g.user, name, pool_size=pool_size, coverage_threshold=coverage_threshold, public=public, coverage_profile=coverage_profile)
     db.session.add(sample)
     db.session.commit()
     log.info('Added sample: %r', sample)
