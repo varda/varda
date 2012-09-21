@@ -232,11 +232,7 @@ def import_variation(variation_id):
     #     at the moment. Reading and setting import_task_uuid should be an
     #     atomic action.
     variation.import_task_uuid = current_task.request.id
-
-    def reset_import_task_uuid():
-        variation.import_task_uuid = None
-        db.session.commit()
-    current_task.register_cleanup(current_task.request.id, reset_import_task_uuid)
+    db.session.commit()
 
     data_source = variation.data_source
 
@@ -317,11 +313,7 @@ def import_coverage(coverage_id):
     #     at the moment. Reading and setting import_task_uuid should be an
     #     atomic action.
     coverage.import_task_uuid = current_task.request.id
-
-    def reset_import_task_uuid():
-        coverage.import_task_uuid = None
-        db.session.commit()
-    current_task.register_cleanup(current_task.request.id, reset_import_task_uuid)
+    db.session.commit()
 
     data_source = coverage.data_source
 
@@ -378,7 +370,8 @@ def write_annotation(annotation_id, ignore_sample_ids=None):
         raise TaskError('annotation_written', 'Annotation already written')
 
     if annotation.write_task_uuid is not None:
-        # Todo: Check somehow if the writing task is still running.
+        # Todo: Check somehow if the writing task is still running, it might
+        #     also be a failed task.
         # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
         raise TaskError('annotation_writing', 'Annotation is being written')
 
@@ -386,11 +379,7 @@ def write_annotation(annotation_id, ignore_sample_ids=None):
     #     at the moment. Reading and setting write_task_uuid should be an
     #     atomic action.
     annotation.write_task_uuid = current_task.request.id
-
-    def reset_write_task_uuid():
-        annotation.write_task_uuid = None
-        db.session.commit()
-    current_task.register_cleanup(current_task.request.id, reset_write_task_uuid)
+    db.session.commit()
 
     try:
         original_data = annotation.original_data_source.data()
@@ -399,10 +388,13 @@ def write_annotation(annotation_id, ignore_sample_ids=None):
         raise TaskError(e.code, e.message)
 
     with original_data as original_variants, annotated_data as annotated_variants:
-        annotate_variants(original_variants, annotated_variants,
-                          original_filetype=annotation.original_data_source.filetype,
-                          annotated_filetype=annotation.annotated_data_source.filetype,
-                          ignore_sample_ids=ignore_sample_ids)
+        try:
+            annotate_variants(original_variants, annotated_variants,
+                              original_filetype=annotation.original_data_source.filetype,
+                              annotated_filetype=annotation.annotated_data_source.filetype,
+                              ignore_sample_ids=ignore_sample_ids)
+        except ReadError as e:
+            raise TaskError('invalid_observations', str(e))
 
     annotation.written = True
     db.session.commit()

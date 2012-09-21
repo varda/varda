@@ -550,6 +550,9 @@ def annotations_write_status(data_source_id, annotation_id):
     """
     annotation = Annotation.query.get_or_404(annotation_id)
 
+    # Todo: If annotation.written, return immediately. What to do if there's
+    #     no annotation.write_task_uuid?
+
     if annotation.write_task_uuid:
         result = write_annotation.AsyncResult(annotation.write_task_uuid)
         try:
