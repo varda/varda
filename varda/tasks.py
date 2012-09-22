@@ -26,7 +26,7 @@ import vcf
 from . import db, celery
 from .models import Annotation, Coverage, DataSource, DataUnavailable, Observation, Sample, Region, Variant, Variation
 from .region_binning import all_bins
-from .utils import calculate_digest, normalize_chromosome
+from .utils import digest, normalize_chromosome
 
 
 logger = get_task_logger(__name__)
@@ -186,6 +186,7 @@ def read_observations(observations, filetype='vcf'):
 
 
 def read_regions(regions, filetype='bed'):
+    # Todo: Use pybedtools to parse BED file?
     if filetype != 'bed':
         raise ReadError('Data must be in BED format')
 
@@ -237,18 +238,15 @@ def import_variation(variation_id):
     data_source = variation.data_source
 
     # Calculate data digest if it is not yet known.
-    if not data_source.digest:
-        data_source.digest = calculate_digest(data_source.data())
+    if not data_source.checksum:
+        with data_source.data() as data:
+            data_source.checksum, data_source.records = digest(data)
         db.session.commit()
 
-    # Check if digest is not in imported data sources.
-    if DataSource.query.filter_by(digest=data_source.digest).join(Variation).filter_by(imported=True).count() > 0:
+    # Check if checksum is not in imported data sources.
+    # Todo: Would it be better to have a unique constraint on checksum?
+    if DataSource.query.filter_by(checksum=data_source.checksum).join(Variation).filter_by(imported=True).count() > 0:
         raise TaskError('duplicate_data_source', 'Identical data source already imported')
-
-    try:
-        data = data_source.data()
-    except DataUnavailable as e:
-        raise TaskError(e.code, e.message)
 
     # Note: Since we are dealing with huge numbers of entries here, we commit
     # after each INSERT and manually rollback. Using builtin session rollback
@@ -257,6 +255,11 @@ def import_variation(variation_id):
         variation.observations.delete()
         db.session.commit()
     current_task.register_cleanup(current_task.request.id, delete_observations)
+
+    try:
+        data = data_source.data()
+    except DataUnavailable as e:
+        raise TaskError(e.code, e.message)
 
     with data as observations:
         try:
@@ -318,12 +321,13 @@ def import_coverage(coverage_id):
     data_source = coverage.data_source
 
     # Calculate data digest if it is not yet known.
-    if not data_source.digest:
-        data_source.digest = calculate_digest(data_source.data())
+    if not data_source.checksum:
+        with data_source.data() as data:
+            data_source.checksum, data_source.records = digest(data)
         db.session.commit()
 
-    # Check if digest is not in imported data sources.
-    if DataSource.query.filter_by(digest=data_source.digest).join(Coverage).filter_by(imported=True).count() > 0:
+    # Check if checksum is not in imported data sources.
+    if DataSource.query.filter_by(checksum=data_source.checksum).join(Coverage).filter_by(imported=True).count() > 0:
         raise TaskError('duplicate_data_source', 'Identical data source already imported')
 
     try:

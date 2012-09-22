@@ -177,8 +177,6 @@ class DataSource(db.Model):
     .. todo:: We can now provide data as an uploaded file or as a path to a
         local file. We also want to be able to give a link to an internet
         resource.
-    .. todo:: Checksums of data sources? Or in Variation/Observation? We could
-        calculate the checksum in a task and wait for it when importing.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
@@ -189,7 +187,8 @@ class DataSource(db.Model):
     filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES, name='filetype'))
     gzipped = db.Column(db.Boolean)
     added = db.Column(db.Date)
-    digest = db.Column(db.String(40))
+    checksum = db.Column(db.String(40), index=True, unique=True)
+    records = db.Column(Db.Integer)
 
     user = db.relationship(User, backref=db.backref('data_sources', lazy='dynamic'))
 
