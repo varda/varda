@@ -96,6 +96,8 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
     writer = vcf.Writer(annotated_variants, reader, lineterminator='\n')
 
     for record in reader:
+        # Todo: Update progress.
+        #current_task.update_state(state='PROGRESS', meta={'current': i, 'total': data_source.records})
         chrom = normalize_chromosome(record.CHROM)
         try:
             current_app.conf.CHROMOSOMES[chrom]
@@ -211,9 +213,6 @@ def read_regions(regions, filetype='bed'):
 def import_variation(variation_id):
     """
     Import variation as observations.
-
-    .. todo:: Use `custom state <http://docs.celeryproject.org/en/latest/userguide/tasks.html#custom-states>`_
-           to report progress.
     """
     logger.info('Started task: import_variation(%d)', variation_id)
 
@@ -262,7 +261,10 @@ def import_variation(variation_id):
 
     with data as observations:
         try:
-            for chromosome, begin, end, reference, variant_seq, total_coverage, variant_coverage in read_observations(observations, filetype=data_source.filetype):
+            for i, (chromosome, begin, end, reference, variant_seq, total_coverage, variant_coverage) in enumerate(read_observations(observations, filetype=data_source.filetype)):
+                # Todo: Not sure, but it might not be optimal to update
+                #     progress on every record, could do it every N or so.
+                current_task.update_state(state='PROGRESS', meta={'current': i, 'total': data_source.records})
                 # SQLAlchemy doesn't seem to have anything like INSERT IGNORE
                 # or INSERT ... ON DUPLICATE KEY UPDATE, so we have to work
                 # our way around the situation.
@@ -293,9 +295,6 @@ def import_variation(variation_id):
 def import_coverage(coverage_id):
     """
     Import coverage as regions.
-
-    .. todo:: Use `custom state <http://docs.celeryproject.org/en/latest/userguide/tasks.html#custom-states>`_
-           to report progress.
     """
     logger.info('Started task: import_coverage(%d)', coverage_id)
 
@@ -344,7 +343,10 @@ def import_coverage(coverage_id):
 
     with data as regions:
         try:
-            for chromosome, begin, end in read_regions(regions, filetype=data_source.filetype):
+            for i, (chromosome, begin, end) in enumerate(read_regions(regions, filetype=data_source.filetype)):
+                # Todo: Not sure, but it might not be optimal to update
+                #     progress on every record, could do it every N or so.
+                current_task.update_state(state='PROGRESS', meta={'current': i, 'total': data_source.records})
                 db.session.add(Region(coverage, chromosome, begin, end))
                 db.session.commit()
         except ReadError as e:
