@@ -177,6 +177,10 @@ class DataSource(db.Model):
     .. todo:: We can now provide data as an uploaded file or as a path to a
         local file. We also want to be able to give a link to an internet
         resource.
+
+    .. note:: Data source checksums are not forced to be unique, since several
+        users might upload the same data source and do different things with
+        it.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
@@ -187,8 +191,8 @@ class DataSource(db.Model):
     filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES, name='filetype'))
     gzipped = db.Column(db.Boolean)
     added = db.Column(db.Date)
-    checksum = db.Column(db.String(40), index=True, unique=True)
-    records = db.Column(Db.Integer)
+    checksum = db.Column(db.String(40))
+    records = db.Column(db.Integer)
 
     user = db.relationship(User, backref=db.backref('data_sources', lazy='dynamic'))
 

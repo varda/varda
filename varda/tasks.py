@@ -244,7 +244,6 @@ def import_variation(variation_id):
         db.session.commit()
 
     # Check if checksum is not in imported data sources.
-    # Todo: Would it be better to have a unique constraint on checksum?
     if DataSource.query.filter_by(checksum=data_source.checksum).join(Variation).filter_by(imported=True).count() > 0:
         raise TaskError('duplicate_data_source', 'Identical data source already imported')
 
