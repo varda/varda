@@ -10,8 +10,10 @@ Installation
     (testing, or *wheezy*) system with Python 2.7.
 
 .. todo:: Have another look at broker and result backend choices. I gues the
-    most sensible would be to have rabbitmq as a broker and redis as a result
-    backend.
+    most typical Celery setup is to have rabbitmq as a broker and redis as a
+    result backend. But since our tasks are not very high volume and rabbitmq
+    is a bit heavier-weight than redis, the most sensible for us might be to
+    just use redis for both. See also `this thread <http://stackoverflow.com/questions/9140716/whats-the-advantage-of-using-celery-with-rabbitmq-over-redis-mongodb-or-django>`_.
 
 Getting Varda server running consists of the following steps:
 
