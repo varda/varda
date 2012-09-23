@@ -9,6 +9,10 @@ Installation
 .. note:: This guide assumes installation on a `Debian <http://www.debian.org>`_
     (testing, or *wheezy*) system with Python 2.7.
 
+.. todo:: Have another look at broker and result backend choices. I gues the
+    most sensible would be to have rabbitmq as a broker and redis as a result
+    backend.
+
 Getting Varda server running consists of the following steps:
 
 * `Installing a database server`_
