@@ -333,6 +333,7 @@ def variations_import_status(sample_id, variation_id):
     #     the import (it is now automatically imported when the Variation
     #     instance is created at .variations_add).
     variation = Variation.query.get_or_404(variation_id)
+    percentage = None
 
     if variation.import_task_uuid:
         result = import_variation.AsyncResult(variation.import_task_uuid)
@@ -343,9 +344,11 @@ def variations_import_status(sample_id, variation_id):
             result.get(timeout=3)
         except TimeoutError:
             pass
+        if result.state == 'PROGRESS':
+            percentage = result.info['percentage']
 
     uri = url_for('.variations_get', sample_id=sample_id, variation_id=variation_id)
-    return jsonify(status={'variation': uri, 'ready': variation.imported})
+    return jsonify(status={'variation': uri, 'ready': variation.imported, 'percentage': percentage})
 
 
 @api.route('/samples/<int:sample_id>/variations', methods=['POST'])
