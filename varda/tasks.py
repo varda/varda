@@ -13,6 +13,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 import hashlib
 import os
+import time
 import uuid
 
 from celery import current_task, current_app, Task
@@ -71,7 +72,7 @@ class CleanTask(Task):
         del self._cleanups[task_id]
 
 
-def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', ignore_sample_ids=None):
+def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', ignore_sample_ids=None, original_records=1):
     """
     .. todo:: Merge back population study annotation (see implementation in
         the old-population-study branch).
@@ -95,9 +96,15 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
         'Samples with coverage (out of %i)' % Sample.query.count())
     writer = vcf.Writer(annotated_variants, reader, lineterminator='\n')
 
-    for record in reader:
-        # Todo: Update progress.
-        #current_task.update_state(state='PROGRESS', meta={'current': i, 'total': data_source.records})
+    old_percentage = -1
+    for i, record in enumerate(reader):
+        # Task progress is updated in whole percentages, so for a maximum of
+        # 100 times per task.
+        percentage = min(int(i / original_records * 100), 99)
+        if percentage > old_percentage:
+            current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
+            old_percentage = percentage
+
         chrom = normalize_chromosome(record.CHROM)
         try:
             current_app.conf.CHROMOSOMES[chrom]
@@ -261,10 +268,15 @@ def import_variation(variation_id):
 
     with data as observations:
         try:
+            old_percentage = -1
             for i, (chromosome, begin, end, reference, variant_seq, total_coverage, variant_coverage) in enumerate(read_observations(observations, filetype=data_source.filetype)):
-                # Todo: Not sure, but it might not be optimal to update
-                #     progress on every record, could do it every N or so.
-                current_task.update_state(state='PROGRESS', meta={'current': i, 'total': data_source.records})
+                # Task progress is updated in whole percentages, so for a
+                # maximum of 100 times per task.
+                percentage = min(int(i / data_source.records * 100), 99)
+                if percentage > old_percentage:
+                    current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
+                    old_percentage = percentage
+                    time.sleep(1)
                 # SQLAlchemy doesn't seem to have anything like INSERT IGNORE
                 # or INSERT ... ON DUPLICATE KEY UPDATE, so we have to work
                 # our way around the situation.
@@ -285,6 +297,7 @@ def import_variation(variation_id):
         except ReadError as e:
             raise TaskError('invalid_observations', str(e))
 
+    current_task.update_state(state='PROGRESS', meta={'percentage': 100})
     variation.imported = True
     db.session.commit()
 
@@ -343,15 +356,20 @@ def import_coverage(coverage_id):
 
     with data as regions:
         try:
+            old_percentage = -1
             for i, (chromosome, begin, end) in enumerate(read_regions(regions, filetype=data_source.filetype)):
-                # Todo: Not sure, but it might not be optimal to update
-                #     progress on every record, could do it every N or so.
-                current_task.update_state(state='PROGRESS', meta={'current': i, 'total': data_source.records})
+                # Task progress is updated in whole percentages, so for a
+                # maximum of 100 times per task.
+                percentage = min(int(i / data_source.records * 100), 99)
+                if percentage > old_percentage:
+                    current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
+                    old_percentage = percentage
                 db.session.add(Region(coverage, chromosome, begin, end))
                 db.session.commit()
         except ReadError as e:
             raise TaskError('invalid_regions', str(e))
 
+    current_task.update_state(state='PROGRESS', meta={'percentage': 100})
     coverage.imported = True
     db.session.commit()
 
@@ -386,21 +404,32 @@ def write_annotation(annotation_id, ignore_sample_ids=None):
     annotation.write_task_uuid = current_task.request.id
     db.session.commit()
 
+    original_data_source = annotation.original_data_source
+    annotated_data_source = annotation.annotated_data_source
+
+    # Calculate data digest if it is not yet known.
+    if not original_data_source.checksum:
+        with original_data_source.data() as data:
+            original_data_source.checksum, original_data_source.records = digest(data)
+        db.session.commit()
+
     try:
-        original_data = annotation.original_data_source.data()
-        annotated_data = annotation.annotated_data_source.data_writer()
+        original_data = original_data_source.data()
+        annotated_data = annotated_data_source.data_writer()
     except DataUnavailable as e:
         raise TaskError(e.code, e.message)
 
     with original_data as original_variants, annotated_data as annotated_variants:
         try:
             annotate_variants(original_variants, annotated_variants,
-                              original_filetype=annotation.original_data_source.filetype,
-                              annotated_filetype=annotation.annotated_data_source.filetype,
-                              ignore_sample_ids=ignore_sample_ids)
+                              original_filetype=original_data_source.filetype,
+                              annotated_filetype=annotated_data_source.filetype,
+                              ignore_sample_ids=ignore_sample_ids,
+                              original_records=original_data_source.records)
         except ReadError as e:
             raise TaskError('invalid_observations', str(e))
 
+    current_task.update_state(state='PROGRESS', meta={'percentage': 100})
     annotation.written = True
     db.session.commit()
 
