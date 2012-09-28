@@ -39,6 +39,7 @@ def normalize_chromosome(chromosome):
     Remove 'chr' prefix from chromosome names and store NC_012920 as
     chromosome 'M'.
     """
+    # Todo: Make alternate chromosome name mappings configurable.
     if chromosome.startswith('NC_012920'):
         return 'M'
     if chromosome.startswith('chr'):
