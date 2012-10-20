@@ -6,8 +6,35 @@ Todo list
 * Use Alembic for database migrations.
 * Generated REST API documentation, also using Sphinx?
 * Other types of authentication (OAuth).
-* Documentation of installation/usage scenarios for main use cases.
 * Document server deployment and local installation separately.
+
+
+Document use cases
+------------------
+
+Some use cases to be documented:
+
+* *Scenario: private database for a sequencing lab*
+
+  Import and annotate variants from all sequencing experiments at an
+  institution. The database should also contain public datasets from
+  population studies (e.g. 1KG, GoNL).
+
+  Authentication and authorization scheme is probably simple.
+
+* *Scenario: shared database between several groups*
+
+  All groups import variants from their own sequencing experiments and
+  annotation is only possible for previously imported data. Data can only be
+  used anonymized by other groups (just overall frequencies in the database)
+  and to accomodate even stricter anonymity, samples can be imported after
+  pooling.
+
+  Authentication and authorization scheme is more complex.
+
+* *Import public dataset: 1000 Genomes*
+
+* *Import public dataset: Genome of the Netherlands*
 
 
 Frequency calculations
