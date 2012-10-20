@@ -9,10 +9,10 @@ A database for genomic variation.
 Description
 -----------
 
-Varda is an application for storing genomic variation data obtained from next-
-generation sequencing experiments, such as full-genome or exome sequencing of
-individuals or populations. Variants can be imported from standard formats
-such as `VCF files <http://www.1000genomes.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-41>`_,
+Varda is an application for storing genomic variation data obtained from
+next-generation sequencing experiments, such as full-genome or exome
+sequencing of individuals or populations. Variants can be imported from
+standard formats such as `VCF files <http://www.1000genomes.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-41>`_,
 and annotated for presence in previously imported datasets.
 
 Varda is implemented by very loosely coupled components, communicating using

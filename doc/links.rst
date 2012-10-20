@@ -1,35 +1,7 @@
-Development notes
-=================
+Links
+=====
 
-Frequency calculations
-----------------------
-
-Sex should be taken into account when calculating frequencies on sex
-chromosomes. For example, in a pool of 500 (250 females, 250 males), the
-maximum frequency on the Y chromosome is 250. This is not a problem for
-samples where we have coverage tracks, since we use them to calculate
-frequencies (e.g. female samples won't have coverage on Y).
-
-For population studies, where we don't have coverage tracks, we should
-have the option to manually set the number of male/female samples, and take
-that into account in calculations. If this ratio is unknown, things will be
-harder (we might be able to deduce something from variants on X and Y). In
-any case, communicate clearly what the calculation exactly is.
-
-
-Todo
-----
-
-* Import data source directly from URL without uploading.
-* Everything must be in UTF8.
-* Use Alembic for database migrations.
-* Data source hashing?
-* Developer documentation using Sphinx.
-* Generated REST API documentation, also using Sphinx?
-
-
-Relevant links
---------------
+Some links to hopefully relevant resources on the web.
 
 * `Modern Web Application Architecture <http://leftnode.com/entry/modern-web-application-architecture>`_
 * `Getting RESTful with web.py <http://johnpaulett.com/2008/09/20/getting-restful-with-webpy/>`_
