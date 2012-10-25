@@ -39,6 +39,7 @@ def normalize_chromosome(chromosome):
     Remove 'chr' prefix from chromosome names and store NC_012920 as
     chromosome 'M'.
     """
+    # Todo: Refactor this taking default hg19 reference names into account.
     if chromosome.startswith('NC_012920'):
         return 'M'
     if chromosome.startswith('chr'):
