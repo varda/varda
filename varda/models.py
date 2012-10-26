@@ -140,13 +140,16 @@ class Sample(db.Model):
     """
     Sample.
 
-    ``coverage_profile`` is essentially ``not is_population_study``.
+    ``coverage_profile`` is essentially ``not is_population_study`` and should
+    always be True iff the sample has one or more Coverage entries (so perhaps
+    we should not store it, but have it as a calculated property).
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     name = db.Column(db.String(200))
+    # Todo: Do we really need pool_size?
     pool_size = db.Column(db.Integer)
     added = db.Column(db.Date)
     active = db.Column(db.Boolean, default=False)
