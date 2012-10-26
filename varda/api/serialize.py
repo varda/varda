@@ -99,7 +99,6 @@ def serialize_sample(instance):
             'variations':         url_for('.variations_list', sample_id=instance.id),
             'coverages':          url_for('.coverages_list', sample_id=instance.id),
             'name':               instance.name,
-            'coverage_threshold': instance.coverage_threshold,
             'pool_size':          instance.pool_size,
             'added':              str(instance.added)}
 

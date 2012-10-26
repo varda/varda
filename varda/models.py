@@ -147,7 +147,6 @@ class Sample(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     name = db.Column(db.String(200))
-    coverage_threshold = db.Column(db.Integer)
     pool_size = db.Column(db.Integer)
     added = db.Column(db.Date)
     active = db.Column(db.Boolean, default=False)
@@ -156,10 +155,9 @@ class Sample(db.Model):
 
     user = db.relationship(User, backref=db.backref('samples', lazy='dynamic'))
 
-    def __init__(self, user, name, pool_size=1, coverage_threshold=None, coverage_profile=True, public=False):
+    def __init__(self, user, name, pool_size=1, coverage_profile=True, public=False):
         self.user = user
         self.name = name
-        self.coverage_threshold = coverage_threshold
         self.pool_size = pool_size
         self.added = date.today()
         self.coverage_profile = coverage_profile
@@ -372,26 +370,15 @@ class Observation(db.Model):
     variant_id = db.Column(db.Integer, db.ForeignKey('variant.id'))
     variation_id = db.Column(db.Integer, db.ForeignKey('variation.id'))
 
-    # Depending on the type of sample, the following 3 fields may or may not
-    # have data. If we have no data, we store None.
-    # Todo: Perhaps we shouldn't store total_coverage and variant_coverage at
-    #     all. Correct calculation is difficult, meaning is often unclear or
-    #     the information is missing entirely. And in the end I don't see us
-    #     really using it anyway. One possible use case would be deducing if
-    #     we have a homozygous or heterozygous variant, but I'm doubtfull if
-    #     we could get that right at all.
-    total_coverage = db.Column(db.Integer)
-    variant_coverage = db.Column(db.Integer)
-    support = db.Column(db.Integer)  # Number of individuals.
+    # Number of individuals.
+    support = db.Column(db.Integer)
 
     variant = db.relationship(Variant, backref=db.backref('observations', lazy='dynamic'))
     variation = db.relationship(Variation, backref=db.backref('observations', lazy='dynamic'))
 
-    def __init__(self, variant, variation, support=1, total_coverage=None, variant_coverage=None):
+    def __init__(self, variant, variation, support=1):
         self.variant = variant
         self.variation = variation
-        self.total_coverage = total_coverage
-        self.variant_coverage = variant_coverage
         self.support = support
 
     def __repr__(self):

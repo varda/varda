@@ -21,7 +21,6 @@ Stored data                 Simple sample    Pooled sample        Population stu
 =========================== ================ ==================== ================
 Pool size                   1                N                    N
 Variant observations        O with support 1 N x O with support 1 O with support N
-Observation coverage        Yes              Yes                  No
 Covered regions             R                N x R                None
 =========================== ================ ==================== ================
 
@@ -38,10 +37,6 @@ variant observations from one big data source in which the order is not
 related to the individuals. For example, ``cat`` the VCF files for all
 individuals and sort the result by genome position before sending it to the
 server.
-
-.. note:: Observation coverage (total number of reads and number of variant
-    reads, both per individual) is only stored for observations in exactly one
-    individual (i.e. not in population studies).
 
 
 Frequency calculation
