@@ -374,6 +374,12 @@ class Observation(db.Model):
 
     # Depending on the type of sample, the following 3 fields may or may not
     # have data. If we have no data, we store None.
+    # Todo: Perhaps we shouldn't store total_coverage and variant_coverage at
+    #     all. Correct calculation is difficult, meaning is often unclear or
+    #     the information is missing entirely. And in the end I don't see us
+    #     really using it anyway. One possible use case would be deducing if
+    #     we have a homozygous or heterozygous variant, but I'm doubtfull if
+    #     we could get that right at all.
     total_coverage = db.Column(db.Integer)
     variant_coverage = db.Column(db.Integer)
     support = db.Column(db.Integer)  # Number of individuals.

@@ -147,6 +147,12 @@ def read_observations(observations, filetype='vcf'):
     reader = vcf.Reader(observations)
 
     for record in reader:
+        if 'SV' in record.INFO:
+            # For now we ignore these, reference is likely to be larger than
+            # the maximum of 200 by the database schema.
+            # Example use of this type are large deletions in 1000 Genomes.
+            continue
+
         chrom = normalize_chromosome(record.CHROM)
         try:
             current_app.conf.CHROMOSOMES[chrom]
@@ -155,43 +161,56 @@ def read_observations(observations, filetype='vcf'):
 
         # DP: Raw read depth.
         if 'DP4' not in record.INFO:
-            coverage = record.INFO['DP']
+            total_coverage = record.INFO['DP']
 
             # AF: Allele Frequency, for each ALT allele, in the same order as
             # listed.
             if 'AF' in record.INFO:
                 if isinstance(record.INFO['AF'], (list, tuple)):
                     # Todo: Shouldn't we use an AF record per allele?
-                    support = coverage * record.INFO['AF'][0]
+                    variant_coverage = total_coverage * record.INFO['AF'][0]
                 else:
-                    support = coverage * record.INFO['AF']
+                    variant_coverage = total_coverage * record.INFO['AF']
             # AF1: EM estimate of the site allele frequency of the strongest
             # non-reference allele.
             elif 'AF1' in record.INFO:
-                support = coverage * record.INFO['AF1']
+                variant_coverage = total_coverage * record.INFO['AF1']
             else:
                 raise TaskError('data_source_invalid',
-                                'Cannot read variant support')
+                                'Cannot read variant supporting coverage')
 
         else:
             # DP4: Number of 1) forward ref alleles; 2) reverse ref;
             # 3) forward non-ref; 4) reverse non-ref alleles, used in variant
             # calling. Sum can be smaller than DP because low-quality bases
             # are not counted.
-            coverage = sum(record.INFO['DP4'])
-            support = sum(record.INFO['DP4'][2:])
+            total_coverage = sum(record.INFO['DP4'])
+            variant_coverage = sum(record.INFO['DP4'][2:])
 
         for index, allele in enumerate(record.ALT):
             reference, allele = trim_common_suffix(record.REF.upper(),
                                                    str(allele).upper())
-            if 'INDEL' in record.INFO and len(reference) >= len(allele):
+            if (('SVTYPE' in record.INFO and record.INFO['SVTYPE'] == 'DEL') or
+                ('INDEL' in record.INFO and len(reference) >= len(allele))):
                 end = record.POS + len(reference) - 1
             else:
                 end = record.POS
 
+            if False:
+                # Todo: Use genotypes.
+                support = sum(1 for sample in record.samples if str(index + 1) in sample['GT'])
+            elif 'SF' in record.INFO and False:
+                # Todo: Per alt allele?
+                support = len(record.INFO['SF'])
+            elif 'AC' in record.INFO and False:
+                # Todo: Per alt allele?
+                support = record.INFO['AC'][0]
+            else:
+                support = 1
+
             # Todo: variant_coverage calculation is not correct with multiple
             #     non-ref alleles.
-            yield chrom, record.POS, end, reference, allele, coverage, support // len(record.ALT)
+            yield chrom, record.POS, end, reference, allele, total_coverage, variant_coverage // len(record.ALT), support
 
 
 def read_regions(regions, filetype='bed'):
@@ -269,7 +288,7 @@ def import_variation(variation_id):
     with data as observations:
         try:
             old_percentage = -1
-            for i, (chromosome, begin, end, reference, variant_seq, total_coverage, variant_coverage) in enumerate(read_observations(observations, filetype=data_source.filetype)):
+            for i, (chromosome, begin, end, reference, variant_seq, total_coverage, variant_coverage, support) in enumerate(read_observations(observations, filetype=data_source.filetype)):
                 # Task progress is updated in whole percentages, so for a
                 # maximum of 100 times per task.
                 percentage = min(int(i / data_source.records * 100), 99)
@@ -291,7 +310,7 @@ def import_variation(variation_id):
                     except NoResultFound:
                         # Should never happen.
                         raise TaskError('database_inconsistency', 'Unrecoverable inconsistency of the database observed')
-                observation = Observation(variant, variation, total_coverage=total_coverage, variant_coverage=variant_coverage)
+                observation = Observation(variant, variation, total_coverage=total_coverage, variant_coverage=variant_coverage, support=support)
                 db.session.add(observation)
                 db.session.commit()
         except ReadError as e:
