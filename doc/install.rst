@@ -159,7 +159,6 @@ configuration settings, for example::
 
     $ export VARDA_SETTINGS=~/varda-server/settings.py
     $ cat > $VARDA_SETTINGS
-    ADMINS = ['martijn@vermaat.name']
     FILES_DIR = '/tmp/varda'
     SQLALCHEMY_DATABASE_URI = 'postgresql://varda:varda@localhost/varda'
     CELERY_RESULT_BACKEND = 'database'
@@ -179,27 +178,11 @@ invocations with ``VARDA_SETTINGS=...``.
 Setting up the database
 -----------------------
 
-The following is an example Python session creating the database tables and
-setting up users::
+A script is included to setup the database tables and add an administrator
+user::
 
-    from varda import create_app, db
-    from varda.models import User
+    $ python -m varda.manage setup
 
-    app = create_app()
-    app.test_request_context().push()
-
-    db.drop_all()
-    db.create_all()
-
-    pietje = User('Pietje Puk', 'pietje', 'pi3tje', roles=['admin'])
-    karel = User('Karel Koek', 'karel', 'k4rel', roles=['importer'])
-    martijn = User('Martijn Vermaat', 'martijn', 'martijn',
-                   roles=['admin', 'importer', 'annotator'])
-
-    db.session.add(pietje)
-    db.session.add(karel)
-    db.session.add(martijn)
-    db.session.commit()
 
 .. _running:
 
@@ -212,7 +195,7 @@ Start a Celery worker node (only used for long-running tasks)::
 
 And start Varda server::
 
-    $ ./runserver
+    $ python -m varda.manage debugserver
 
 You can now point your webbrowser to the URL that is printed and see a json-
 encoded status page.

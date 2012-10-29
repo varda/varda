@@ -1,12 +1,6 @@
 # You can overwrite these settings in the file specified by the VARDA_SETTINGS
 # environment variable.
 
-# Enable debugging mode
-DEBUG = True
-
-# Addresses to send errors to
-ADMINS = []
-
 # Directory to store uploaded files
 FILES_DIR = '/tmp/varda'
 

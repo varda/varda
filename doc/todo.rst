@@ -7,6 +7,7 @@ Todo list
 * Generated REST API documentation, also using Sphinx?
 * Other types of authentication (OAuth).
 * Document server deployment and local installation separately.
+* Add setup.py with `entry_points={'console_scripts': ['varda-manage = varda.manage:main']}`.
 
 
 Document use cases
