@@ -149,7 +149,6 @@ class Sample(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     name = db.Column(db.String(200))
-    # Todo: Do we really need pool_size?
     pool_size = db.Column(db.Integer)
     added = db.Column(db.Date)
     active = db.Column(db.Boolean, default=False)

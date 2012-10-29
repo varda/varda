@@ -137,6 +137,12 @@ class TestApi():
         r = self.client.get(user, headers=[auth_header()])
         assert_equal(r.status_code, 200)
 
+    def test_1kg(self):
+        """
+        Import 1KG samples without coverage track.
+        """
+        self._import('1000 Genomes', 'tests/data/1kg.vcf', pool_size=1092)
+
     def test_exome(self):
         """
         Import and annotate exome sample with coverage track.
@@ -313,7 +319,7 @@ class TestApi():
         assert_equal(r.status_code, 200)
         return json.loads(r.data)['annotation']['annotated_data_source']
 
-    def _import(self, name, vcf_file, bed_file):
+    def _import(self, name, vcf_file, bed_file=None, pool_size=1):
         """
         Import observations and coverage. Return a tuple with URIs for the
         sample, VCF data source, and BED data source.
@@ -321,7 +327,7 @@ class TestApi():
         # Create sample
         data = {'name': name,
                 'coverage_threshold': 8,
-                'pool_size': 1}
+                'pool_size': pool_size}
         r = self.client.post('/samples', data=data, headers=[auth_header()])
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample']
@@ -336,13 +342,16 @@ class TestApi():
         vcf_data_source = r.headers['Location'].replace('http://localhost', '')
 
         # Upload BED
-        data = {'name': '%s coverage' % name,
-                'filetype': 'bed',
-                'data': open(bed_file)}
-        r = self.client.post('/data_sources', data=data, headers=[auth_header()])
-        assert_equal(r.status_code, 201)
-        # Todo: Something better than the replace.
-        bed_data_source = r.headers['Location'].replace('http://localhost', '')
+        if bed_file:
+            data = {'name': '%s coverage' % name,
+                    'filetype': 'bed',
+                    'data': open(bed_file)}
+            r = self.client.post('/data_sources', data=data, headers=[auth_header()])
+            assert_equal(r.status_code, 201)
+            # Todo: Something better than the replace.
+            bed_data_source = r.headers['Location'].replace('http://localhost', '')
+        else:
+            bed_data_source = None
 
         # Get variation and coverage URIs for this sample
         r = self.client.get(sample, headers=[auth_header()])
@@ -371,24 +380,25 @@ class TestApi():
             assert False
 
         # Import regions
-        data = {'data_source': bed_data_source}
-        r = self.client.post(coverages, data=data, headers=[auth_header()])
-        assert_equal(r.status_code, 202)
-        coverage_import_status = json.loads(r.data)['coverage_import_status']
+        if bed_data_source:
+            data = {'data_source': bed_data_source}
+            r = self.client.post(coverages, data=data, headers=[auth_header()])
+            assert_equal(r.status_code, 202)
+            coverage_import_status = json.loads(r.data)['coverage_import_status']
 
-        # Wait for importing
-        # Note: Bogus since during testing tasks return synchronously
-        coverate = None
-        for _ in range(5):
-            r = self.client.get(coverage_import_status, headers=[auth_header()])
-            assert_equal(r.status_code, 200)
-            status = json.loads(r.data)['status']
-            if status['ready']:
-                coverage = status['coverage']
-                break
-            time.sleep(1)
-        else:
-            assert False
+            # Wait for importing
+            # Note: Bogus since during testing tasks return synchronously
+            coverate = None
+            for _ in range(5):
+                r = self.client.get(coverage_import_status, headers=[auth_header()])
+                assert_equal(r.status_code, 200)
+                status = json.loads(r.data)['status']
+                if status['ready']:
+                    coverage = status['coverage']
+                    break
+                time.sleep(1)
+            else:
+                assert False
 
         return sample, vcf_data_source, bed_data_source
 

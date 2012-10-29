@@ -285,7 +285,8 @@ def samples_update(sample_id):
         if field == 'active' and str(value).lower() == 'true':
             # Todo: Check if sample is ready to activate, e.g. if there are
             #     expected imported data sources and no imports running at the
-            #     moment.
+            #     moment. Also, number of coverage tracks should be 0 or equal
+            #     to pool size.
             #raise ActivationFailure('reason', 'This is the reason')
             sample.active = True
         else:

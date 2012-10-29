@@ -168,17 +168,19 @@ def read_observations(observations, filetype='vcf'):
             else:
                 end = record.POS
 
-            if False:
-                # Todo: Use genotypes.
-                support = sum(1 for sample in record.samples if str(index + 1) in sample['GT'])
-            elif 'SF' in record.INFO and False:
-                # Todo: Per alt allele?
-                support = len(record.INFO['SF'])
-            elif 'AC' in record.INFO and False:
-                # Todo: Per alt allele?
-                support = record.INFO['AC'][0]
-            else:
-                support = 1
+            # Variant support is defined by the number of samples in which a
+            # variant allele was called, ignoring homo-/heterozygocity.
+            # Todo: This check can break if index > 9.
+            support = sum(1 for sample in record.samples if str(index + 1) in sample['GT'])
+
+            #if 'SF' in record.INFO and False:
+            #    # Todo: Per alt allele?
+            #    support = len(record.INFO['SF'])
+            #elif 'AC' in record.INFO and False:
+            #    # Todo: Per alt allele?
+            #    support = record.INFO['AC'][0]
+            #else:
+            #    support = 1
 
             yield chrom, record.POS, end, reference, allele, support
 
