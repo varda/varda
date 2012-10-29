@@ -193,9 +193,15 @@ Start a Celery worker node (only used for long-running tasks)::
 
     $ celery -A varda.worker.celery worker -l info
 
-And start Varda server::
+And start a local Varda testserver in debug mode::
 
     $ python -m varda.manage debugserver
 
 You can now point your webbrowser to the URL that is printed and see a json-
 encoded status page.
+
+There are many possibilities for deploying Varda server to a production
+server. Recommended is the `Gunicorn WSGI HTTP Server <http://gunicorn.org/>`_,
+which you could use like this::
+
+    $ gunicorn varda:create_app\(\)
