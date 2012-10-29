@@ -143,6 +143,12 @@ class TestApi():
         """
         self._import('1000 Genomes', 'tests/data/1kg.vcf', pool_size=1092)
 
+    def test_gonl(self):
+        """
+        Import GoNL samples without coverage track.
+        """
+        self._import('Genome of the Netherlands', 'tests/data/gonl.vcf', pool_size=767)
+
     def test_exome(self):
         """
         Import and annotate exome sample with coverage track.
