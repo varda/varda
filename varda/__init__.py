@@ -65,34 +65,3 @@ def create_app(settings=None):
     from .api import api
     app.register_blueprint(api)
     return app
-
-
-# Todo: The following needs refactoring since we use a create_app function.
-temp = '''
-# In production, send server errors to admins and log warnings to a file
-if not app.debug:
-    import logging
-    from logging import FileHandler, getLogger, Formatter
-    from logging.handlers import SMTPHandler
-    mail_handler = SMTPHandler('127.0.0.1', 'm.vermaat.hg@lumc.nl', ADMINS,
-                               'Varda Server Error')
-    mail_handler.setLevel(logging.ERROR)
-    mail_handler.setFormatter(Formatter("""
-Message type:       %(levelname)s
-Location:           %(pathname)s:%(lineno)d
-Module:             %(module)s
-Function:           %(funcName)s
-Time:               %(asctime)s
-
-Message:
-
-%(message)s
-"""))
-    file_handler = FileHandler(SERVER_LOG_FILE)
-    file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(Formatter('%(asctime)s %(levelname)s: %(message)s'))
-    loggers = [app.logger, getLogger('sqlalchemy'), getLogger('celery')]
-    for logger in loggers:
-        app.logger.addHandler(mail_handler)
-        app.logger.addHandler(file_handler)
-'''
