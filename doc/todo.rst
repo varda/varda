@@ -7,7 +7,28 @@ Todo list
 * Generated REST API documentation, also using Sphinx?
 * Other types of authentication (OAuth).
 * Document server deployment and local installation separately.
-* Add setup.py with `entry_points={'console_scripts': ['varda-manage = varda.manage:main']}`.
+* Add setup.py with ``entry_points={'console_scripts': ['varda-manage = varda.manage:main']}``.
+
+
+Check reference allele with reference
+-------------------------------------
+
+Some simple tests showed dat it doesn't add much overhead to the import task
+if we also check if the reference allele from the VCF matches the reference
+sequence (e.g. hg19.fasta). Test done using the pyfasta library.
+
+Having access to a reference fasta file would open some new possibilities:
+
+* Validate VCF chromosome name.
+* Validate VCF positions (don't exceed chromosome length).
+* Validate VCF reference allele.
+* Normalize the variant even further than we do now (using
+  ``vcf.utils.trim_common_suffix``), rolling the variant upstream/downstream
+  as far as possible.
+
+However, I think some of this should be configurable. Also, what to do when a
+VCF record does not validate. Reject the file entirely? Silently skip the
+record? Reject if > 95% doesn't validate?
 
 
 Document use cases
