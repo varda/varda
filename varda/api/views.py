@@ -40,7 +40,7 @@ import uuid
 from celery.exceptions import TimeoutError
 from flask import abort, Blueprint, current_app, g, jsonify, redirect, request, send_from_directory, url_for
 
-from .. import db, log
+from .. import db, log, genome
 from ..models import Annotation, Coverage, DataSource, InvalidDataSource, Observation, Sample, User, Variant, Variation
 from ..tasks import write_annotation, import_variation, import_coverage, TaskError
 from .errors import ActivationFailure
@@ -138,6 +138,7 @@ def error_activation_failure(error):
 def apiroot():
     api = {'status':  'ok',
            'version': API_VERSION,
+           'genome':  genome.keys(),
            'collections': {
                'users':        url_for('.users_list'),
                'samples':      url_for('.samples_list'),

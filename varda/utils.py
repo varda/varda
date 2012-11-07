@@ -9,6 +9,19 @@ Various utilities for Varda.
 
 import hashlib
 
+from flask import current_app
+from vcf.utils import trim_common_suffix
+
+
+from . import genome
+
+
+class ReferenceError(Exception):
+    """
+    Exception thrown mismatch with reference.
+    """
+    pass
+
 
 def digest(data):
     """
@@ -36,12 +49,72 @@ def digest(data):
 
 def normalize_chromosome(chromosome):
     """
-    Remove 'chr' prefix from chromosome names and store NC_012920 as
-    chromosome 'M'.
+    Try to get normalized chromosome name by reference lookup.
     """
-    # Todo: Make alternate chromosome name mappings configurable.
-    if chromosome.startswith('NC_012920'):
-        return 'M'
+    chromosome_aliases = [['M', 'MT', 'NC_012920.1', 'chrM', 'chrMT']]
+
+    if not genome:
+        for aliases in chromosome_aliases:
+            if chromosome in aliases:
+                return aliases[0]
+        if chromosome.startswith('chr'):
+            return chromosome[3:]
+        return chromosome
+
+    if chromosome in genome:
+        return chromosome
+
     if chromosome.startswith('chr'):
-        return chromosome[3:]
-    return chromosome
+        if chromosome[3:] in genome:
+            return chromosome[3:]
+    else:
+        if 'chr' + chromosome in genome:
+            return 'chr' + chromosome
+
+    for aliases in chromosome_aliases:
+        if chromosome in aliases:
+            for alias in aliases:
+                if alias in genome:
+                    return alias
+
+    raise ReferenceError('Chromosome "%s" not in reference genome' % chromosome)
+
+
+def normalize_variant(chromosome, position, reference, observed):
+    """
+    Use reference to create a normalized representation of the variant.
+    """
+    reference, observed = trim_common_suffix(reference.upper(), observed.upper())
+    chromosome = normalize_chromosome(chromosome)
+
+    if not genome:
+        return chromosome, position, reference, observed
+
+    if position > len(genome[chromosome]):
+        raise ReferenceError('Position %d does not exist on chromosome "%s" in reference genome' % (position, chromosome))
+
+    if genome[chromosome][position - 1:position + len(reference) - 1].upper() != reference:
+        raise ReferenceError('Sequence "%s" does not match reference genome on "%s" at position %d' % (reference, chromosome, position))
+
+    # Todo: force the variant as much as possible to the left.
+
+    # Cases:
+    # - deletion: roll deleted pattern
+    # - duplication: roll duplicated pattern
+    # - insertion: roll inserted pattern
+    # - substitution: don't roll
+    # - other indel: don't roll
+
+    return chromosome, position, reference, observed
+
+
+def move_left(sequence, begin, end):
+    """
+    Move ``begin-end`` (one-based, inclusive) in ``sequence`` as far as
+    possible to the left while staying in cyclic permutations.
+    """
+    move = 0
+    while (begin - move > 1 and
+           sequence[begin - move - 2] == sequence[end - move - 1]):
+        move += 1
+    return move

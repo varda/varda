@@ -12,6 +12,9 @@ from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
 
 
+from .genome import Genome
+
+
 # On the event of a new release, we update the __version_info__ and __date__
 # package globals and set RELEASE to True.
 # Before a release, a development version is denoted by a __version_info__
@@ -40,6 +43,7 @@ __homepage__ = 'http://martijn.vermaat.name'
 
 db = SQLAlchemy()
 celery = Celery('varda')
+genome = Genome()
 
 
 def create_app(settings=None):
@@ -62,6 +66,8 @@ def create_app(settings=None):
         app.config.update(settings)
     db.init_app(app)
     celery.conf.add_defaults(app.config)
+    if app.config['FASTA_FILE'] is not None:
+        genome.init(app.config['FASTA_FILE'])
     from .api import api
     app.register_blueprint(api)
     return app

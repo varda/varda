@@ -21,13 +21,12 @@ from celery.utils.log import get_task_logger
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from vcf.parser import _Info as VcfInfo, field_counts as vcf_field_counts
-from vcf.utils import trim_common_suffix
 import vcf
 
 from . import db, celery
 from .models import Annotation, Coverage, DataSource, DataUnavailable, Observation, Sample, Region, Variant, Variation
 from .region_binning import all_bins
-from .utils import digest, normalize_chromosome
+from .utils import digest, normalize_variant, normalize_chromosome
 
 
 logger = get_task_logger(__name__)
@@ -105,30 +104,28 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
             current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
             old_percentage = percentage
 
-        chrom = normalize_chromosome(record.CHROM)
-        try:
-            current_app.conf.CHROMOSOMES[chrom]
-        except KeyError:
-            raise ReadError('Chromosome "%s" not supported' % chrom)
-
         observations = []
         coverage = []
         for index, allele in enumerate(record.ALT):
-            reference, allele = trim_common_suffix(record.REF.upper(),
-                                                   str(allele).upper())
-            if 'INDEL' in record.INFO and len(reference) >= len(allele):
-                end = record.POS + len(reference) - 1
+            try:
+                chromosome, begin, reference, observed = normalize_variant(record.CHROM, record.POS, record.REF, str(allele))
+            except ReferenceError as e:
+                raise ReadError(str(e))
+
+            # Todo: Get ``end`` also from normalize_variant.
+            if 'INDEL' in record.INFO and len(reference) >= len(observed):
+                end = begin + len(reference) - 1
             else:
-                end = record.POS
-            bins = all_bins(record.POS, end)
+                end = begin
+            bins = all_bins(begin, end)
 
             try:
-                variant = Variant.query.filter_by(chromosome=chrom, begin=record.POS, end=end, reference=reference, variant=allele).one()
+                variant = Variant.query.filter_by(chromosome=chromosome, begin=begin, end=end, reference=reference, variant=observed).one()
                 observations.append(variant.observations.join(Variation).filter(~Variation.sample_id.in_(ignore_sample_ids)).count())
             except NoResultFound:
                 observations.append(0)
-            coverage.append(Region.query.join(Coverage).filter(Region.chromosome == chrom,
-                                                               Region.begin <= record.POS,
+            coverage.append(Region.query.join(Coverage).filter(Region.chromosome == chromosome,
+                                                               Region.begin <= begin,
                                                                Region.end >= end,
                                                                Region.bin.in_(bins),
                                                                ~Coverage.sample_id.in_(ignore_sample_ids)).count())
@@ -153,20 +150,17 @@ def read_observations(observations, filetype='vcf'):
             # Example use of this type are large deletions in 1000 Genomes.
             continue
 
-        chrom = normalize_chromosome(record.CHROM)
-        try:
-            current_app.conf.CHROMOSOMES[chrom]
-        except KeyError:
-            raise ReadError('Chromosome "%s" not supported' % chrom)
-
         for index, allele in enumerate(record.ALT):
-            reference, allele = trim_common_suffix(record.REF.upper(),
-                                                   str(allele).upper())
+            try:
+                chromosome, begin, reference, observed = normalize_variant(record.CHROM, record.POS, record.REF, str(allele))
+            except ReferenceError as e:
+                raise ReadError(str(e))
+
             if (('SVTYPE' in record.INFO and record.INFO['SVTYPE'] == 'DEL') or
-                ('INDEL' in record.INFO and len(reference) >= len(allele))):
-                end = record.POS + len(reference) - 1
+                ('INDEL' in record.INFO and len(reference) >= len(observed))):
+                end = begin + len(reference) - 1
             else:
-                end = record.POS
+                end = begin
 
             # Variant support is defined by the number of samples in which a
             # variant allele was called, ignoring homo-/heterozygocity.
@@ -182,7 +176,7 @@ def read_observations(observations, filetype='vcf'):
             #else:
             #    support = 1
 
-            yield chrom, record.POS, end, reference, allele, support
+            yield chromosome, begin, end, reference, observed, support
 
 
 def read_regions(regions, filetype='bed'):
@@ -195,15 +189,12 @@ def read_regions(regions, filetype='bed'):
         if len(fields) < 1 or fields[0] == 'track':
             continue
         try:
+            # Todo: ReferenceError, check positions on reference.
             chromosome = normalize_chromosome(fields[0])
             begin = int(fields[1])
             end = int(fields[2])
         except (IndexError, ValueError):
             raise ReadError('Invalid line in BED file: "%s"' % line)
-        try:
-            current_app.conf.CHROMOSOMES[chromosome]
-        except KeyError:
-            raise ReadError('Chromosome "%s" not supported' % chromosome)
         yield chromosome, begin + 1, end
 
 
