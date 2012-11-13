@@ -33,6 +33,13 @@ varda.api.views
    :members:
 
 
+varda.genome
+------------
+
+.. automodule:: varda.genome
+   :members:
+
+
 varda.log
 ---------
 
@@ -58,4 +65,11 @@ varda.tasks
 -----------
 
 .. automodule:: varda.tasks
+   :members:
+
+
+varda.utils
+-----------
+
+.. automodule:: varda.utils
    :members:

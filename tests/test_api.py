@@ -20,6 +20,7 @@ from varda.models import User
 TEST_SETTINGS = {
     'TESTING': True,
     'FILES_DIR': tempfile.mkdtemp(),
+    'GENOME': None,
     'SQLALCHEMY_DATABASE_URI': 'sqlite://',
     'BROKER_URL': 'memory://',
     'CELERY_RESULT_BACKEND': 'cache',

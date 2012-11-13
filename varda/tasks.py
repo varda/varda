@@ -26,7 +26,7 @@ import vcf
 from . import db, celery
 from .models import Annotation, Coverage, DataSource, DataUnavailable, Observation, Sample, Region, Variant, Variation
 from .region_binning import all_bins
-from .utils import digest, normalize_variant, normalize_chromosome
+from .utils import digest, normalize_variant, normalize_chromosome, ReferenceMismatch
 
 
 logger = get_task_logger(__name__)
@@ -108,25 +108,21 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
         coverage = []
         for index, allele in enumerate(record.ALT):
             try:
-                chromosome, begin, reference, observed = normalize_variant(record.CHROM, record.POS, record.REF, str(allele))
-            except ReferenceError as e:
+                chromosome, position, reference, observed = normalize_variant(record.CHROM, record.POS, record.REF, str(allele))
+            except ReferenceMismatch as e:
                 raise ReadError(str(e))
 
-            # Todo: Get ``end`` also from normalize_variant.
-            if 'INDEL' in record.INFO and len(reference) >= len(observed):
-                end = begin + len(reference) - 1
-            else:
-                end = begin
-            bins = all_bins(begin, end)
+            end_position = position + max(1, len(reference)) - 1
+            bins = all_bins(position, end_position)
 
             try:
-                variant = Variant.query.filter_by(chromosome=chromosome, begin=begin, end=end, reference=reference, variant=observed).one()
+                variant = Variant.query.filter_by(chromosome=chromosome, position=position, reference=reference, observed=observed).one()
                 observations.append(variant.observations.join(Variation).filter(~Variation.sample_id.in_(ignore_sample_ids)).count())
             except NoResultFound:
                 observations.append(0)
             coverage.append(Region.query.join(Coverage).filter(Region.chromosome == chromosome,
-                                                               Region.begin <= begin,
-                                                               Region.end >= end,
+                                                               Region.begin <= position,
+                                                               Region.end >= end_position,
                                                                Region.bin.in_(bins),
                                                                ~Coverage.sample_id.in_(ignore_sample_ids)).count())
 
@@ -152,15 +148,9 @@ def read_observations(observations, filetype='vcf'):
 
         for index, allele in enumerate(record.ALT):
             try:
-                chromosome, begin, reference, observed = normalize_variant(record.CHROM, record.POS, record.REF, str(allele))
-            except ReferenceError as e:
+                chromosome, position, reference, observed = normalize_variant(record.CHROM, record.POS, record.REF, str(allele))
+            except ReferenceMismatch as e:
                 raise ReadError(str(e))
-
-            if (('SVTYPE' in record.INFO and record.INFO['SVTYPE'] == 'DEL') or
-                ('INDEL' in record.INFO and len(reference) >= len(observed))):
-                end = begin + len(reference) - 1
-            else:
-                end = begin
 
             # Variant support is defined by the number of samples in which a
             # variant allele was called, ignoring homo-/heterozygocity.
@@ -176,7 +166,7 @@ def read_observations(observations, filetype='vcf'):
             #else:
             #    support = 1
 
-            yield chromosome, begin, end, reference, observed, support
+            yield chromosome, position, reference, observed, support
 
 
 def read_regions(regions, filetype='bed'):
@@ -189,7 +179,7 @@ def read_regions(regions, filetype='bed'):
         if len(fields) < 1 or fields[0] == 'track':
             continue
         try:
-            # Todo: ReferenceError, check positions on reference.
+            # Todo: ReferenceMismatch, check positions on reference.
             chromosome = normalize_chromosome(fields[0])
             begin = int(fields[1])
             end = int(fields[2])
@@ -251,7 +241,7 @@ def import_variation(variation_id):
     with data as observations:
         try:
             old_percentage = -1
-            for i, (chromosome, begin, end, reference, variant_seq, support) in enumerate(read_observations(observations, filetype=data_source.filetype)):
+            for i, (chromosome, position, reference, observed, support) in enumerate(read_observations(observations, filetype=data_source.filetype)):
                 # Task progress is updated in whole percentages, so for a
                 # maximum of 100 times per task.
                 percentage = min(int(i / data_source.records * 100), 99)
@@ -265,13 +255,13 @@ def import_variation(variation_id):
                 try:
                     # Todo: Check for errors (binning on begin/end may fail,
                     #     sequences might be too long).
-                    variant = Variant(chromosome, begin, end, reference, variant_seq)
+                    variant = Variant(chromosome, position, reference, observed)
                     db.session.add(variant)
                     db.session.commit()
                 except IntegrityError:
                     db.session.rollback()
                     try:
-                        variant = Variant.query.filter_by(chromosome=chromosome, begin=begin, end=end, reference=reference, variant=variant_seq).one()
+                        variant = Variant.query.filter_by(chromosome=chromosome, position=position, reference=reference, observed=observed).one()
                     except NoResultFound:
                         # Should never happen.
                         raise TaskError('database_inconsistency', 'Unrecoverable inconsistency of the database observed')

@@ -66,8 +66,8 @@ def create_app(settings=None):
         app.config.update(settings)
     db.init_app(app)
     celery.conf.add_defaults(app.config)
-    if app.config['FASTA_FILE'] is not None:
-        genome.init(app.config['FASTA_FILE'])
+    if app.config['GENOME'] is not None:
+        genome.init(app.config['GENOME'])
     from .api import api
     app.register_blueprint(api)
     return app

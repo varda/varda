@@ -110,30 +110,44 @@ class Variant(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     chromosome = db.Column(db.String(30))
-    begin = db.Column(db.Integer)
-    end = db.Column(db.Integer)
+    position = db.Column(db.Integer)
     reference = db.Column(db.String(200))
-    variant = db.Column(db.String(200))
+    observed = db.Column(db.String(200))
     bin = db.Column(db.Integer)
 
-    def __init__(self, chromosome, begin, end, reference, variant):
+    def __init__(self, chromosome, position, reference, observed):
         self.chromosome = chromosome
-        self.begin = begin
-        self.end = end
+        self.position = position
         self.reference = reference
-        self.variant = variant
-        self.bin = assign_bin(self.begin, self.end)
+        self.observed = observed
+        # We choose the 'region' of the reference covered by an insertion to
+        # be the base next to it.
+        self.bin = assign_bin(self.position,
+                              self.position + max(1, len(self.reference)) - 1)
 
     def __repr__(self):
-        return 'Variant(%r, %r, %r, %r, %r)' % (
-            self.chromosome, self.begin, self.end, self.reference, self.variant)
+        return 'Variant(%r, %r, %r, %r)' % (
+            self.chromosome, self.position, self.reference, self.observed)
 
+    def is_deletion(self):
+        return self.observed == ''
+
+    def is_insertion(self):
+        return self.reference == ''
+
+    def is_snv(self):
+        return len(self.observed) == len(self.reference) == 1
+
+    def is_indel(self):
+        return not (self.is_deletion() or
+                    self.is_insertion() or
+                    self.is_snv())
 
 Index('variant_location',
-      Variant.chromosome, Variant.begin)
+      Variant.chromosome, Variant.position)
 Index('variant_unique',
-      Variant.chromosome, Variant.begin, Variant.end,
-      Variant.reference, Variant.variant, unique=True)
+      Variant.chromosome, Variant.position,
+      Variant.reference, Variant.observed, unique=True)
 
 
 class Sample(db.Model):
