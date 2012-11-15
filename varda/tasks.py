@@ -240,6 +240,8 @@ def import_variation(variation_id):
     # Note: Since we are dealing with huge numbers of entries here, we commit
     # after each INSERT and manually rollback. Using builtin session rollback
     # would fill up all our memory.
+    # Todo: It seems this gives a lot of overhead (15x speed decrease for a
+    #     simple import task. Might want to commit every N records...
     def delete_observations():
         variation.observations.delete()
         db.session.commit()
