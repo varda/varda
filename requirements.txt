@@ -1,6 +1,6 @@
 Flask==0.9
 Flask-SQLAlchemy==0.16
--e git+https://github.com/martijnvermaat/PyVCF.git@missing-gt#egg=PyVCF
+PyVCF==0.6.0
 SQLAlchemy==0.7.8
 celery==3.0.5
 celery-with-redis==3.0
@@ -8,3 +8,5 @@ nose==1.1.2
 psycopg2==2.4.5
 py-bcrypt==0.2
 Sphinx==1.1.3
+numpy==1.6.2
+pyfasta==0.4.5
