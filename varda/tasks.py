@@ -159,7 +159,10 @@ def read_observations(observations, filetype='vcf'):
             # Variant support is defined by the number of samples in which a
             # variant allele was called, ignoring homo-/heterozygocity.
             # Todo: This check can break if index > 9.
-            support = sum(1 for sample in record.samples if str(index + 1) in sample['GT'])
+            try:
+                support = sum(1 for sample in record.samples if str(index + 1) in sample['GT'])
+            except AttributeError:
+                support = 1
 
             #if 'SF' in record.INFO and False:
             #    # Todo: Per alt allele?
