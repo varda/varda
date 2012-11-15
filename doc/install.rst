@@ -172,6 +172,12 @@ invoking any component of Varda server. One way of doing this is adding the
 above ``export`` command to your ``~/.bashrc``. Another is prefixing your
 invocations with ``VARDA_SETTINGS=...``.
 
+Varda can use a reference genome to check and normalize variant descriptions.
+Specify the location to a FASTA file with the ``GENOME`` setting in the
+configuration file and flatten it in place::
+
+    $ pyfasta flatten reference.fa
+
 
 .. _database-setup:
 
