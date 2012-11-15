@@ -414,6 +414,7 @@ def coverages_import_status(sample_id, coverage_id):
     Get coverage import status.
     """
     coverage = Coverage.query.get_or_404(coverage_id)
+    percentage = None
 
     if coverage.import_task_uuid:
         result = import_coverage.AsyncResult(coverage.import_task_uuid)
@@ -423,9 +424,11 @@ def coverages_import_status(sample_id, coverage_id):
             result.get(timeout=3)
         except TimeoutError:
             pass
+        if result.state == 'PROGRESS':
+            percentage = result.info['percentage']
 
     uri = url_for('.coverages_get', sample_id=sample_id, coverage_id=coverage_id)
-    return jsonify(status={'coverage': uri, 'ready': coverage.imported})
+    return jsonify(status={'coverage': uri, 'ready': coverage.imported, 'percentage': percentage})
 
 
 @api.route('/samples/<int:sample_id>/coverages', methods=['POST'])
@@ -553,6 +556,7 @@ def annotations_write_status(data_source_id, annotation_id):
     Get annotation write status.
     """
     annotation = Annotation.query.get_or_404(annotation_id)
+    percentage = None
 
     # Todo: If annotation.written, return immediately. What to do if there's
     #     no annotation.write_task_uuid?
@@ -565,9 +569,11 @@ def annotations_write_status(data_source_id, annotation_id):
             result.get(timeout=3)
         except TimeoutError:
             pass
+        if result.state == 'PROGRESS':
+            percentage = result.info['percentage']
 
     uri = url_for('.annotations_get', data_source_id=data_source_id, annotation_id=annotation_id)
-    return jsonify(status={'annotation': uri, 'ready': annotation.written})
+    return jsonify(status={'annotation': uri, 'ready': annotation.written, 'percentage': percentage})
 
 
 @api.route('/data_sources/<int:data_source_id>/annotations', methods=['POST'])
