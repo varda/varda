@@ -256,6 +256,8 @@ def import_variation(variation_id):
             for i, (chromosome, position, reference, observed, support) in enumerate(read_observations(observations, filetype=data_source.filetype)):
                 # Task progress is updated in whole percentages, so for a
                 # maximum of 100 times per task.
+                # Todo: Increment ``i`` per record instead of per yielded
+                #     observation.
                 percentage = min(int(i / data_source.records * 100), 99)
                 if percentage > old_percentage:
                     current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
