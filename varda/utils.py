@@ -79,6 +79,21 @@ def normalize_chromosome(chromosome):
                             chromosome)
 
 
+def normalize_region(chromosome, begin, end):
+    """
+    Use reference to normalize chromosome name and validate location.
+    """
+    chromosome = normalize_chromosome(chromosome)
+
+    if genome:
+        if end > len(genome[chromosome]):
+            raise ReferenceMismatch('Position %d does not exist on chromosome'
+                                    ' "%s" in reference genome' %
+                                    (end, chromosome))
+
+    return chromosome, begin, end
+
+
 def normalize_variant(chromosome, position, reference, observed):
     """
     Use reference to create a normalized representation of the variant.

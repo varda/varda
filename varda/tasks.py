@@ -26,7 +26,7 @@ import vcf
 from . import db, celery
 from .models import Annotation, Coverage, DataSource, DataUnavailable, Observation, Sample, Region, Variant, Variation
 from .region_binning import all_bins
-from .utils import digest, normalize_variant, normalize_chromosome, ReferenceMismatch
+from .utils import digest, normalize_variant, normalize_chromosome, normalize_region, ReferenceMismatch
 
 
 logger = get_task_logger(__name__)
@@ -148,9 +148,13 @@ def read_observations(observations, filetype='vcf'):
 
         for index, allele in enumerate(record.ALT):
             try:
-                chromosome, position, reference, observed = normalize_variant(record.CHROM, record.POS, record.REF, str(allele))
+                chromosome, position, reference, observed = normalize_variant(
+                    record.CHROM, record.POS, record.REF, str(allele))
             except ReferenceMismatch as e:
-                raise ReadError(str(e))
+                logger.info('Reference mismatch: %s', str(e))
+                if current_app.conf['REFERENCE_MISMATCH_ABORT']:
+                    raise ReadError(str(e))
+                continue
 
             # Variant support is defined by the number of samples in which a
             # variant allele was called, ignoring homo-/heterozygocity.
@@ -179,12 +183,15 @@ def read_regions(regions, filetype='bed'):
         if len(fields) < 1 or fields[0] == 'track':
             continue
         try:
-            # Todo: ReferenceMismatch, check positions on reference.
-            chromosome = normalize_chromosome(fields[0])
-            begin = int(fields[1])
-            end = int(fields[2])
+            chromosome, begin, end = normalize_region(
+                fields[0], int(fields[1]), int(fields[2]))
         except (IndexError, ValueError):
             raise ReadError('Invalid line in BED file: "%s"' % line)
+        except ReferenceMismatch as e:
+            logger.info('Reference mismatch: %s', str(e))
+            if current_app.conf['REFERENCE_MISMATCH_ABORT']:
+                raise ReadError(str(e))
+            continue
         yield chromosome, begin + 1, end
 
 
@@ -216,6 +223,8 @@ def import_variation(variation_id):
     data_source = variation.data_source
 
     # Calculate data digest if it is not yet known.
+    # Todo: Can we somehow factor this out into a separate (singleton) task,
+    #     on which we wait?
     if not data_source.checksum:
         with data_source.data() as data:
             data_source.checksum, data_source.records = digest(data)

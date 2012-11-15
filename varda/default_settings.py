@@ -10,8 +10,11 @@ MAX_CONTENT_LENGTH = 1024 * 1024 * 1024  # 1 gigabyte
 # Location of server log file
 SERVER_LOG_FILE = '/tmp/varda-server.log'
 
-# Location of reference Fasta file
+# Location of reference genome Fasta file
 GENOME = None
+
+# Abort entire task if a reference mismatch occurs
+REFERENCE_MISMATCH_ABORT = True
 
 # Location of Celery log file
 #CELERYD_LOG_FILE = '/tmp/varda-celeryd.log'
