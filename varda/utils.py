@@ -98,6 +98,9 @@ def normalize_variant(chromosome, position, reference, observed):
     """
     Use reference to create a normalized representation of the variant.
     """
+    reference = reference.upper()
+    observed = observed.upper()
+
     chromosome = normalize_chromosome(chromosome)
 
     if genome:
@@ -112,8 +115,7 @@ def normalize_variant(chromosome, position, reference, observed):
                                     ' genome on "%s" at position %d' %
                                     (reference, chromosome, position))
 
-    prefix, reference, observed, _ = trim_common(reference.upper(),
-                                                 observed.upper())
+    prefix, reference, observed, _ = trim_common(reference, observed)
     position += prefix
 
     if not genome:
