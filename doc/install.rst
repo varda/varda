@@ -197,7 +197,7 @@ Running Varda server
 
 Start a Celery worker node (only used for long-running tasks)::
 
-    $ celery -A varda.worker.celery worker -l info
+    $ celery -A varda.worker.celery worker -l info --maxtasksperchild=4
 
 And start a local Varda testserver in debug mode::
 
