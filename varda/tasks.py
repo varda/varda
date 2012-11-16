@@ -224,6 +224,10 @@ def import_variation(variation_id):
     # Related discussion:
     # https://groups.google.com/forum/?fromgroups=#!topic/sqlalchemy/ZD5RNfsmQmU
 
+    # Alternative solution might be to dump all observations to a file and
+    # import from that. It would not have memory problems and is probably
+    # faster, but really not portable.
+
     with data as observations:
         try:
             old_percentage = -1
@@ -241,7 +245,19 @@ def import_variation(variation_id):
                 db.session.add(observation)
                 if i % FLUSH_COUNT == FLUSH_COUNT - 1:
                     db.session.flush()
-                    # Todo: Perhaps invalidating session helps memory usage?
+                    # Todo: I don't understand why memory usage keeps growing
+                    #     during the entire import process. Even the following
+                    #     don't help after the flush:
+                    #     - db.session.expire_all()
+                    #     - db.session.expunge_all()
+                    #     However, committing seems to free memory, so we may
+                    #     have to go back to committing instead of flushing
+                    #     and do a manual rollback using our CleanTask class
+                    #     (removed in 0c4b2e8).
+                    #     CPython makes things worse by never giving garbage
+                    #     collected memory back to the OS, so after one task
+                    #     high memory usage never goes down. A fix for this is
+                    #     to always run the workers with --maxtasksperchild=1.
         except ReadError as e:
             db.session.rollback()
             variation.import_task_uuid = None
