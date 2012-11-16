@@ -41,7 +41,7 @@ from celery.exceptions import TimeoutError
 from flask import abort, Blueprint, current_app, g, jsonify, redirect, request, send_from_directory, url_for
 
 from .. import db, log, genome
-from ..models import Annotation, Coverage, DataSource, InvalidDataSource, Observation, Sample, User, Variant, Variation
+from ..models import Annotation, Coverage, DataSource, InvalidDataSource, Observation, Sample, User, Variation
 from ..tasks import write_annotation, import_variation, import_coverage, TaskError
 from .errors import ActivationFailure
 from .permissions import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
@@ -654,10 +654,6 @@ def check_variant():
         alternate = data['alternate']
     except (KeyError, ValueError):
         abort(400)
-    variant = Variant.query.filter_by(chromosome=chromosome, begin=begin, end=end, reference=reference, variant=alternate).first()
-    if variant:
-        observations = variant.observations.count()
-    else:
-        observations = 0
+    observations = Observation.query.filter_by(chromosome=chromosome, begin=begin, end=end, reference=reference, variant=alternate).count()
     log.info('Checked variant: chromosome %s, begin %d, end %d, reference %s, alternate %s', chromosome, begin, end, reference, alternate)
     return jsonify(observations=observations)

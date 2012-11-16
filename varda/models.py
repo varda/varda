@@ -102,54 +102,6 @@ class User(db.Model):
                 if self.roles_bitstring & pow(2, i)}
 
 
-class Variant(db.Model):
-    """
-    Genomic variant.
-    """
-    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
-
-    id = db.Column(db.Integer, primary_key=True)
-    chromosome = db.Column(db.String(30))
-    position = db.Column(db.Integer)
-    reference = db.Column(db.String(200))
-    observed = db.Column(db.String(200))
-    bin = db.Column(db.Integer)
-
-    def __init__(self, chromosome, position, reference, observed):
-        self.chromosome = chromosome
-        self.position = position
-        self.reference = reference
-        self.observed = observed
-        # We choose the 'region' of the reference covered by an insertion to
-        # be the base next to it.
-        self.bin = assign_bin(self.position,
-                              self.position + max(1, len(self.reference)) - 1)
-
-    def __repr__(self):
-        return 'Variant(%r, %r, %r, %r)' % (
-            self.chromosome, self.position, self.reference, self.observed)
-
-    def is_deletion(self):
-        return self.observed == ''
-
-    def is_insertion(self):
-        return self.reference == ''
-
-    def is_snv(self):
-        return len(self.observed) == len(self.reference) == 1
-
-    def is_indel(self):
-        return not (self.is_deletion() or
-                    self.is_insertion() or
-                    self.is_snv())
-
-Index('variant_location',
-      Variant.chromosome, Variant.position)
-Index('variant_unique',
-      Variant.chromosome, Variant.position,
-      Variant.reference, Variant.observed, unique=True)
-
-
 class Sample(db.Model):
     """
     Sample.
@@ -383,22 +335,52 @@ class Observation(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    variant_id = db.Column(db.Integer, db.ForeignKey('variant.id'))
     variation_id = db.Column(db.Integer, db.ForeignKey('variation.id'))
+
+    chromosome = db.Column(db.String(30))
+    position = db.Column(db.Integer)
+    reference = db.Column(db.String(200))
+    observed = db.Column(db.String(200))
+    bin = db.Column(db.Integer)
 
     # Number of individuals.
     support = db.Column(db.Integer)
 
-    variant = db.relationship(Variant, backref=db.backref('observations', lazy='dynamic'))
     variation = db.relationship(Variation, backref=db.backref('observations', lazy='dynamic'))
 
-    def __init__(self, variant, variation, support=1):
-        self.variant = variant
+    def __init__(self, variation, chromosome, position, reference, observed, support=1):
         self.variation = variation
+        self.chromosome = chromosome
+        self.position = position
+        self.reference = reference
+        self.observed = observed
+        # We choose the 'region' of the reference covered by an insertion to
+        # be the base next to it.
+        self.bin = assign_bin(self.position,
+                              self.position + max(1, len(self.reference)) - 1)
         self.support = support
 
     def __repr__(self):
-        return '<Observation ...>'
+        return 'Observation<%r, %r, %r, %r>' % (
+            self.chromosome, self.position, self.reference, self.observed)
+
+    def is_deletion(self):
+        return self.observed == ''
+
+    def is_insertion(self):
+        return self.reference == ''
+
+    def is_snv(self):
+        return len(self.observed) == len(self.reference) == 1
+
+    def is_indel(self):
+        return not (self.is_deletion() or
+                    self.is_insertion() or
+                    self.is_snv())
+
+
+Index('observation_location',
+      Observation.bin, Observation.chromosome, Observation.position)
 
 
 class Region(db.Model):

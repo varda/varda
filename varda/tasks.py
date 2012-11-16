@@ -24,9 +24,12 @@ from vcf.parser import _Info as VcfInfo, field_counts as vcf_field_counts
 import vcf
 
 from . import db, celery
-from .models import Annotation, Coverage, DataSource, DataUnavailable, Observation, Sample, Region, Variant, Variation
+from .models import Annotation, Coverage, DataSource, DataUnavailable, Observation, Sample, Region, Variation
 from .region_binning import all_bins
 from .utils import digest, normalize_variant, normalize_chromosome, normalize_region, ReferenceMismatch
+
+
+FLUSH_COUNT = 1000
 
 
 logger = get_task_logger(__name__)
@@ -115,11 +118,7 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
             end_position = position + max(1, len(reference)) - 1
             bins = all_bins(position, end_position)
 
-            try:
-                variant = Variant.query.filter_by(chromosome=chromosome, position=position, reference=reference, observed=observed).one()
-                observations.append(variant.observations.join(Variation).filter(~Variation.sample_id.in_(ignore_sample_ids)).count())
-            except NoResultFound:
-                observations.append(0)
+            observations.append(Observation.query.filter_by(chromosome=chromosome, position=position, reference=reference, observed=observed).join(Variation).filter(~Variation.sample_id.in_(ignore_sample_ids)).count())
             coverage.append(Region.query.join(Coverage).filter(Region.chromosome == chromosome,
                                                                Region.begin <= position,
                                                                Region.end >= end_position,
@@ -238,10 +237,14 @@ def import_variation(variation_id):
         raise TaskError('duplicate_data_source', 'Identical data source already imported')
 
     # Note: Since we are dealing with huge numbers of entries here, we commit
-    # after each INSERT and manually rollback. Using builtin session rollback
-    # would fill up all our memory.
-    # Todo: It seems this gives a lot of overhead (15x speed decrease for a
-    #     simple import task. Might want to commit every N records...
+    # after every N inserts and manually rollback. Using builtin session
+    # rollback would fill up all our memory and committing after every insert
+    # gives a lot of overhead (15x speed decrease for a simple (~45.000
+    # variants) import task.
+    # Remember that this only makes sence if autocommit and autoflush are off,
+    # which is the default for flask-sqlalchemy.
+    # Related discussion:
+    # https://groups.google.com/forum/?fromgroups=#!topic/sqlalchemy/ZD5RNfsmQmU
     def delete_observations():
         variation.observations.delete()
         db.session.commit()
@@ -265,25 +268,10 @@ def import_variation(variation_id):
                     current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
                     old_percentage = percentage
                     time.sleep(1)
-                # SQLAlchemy doesn't seem to have anything like INSERT IGNORE
-                # or INSERT ... ON DUPLICATE KEY UPDATE, so we have to work
-                # our way around the situation.
-                try:
-                    # Todo: Check for errors (binning on begin/end may fail,
-                    #     sequences might be too long).
-                    variant = Variant(chromosome, position, reference, observed)
-                    db.session.add(variant)
-                    db.session.commit()
-                except IntegrityError:
-                    db.session.rollback()
-                    try:
-                        variant = Variant.query.filter_by(chromosome=chromosome, position=position, reference=reference, observed=observed).one()
-                    except NoResultFound:
-                        # Should never happen.
-                        raise TaskError('database_inconsistency', 'Unrecoverable inconsistency of the database observed')
-                observation = Observation(variant, variation, support=support)
+                observation = Observation(variation, chromosome, position, reference, observed, support=support)
                 db.session.add(observation)
-                db.session.commit()
+                if i % FLUSH_COUNT == FLUSH_COUNT - 1:
+                    db.session.flush()
         except ReadError as e:
             raise TaskError('invalid_observations', str(e))
 
@@ -337,8 +325,10 @@ def import_coverage(coverage_id):
         raise TaskError(e.code, e.message)
 
     # Note: Since we are dealing with huge numbers of entries here, we commit
-    # after each INSERT and manually rollback. Using builtin session rollback
-    # would fill up all our memory.
+    # after every N inserts and manually rollback. Using builtin session
+    # rollback would fill up all our memory and committing after every insert
+    # gives a lot of overhead (15x speed decrease for a simple (~45.000
+    # variants) import task.
     def delete_regions():
         coverage.regions.delete()
         db.session.commit()
@@ -355,7 +345,8 @@ def import_coverage(coverage_id):
                     current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
                     old_percentage = percentage
                 db.session.add(Region(coverage, chromosome, begin, end))
-                db.session.commit()
+                if i % FLUSH_COUNT == FLUSH_COUNT - 1:
+                    db.session.flush()
         except ReadError as e:
             raise TaskError('invalid_regions', str(e))
 
