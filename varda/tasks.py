@@ -52,28 +52,6 @@ class TaskError(Exception):
         super(TaskError, self).__init__(code, message)
 
 
-class CleanTask(Task):
-    """
-    Ordinary Celery task, but with a way of registering cleanup routines that
-    are executed after the task failed (on the worker node).
-    """
-    abstract = True
-
-    # We maintain a list of cleanups per task id since the worker node only
-    # instantiates the task class once (not for every run). Just storing one
-    # list of cleanups in this instance would mean they are shared between
-    # different task runs.
-    _cleanups = defaultdict(list)
-
-    def register_cleanup(self, task_id, cleanup):
-        self._cleanups[task_id].append(cleanup)
-
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        for cleanup in reversed(self._cleanups[task_id]):
-            cleanup()
-        del self._cleanups[task_id]
-
-
 def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', ignore_sample_ids=None, original_records=1):
     """
     .. todo:: Merge back population study annotation (see implementation in
@@ -197,7 +175,7 @@ def read_regions(regions, filetype='bed'):
         yield chromosome, begin + 1, end
 
 
-@celery.task(base=CleanTask)
+@celery.task
 def import_variation(variation_id):
     """
     Import variation as observations.
@@ -236,24 +214,19 @@ def import_variation(variation_id):
     if DataSource.query.filter_by(checksum=data_source.checksum).join(Variation).filter_by(imported=True).count() > 0:
         raise TaskError('duplicate_data_source', 'Identical data source already imported')
 
-    # Note: Since we are dealing with huge numbers of entries here, we commit
-    # after every N inserts and manually rollback. Using builtin session
-    # rollback would fill up all our memory and committing after every insert
-    # gives a lot of overhead (15x speed decrease for a simple (~45.000
-    # variants) import task.
-    # Remember that this only makes sence if autocommit and autoflush are off,
-    # which is the default for flask-sqlalchemy.
-    # Related discussion:
-    # https://groups.google.com/forum/?fromgroups=#!topic/sqlalchemy/ZD5RNfsmQmU
-    def delete_observations():
-        variation.observations.delete()
-        db.session.commit()
-    current_task.register_cleanup(current_task.request.id, delete_observations)
-
     try:
         data = data_source.data()
     except DataUnavailable as e:
         raise TaskError(e.code, e.message)
+
+    # Remember that this only makes sence if autocommit and autoflush are off,
+    # which is the default for flask-sqlalchemy.
+    # Related discussion:
+    # https://groups.google.com/forum/?fromgroups=#!topic/sqlalchemy/ZD5RNfsmQmU
+
+    # Alternative solution might be to dump all observations to a file and
+    # import from that. It would not have memory problems and is probably
+    # faster, but really not portable.
 
     with data as observations:
         try:
@@ -272,7 +245,23 @@ def import_variation(variation_id):
                 db.session.add(observation)
                 if i % FLUSH_COUNT == FLUSH_COUNT - 1:
                     db.session.flush()
+                    # Todo: I don't understand why memory usage keeps growing
+                    #     during the entire import process. Even the following
+                    #     don't help after the flush:
+                    #     - db.session.expire_all()
+                    #     - db.session.expunge_all()
+                    #     However, committing seems to free memory, so we may
+                    #     have to go back to committing instead of flushing
+                    #     and do a manual rollback using our CleanTask class
+                    #     (removed in 0c4b2e8).
+                    #     CPython makes things worse by never giving garbage
+                    #     collected memory back to the OS, so after one task
+                    #     high memory usage never goes down. A fix for this is
+                    #     to always run the workers with --maxtasksperchild=1.
         except ReadError as e:
+            db.session.rollback()
+            variation.import_task_uuid = None
+            db.session.commit()
             raise TaskError('invalid_observations', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})
@@ -282,7 +271,7 @@ def import_variation(variation_id):
     logger.info('Finished task: import_variation(%d)', variation_id)
 
 
-@celery.task(base=CleanTask)
+@celery.task
 def import_coverage(coverage_id):
     """
     Import coverage as regions.
@@ -324,15 +313,10 @@ def import_coverage(coverage_id):
     except DataUnavailable as e:
         raise TaskError(e.code, e.message)
 
-    # Note: Since we are dealing with huge numbers of entries here, we commit
-    # after every N inserts and manually rollback. Using builtin session
-    # rollback would fill up all our memory and committing after every insert
-    # gives a lot of overhead (15x speed decrease for a simple (~45.000
-    # variants) import task.
-    def delete_regions():
-        coverage.regions.delete()
-        db.session.commit()
-    current_task.register_cleanup(current_task.request.id, delete_regions)
+    # Remember that this only makes sence if autocommit and autoflush are off,
+    # which is the default for flask-sqlalchemy.
+    # Related discussion:
+    # https://groups.google.com/forum/?fromgroups=#!topic/sqlalchemy/ZD5RNfsmQmU
 
     with data as regions:
         try:
@@ -347,7 +331,11 @@ def import_coverage(coverage_id):
                 db.session.add(Region(coverage, chromosome, begin, end))
                 if i % FLUSH_COUNT == FLUSH_COUNT - 1:
                     db.session.flush()
+                    # Todo: Perhaps invalidating session helps memory usage?
         except ReadError as e:
+            db.session.rollback()
+            coverage.import_task_uuid = None
+            db.session.commit()
             raise TaskError('invalid_regions', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})
@@ -357,7 +345,7 @@ def import_coverage(coverage_id):
     logger.info('Finished task: import_coverage(%d)', coverage_id)
 
 
-@celery.task(base=CleanTask)
+@celery.task
 def write_annotation(annotation_id, ignore_sample_ids=None):
     """
     Annotate variants with frequencies from the database.
@@ -408,6 +396,9 @@ def write_annotation(annotation_id, ignore_sample_ids=None):
                               ignore_sample_ids=ignore_sample_ids,
                               original_records=original_data_source.records)
         except ReadError as e:
+            # Todo: Empty annotated variants.
+            annotation.write_task_uuid = None
+            db.session.commit()
             raise TaskError('invalid_observations', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})

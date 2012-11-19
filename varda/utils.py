@@ -49,7 +49,8 @@ def normalize_chromosome(chromosome):
     """
     Try to get normalized chromosome name by reference lookup.
     """
-    chromosome_aliases = [['M', 'MT', 'NC_012920.1', 'chrM', 'chrMT']]
+    chromosome_aliases = [['M', 'MT', 'NC_012920.1', 'NC_012920_1',
+                           'NC_012920', 'chrM', 'chrMT']]
 
     if not genome:
         for aliases in chromosome_aliases:
