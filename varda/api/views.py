@@ -514,7 +514,7 @@ def data_sources_add():
         abort(400)
     gzipped = rdata.get('gzipped', '').lower() == 'true'
     data = request.files.get('data')
-    local_path = request.form.get('local_path')
+    local_path = rdata.get('local_path')
     data_source = DataSource(g.user, name, filetype, upload=data, local_path=local_path, gzipped=gzipped)
     db.session.add(data_source)
     db.session.commit()

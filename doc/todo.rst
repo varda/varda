@@ -8,6 +8,7 @@ Todo list
 * Other types of authentication (OAuth).
 * Document server deployment and local installation separately.
 * Add setup.py with ``entry_points={'console_scripts': ['varda-manage = varda.manage:main']}``.
+* Validate user input, especially file uploads (max file size).
 
 
 Check reference allele with reference
