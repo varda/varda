@@ -70,6 +70,10 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
 
     reader = vcf.Reader(original_variants)
 
+    # Number of lines read (i.e. comparable to what is reported by
+    # ``varda.utils.digest``).
+    current_record = len(reader._header_lines) + 1
+
     reader.infos['OBS'] = VcfInfo('OBS', vcf_field_counts['A'], 'Integer',
         'Samples with variant (out of %i)' % Sample.query.count())
     reader.infos['COV'] = VcfInfo('COV', vcf_field_counts['A'], 'Integer',
@@ -77,10 +81,9 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
     writer = vcf.Writer(annotated_variants, reader, lineterminator='\n')
 
     old_percentage = -1
-    for i, record in enumerate(reader):
-        # Task progress is updated in whole percentages, so for a maximum of
-        # 100 times per task.
-        percentage = min(int(i / original_records * 100), 99)
+    for record in reader:
+        current_record += 1
+        percentage = min(int(current_record / original_records * 100), 99)
         if percentage > old_percentage:
             current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
             old_percentage = percentage
@@ -116,7 +119,13 @@ def read_observations(observations, filetype='vcf'):
 
     reader = vcf.Reader(observations)
 
+    # Number of lines read (i.e. comparable to what is reported by
+    # ``varda.utils.digest``).
+    current_record = len(reader._header_lines) + 1
+
     for record in reader:
+        current_record += 1
+
         if 'SV' in record.INFO:
             # For now we ignore these, reference is likely to be larger than
             # the maximum of 200 by the database schema.
@@ -150,7 +159,7 @@ def read_observations(observations, filetype='vcf'):
             #else:
             #    support = 1
 
-            yield chromosome, position, reference, observed, support
+            yield current_record, chromosome, position, reference, observed, support
 
 
 def read_regions(regions, filetype='bed'):
@@ -158,7 +167,7 @@ def read_regions(regions, filetype='bed'):
     if filetype != 'bed':
         raise ReadError('Data must be in BED format')
 
-    for line in regions:
+    for current_record, line in enumerate(regions):
         fields = line.split()
         if len(fields) < 1 or fields[0] == 'track':
             continue
@@ -172,7 +181,7 @@ def read_regions(regions, filetype='bed'):
             if current_app.conf['REFERENCE_MISMATCH_ABORT']:
                 raise ReadError(str(e))
             continue
-        yield chromosome, begin + 1, end
+        yield current_record, chromosome, begin + 1, end
 
 
 @celery.task
@@ -231,16 +240,13 @@ def import_variation(variation_id):
     with data as observations:
         try:
             old_percentage = -1
-            for i, (chromosome, position, reference, observed, support) in enumerate(read_observations(observations, filetype=data_source.filetype)):
+            for i, (record, chromosome, position, reference, observed, support) in enumerate(read_observations(observations, filetype=data_source.filetype)):
                 # Task progress is updated in whole percentages, so for a
                 # maximum of 100 times per task.
-                # Todo: Increment ``i`` per record instead of per yielded
-                #     observation.
-                percentage = min(int(i / data_source.records * 100), 99)
+                percentage = min(int(record / data_source.records * 100), 99)
                 if percentage > old_percentage:
                     current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
                     old_percentage = percentage
-                    time.sleep(1)
                 observation = Observation(variation, chromosome, position, reference, observed, support=support)
                 db.session.add(observation)
                 if i % FLUSH_COUNT == FLUSH_COUNT - 1:
@@ -321,10 +327,8 @@ def import_coverage(coverage_id):
     with data as regions:
         try:
             old_percentage = -1
-            for i, (chromosome, begin, end) in enumerate(read_regions(regions, filetype=data_source.filetype)):
-                # Task progress is updated in whole percentages, so for a
-                # maximum of 100 times per task.
-                percentage = min(int(i / data_source.records * 100), 99)
+            for i, (record, chromosome, begin, end) in enumerate(read_regions(regions, filetype=data_source.filetype)):
+                percentage = min(int(record / data_source.records * 100), 99)
                 if percentage > old_percentage:
                     current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
                     old_percentage = percentage
