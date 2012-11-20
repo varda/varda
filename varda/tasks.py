@@ -204,7 +204,9 @@ def import_variation(variation_id):
         #     is still set (to be able to retrieve the error state), but a
         #     new import task can be started.
         # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
-        raise TaskError('variation_importing', 'Variation is being imported')
+        result = import_variation.AsyncResult(variation.import_task_uuid)
+        if result.state in ('PENDING', 'STARTED', 'PROGRESS'):
+            raise TaskError('variation_importing', 'Variation is being imported')
 
     # Todo: This has a possible race condition, but I'm not bothered to fix it
     #     at the moment. Reading and setting import_task_uuid should be an
@@ -289,8 +291,10 @@ def import_coverage(coverage_id):
     if coverage.imported:
         raise TaskError('coverage_imported', 'Coverage already imported')
 
-    if coverage.import_task_uuid is not None:
-        raise TaskError('coverage_importing', 'Coverage is being imported')
+    if coverage.import_task_uuid:
+        result = import_coverage.AsyncResult(coverage.import_task_uuid)
+        if result.state in ('PENDING', 'STARTED', 'PROGRESS'):
+            raise TaskError('coverage_importing', 'Coverage is being imported')
 
     coverage.import_task_uuid = current_task.request.id
     db.session.commit()
@@ -350,8 +354,10 @@ def write_annotation(annotation_id, ignore_sample_ids=None):
     if annotation.written:
         raise TaskError('annotation_written', 'Annotation already written')
 
-    if annotation.write_task_uuid is not None:
-        raise TaskError('annotation_writing', 'Annotation is being written')
+    if annotation.write_task_uuid:
+        result = write_annotation.AsyncResult(annotation.write_task_uuid)
+        if result.state in ('PENDING', 'STARTED', 'PROGRESS'):
+            raise TaskError('annotation_writing', 'Annotation is being written')
 
     annotation.write_task_uuid = current_task.request.id
     db.session.commit()
