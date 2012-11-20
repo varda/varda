@@ -266,8 +266,6 @@ def import_variation(variation_id):
                     #     --maxtasksperchild=1.
         except ReadError as e:
             db.session.rollback()
-            variation.import_task_uuid = None
-            db.session.commit()
             raise TaskError('invalid_observations', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})
@@ -327,8 +325,6 @@ def import_coverage(coverage_id):
                     db.session.flush()
         except ReadError as e:
             db.session.rollback()
-            coverage.import_task_uuid = None
-            db.session.commit()
             raise TaskError('invalid_regions', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})
@@ -384,8 +380,6 @@ def write_annotation(annotation_id, ignore_sample_ids=None):
                               original_records=original_data_source.records)
         except ReadError as e:
             # Todo: Empty annotated variants.
-            annotation.write_task_uuid = None
-            db.session.commit()
             raise TaskError('invalid_observations', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})
