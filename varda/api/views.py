@@ -40,7 +40,7 @@ import uuid
 from celery.exceptions import TimeoutError
 from flask import abort, Blueprint, current_app, g, jsonify, redirect, request, send_from_directory, url_for
 
-from .. import db, log, genome
+from .. import db, genome
 from ..models import Annotation, Coverage, DataSource, InvalidDataSource, Observation, Sample, User, Variation
 from ..tasks import write_annotation, import_variation, import_coverage, TaskError
 from .errors import ActivationFailure
@@ -73,7 +73,8 @@ def before_request():
     auth = request.authorization
     g.user = get_user(auth.username, auth.password) if auth else None
     if auth and g.user is None:
-        log.info('Unsuccessful authentication with username "%s"', auth.username)
+        current_app.logger.warning('Unsuccessful authentication with '
+                                   'username "%s"', auth.username)
 
 
 @api.errorhandler(400)
@@ -207,7 +208,7 @@ def users_add():
     user = User(name, login, password, roles)
     db.session.add(user)
     db.session.commit()
-    log.info('Added user: %r', user)
+    current_app.logger.info('Added user: %r', user)
     uri = url_for('.users_get', login=user.login)
     response = jsonify(user=uri)
     response.location = uri
@@ -261,7 +262,7 @@ def samples_add():
     sample = Sample(g.user, name, pool_size=pool_size, public=public, coverage_profile=coverage_profile)
     db.session.add(sample)
     db.session.commit()
-    log.info('Added sample: %r', sample)
+    current_app.logger.info('Added sample: %r', sample)
     uri = url_for('.samples_get', sample_id=sample.id)
     response = jsonify(sample=uri)
     response.location = uri
@@ -375,9 +376,9 @@ def variations_add(sample_id):
     variation = Variation(sample, data_source)
     db.session.add(variation)
     db.session.commit()
-    log.info('Added variation: %r', variation)
+    current_app.logger.info('Added variation: %r', variation)
     result = import_variation.delay(variation.id)
-    log.info('Called task: import_variation(%d) %s', variation.id, result.task_id)
+    current_app.logger.info('Called task: import_variation(%d) %s', variation.id, result.task_id)
     uri = url_for('.variations_import_status', sample_id=sample.id, variation_id=variation.id)
     response = jsonify(variation_import_status=uri)
     response.location = uri
@@ -454,9 +455,9 @@ def coverages_add(sample_id):
     coverage = Coverage(sample, data_source)
     db.session.add(coverage)
     db.session.commit()
-    log.info('Added coverage: %r', coverage)
+    current_app.logger.info('Added coverage: %r', coverage)
     result = import_coverage.delay(coverage.id)
-    log.info('Called task: import_coverage(%d) %s', coverage.id, result.task_id)
+    current_app.logger.info('Called task: import_coverage(%d) %s', coverage.id, result.task_id)
     uri = url_for('.coverages_import_status', sample_id=sample.id, coverage_id=coverage.id)
     response = jsonify(coverage_import_status=uri)
     response.location = uri
@@ -518,7 +519,7 @@ def data_sources_add():
     data_source = DataSource(g.user, name, filetype, upload=data, local_path=local_path, gzipped=gzipped)
     db.session.add(data_source)
     db.session.commit()
-    log.info('Added data source: %r', data_source)
+    current_app.logger.info('Added data source: %r', data_source)
     uri = url_for('.data_sources_get', data_source_id=data_source.id)
     response = jsonify(data_source=uri)
     response.location = uri
@@ -611,11 +612,11 @@ def annotations_add(data_source_id):
     annotation = Annotation(original_data_source, annotated_data_source)
     db.session.add(annotation)
     db.session.commit()
-    log.info('Added data source: %r', annotated_data_source)
-    log.info('Added annotation: %r', annotation)
+    current_app.logger.info('Added data source: %r', annotated_data_source)
+    current_app.logger.info('Added annotation: %r', annotation)
 
     result = write_annotation.delay(annotation.id)
-    log.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
+    current_app.logger.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
     uri = url_for('.annotations_write_status', data_source_id=original_data_source.id, annotation_id=annotation.id)
     response = jsonify(annotation_write_status=uri)
     response.location = uri
@@ -655,5 +656,5 @@ def check_variant():
     except (KeyError, ValueError):
         abort(400)
     observations = Observation.query.filter_by(chromosome=chromosome, begin=begin, end=end, reference=reference, variant=alternate).count()
-    log.info('Checked variant: chromosome %s, begin %d, end %d, reference %s, alternate %s', chromosome, begin, end, reference, alternate)
+    current_app.logger.info('Checked variant: chromosome %s, begin %d, end %d, reference %s, alternate %s', chromosome, begin, end, reference, alternate)
     return jsonify(observations=observations)
