@@ -54,11 +54,7 @@ class TaskError(Exception):
 
 def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', ignore_sample_ids=None, original_records=1):
     """
-    .. todo:: Merge back population study annotation (see implementation in
-        the old-population-study branch).
-
-    .. todo:: Calculate frequencies instead of counts, and take chromosome
-        into account (config.CHROMOSOMES).
+    .. todo:: Calculate frequencies instead of counts.
     """
     ignore_sample_ids = ignore_sample_ids or []
 
@@ -112,8 +108,6 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
 
 
 def read_observations(observations, filetype='vcf'):
-    # Todo: Merge back population study importing (see implementation in the
-    #     old-population-study branch).
     if filetype != 'vcf':
         raise ReadError('Data must be in VCF format')
 
@@ -163,7 +157,6 @@ def read_observations(observations, filetype='vcf'):
 
 
 def read_regions(regions, filetype='bed'):
-    # Todo: Use pybedtools to parse BED file?
     if filetype != 'bed':
         raise ReadError('Data must be in BED format')
 
@@ -199,11 +192,13 @@ def import_variation(variation_id):
         raise TaskError('variation_imported', 'Variation already imported')
 
     if variation.import_task_uuid:
-        # Todo: Check somehow if the importing task is still running. It can
-        #     be the case that the task was aborted. In that case, the uuid
-        #     is still set (to be able to retrieve the error state), but a
+        # Note: This check if the importing task is still running is perhaps
+        #     not waterproof (I think PENDING is also reported for unknown
+        #     tasks, and they might be unknown after a while).
+        #     It can be the case that the task was aborted. In that case, the
+        #     uuid is still set (needed to retrieve the error state), but a
         #     new import task can be started.
-        # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
+        #     See also: http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
         result = import_variation.AsyncResult(variation.import_task_uuid)
         if result.state in ('PENDING', 'STARTED', 'PROGRESS'):
             raise TaskError('variation_importing', 'Variation is being imported')
@@ -235,15 +230,14 @@ def import_variation(variation_id):
 
     # Remember that this only makes sence if autocommit and autoflush are off,
     # which is the default for flask-sqlalchemy.
-    # Related discussion:
-    # https://groups.google.com/forum/?fromgroups=#!topic/sqlalchemy/ZD5RNfsmQmU
+    # Related discussion: https://groups.google.com/forum/?fromgroups=#!topic/sqlalchemy/ZD5RNfsmQmU
 
     # Alternative solution might be to dump all observations to a file and
     # import from that. It would not have memory problems and is probably
     # faster, but really not portable.
 
-    with data as observations:
-        try:
+    try:
+        with data as observations:
             old_percentage = -1
             for i, (record, chromosome, position, reference, observed, support) in enumerate(read_observations(observations, filetype=data_source.filetype)):
                 # Task progress is updated in whole percentages, so for a
@@ -266,9 +260,9 @@ def import_variation(variation_id):
                     #     had high memory usage it never goes down. A fix for
                     #     this is to always run the workers with
                     #     --maxtasksperchild=1.
-        except ReadError as e:
-            db.session.rollback()
-            raise TaskError('invalid_observations', str(e))
+    except ReadError as e:
+        db.session.rollback()
+        raise TaskError('invalid_observations', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})
     variation.imported = True
@@ -316,8 +310,8 @@ def import_coverage(coverage_id):
     except DataUnavailable as e:
         raise TaskError(e.code, e.message)
 
-    with data as regions:
-        try:
+    try:
+        with data as regions:
             old_percentage = -1
             for i, (record, chromosome, begin, end) in enumerate(read_regions(regions, filetype=data_source.filetype)):
                 percentage = min(int(record / data_source.records * 100), 99)
@@ -327,9 +321,9 @@ def import_coverage(coverage_id):
                 db.session.add(Region(coverage, chromosome, begin, end))
                 if i % FLUSH_COUNT == FLUSH_COUNT - 1:
                     db.session.flush()
-        except ReadError as e:
-            db.session.rollback()
-            raise TaskError('invalid_regions', str(e))
+    except ReadError as e:
+        db.session.rollback()
+        raise TaskError('invalid_regions', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})
     coverage.imported = True
@@ -377,16 +371,16 @@ def write_annotation(annotation_id, ignore_sample_ids=None):
     except DataUnavailable as e:
         raise TaskError(e.code, e.message)
 
-    with original_data as original_variants, annotated_data as annotated_variants:
-        try:
+    try:
+        with original_data as original_variants, annotated_data as annotated_variants:
             annotate_variants(original_variants, annotated_variants,
                               original_filetype=original_data_source.filetype,
                               annotated_filetype=annotated_data_source.filetype,
                               ignore_sample_ids=ignore_sample_ids,
                               original_records=original_data_source.records)
-        except ReadError as e:
-            # Todo: Empty annotated variants.
-            raise TaskError('invalid_observations', str(e))
+    except ReadError as e:
+        annotated_data_source.empty()
+        raise TaskError('invalid_observations', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})
     annotation.written = True

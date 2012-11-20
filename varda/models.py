@@ -234,6 +234,13 @@ class DataSource(db.Model):
         except EnvironmentError:
             raise DataUnavailable('data_source_not_cached', 'Data source is not in the cache')
 
+    def empty(self):
+        """
+        Remove all data from this data source.
+        """
+        with self.data_writer():
+            pass
+
     def local_path(self):
         """
         Get a local filepath for the data.
