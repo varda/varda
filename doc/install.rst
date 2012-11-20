@@ -160,10 +160,9 @@ configuration settings, for example::
     $ export VARDA_SETTINGS=~/varda-server/settings.py
     $ cat > $VARDA_SETTINGS
     FILES_DIR = '/tmp/varda'
-    SQLALCHEMY_DATABASE_URI = 'postgresql://varda:varda@localhost/varda'
-    CELERY_RESULT_BACKEND = 'database'
-    CELERY_RESULT_DBURI = 'postgresql://varda:varda@localhost/vardaresults'
-    BROKER_URL = 'redis://localhost:6379/0'
+    SQLALCHEMY_DATABASE_URI = 'postgresql://user:password@localhost/varda'
+    BROKER_URL = 'redis://'
+    CELERY_RESULT_BACKEND = 'redis://'
 
 Some example settings can be found in ``varda/default_settings.py``.
 
@@ -176,7 +175,10 @@ Varda can use a reference genome to check and normalize variant descriptions.
 Specify the location to a FASTA file with the ``GENOME`` setting in the
 configuration file and flatten it in place::
 
-    $ pyfasta flatten reference.fa
+    $ cat >> $VARDA_SETTINGS
+    GENOME = '/usr/local/genomes/hg19.fa'
+    REFERENCE_MISMATCH_ABORT = True
+    $ pyfasta flatten hg19.fa
 
 
 .. _database-setup:
@@ -197,7 +199,7 @@ Running Varda server
 
 Start a Celery worker node (only used for long-running tasks)::
 
-    $ celery -A varda.worker.celery worker -l info --maxtasksperchild=4
+    $ celery -A varda.worker.celery worker -l info --maxtasksperchild=4 --purge
 
 And start a local Varda testserver in debug mode::
 
@@ -210,4 +212,4 @@ There are many possibilities for deploying Varda server to a production
 server. Recommended is the `Gunicorn WSGI HTTP Server <http://gunicorn.org/>`_,
 which you could use like this::
 
-    $ gunicorn varda:create_app\(\)
+    $ gunicorn varda:create_app\(\) -w 4 -t 600 --max-requests=1000
