@@ -199,7 +199,10 @@ def import_variation(variation_id):
         raise TaskError('variation_imported', 'Variation already imported')
 
     if variation.import_task_uuid:
-        # Todo: Check somehow if the importing task is still running.
+        # Todo: Check somehow if the importing task is still running. It can
+        #     be the case that the task was aborted. In that case, the uuid
+        #     is still set (to be able to retrieve the error state), but a
+        #     new import task can be started.
         # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
         raise TaskError('variation_importing', 'Variation is being imported')
 
@@ -256,14 +259,11 @@ def import_variation(variation_id):
                     #     don't help after the flush:
                     #     - db.session.expire_all()
                     #     - db.session.expunge_all()
-                    #     However, committing seems to free memory, so we may
-                    #     have to go back to committing instead of flushing
-                    #     and do a manual rollback using our CleanTask class
-                    #     (removed in 0c4b2e8).
                     #     CPython makes things worse by never giving garbage
-                    #     collected memory back to the OS, so after one task
-                    #     high memory usage never goes down. A fix for this is
-                    #     to always run the workers with --maxtasksperchild=1.
+                    #     collected memory back to the OS, so after a task has
+                    #     had high memory usage it never goes down. A fix for
+                    #     this is to always run the workers with
+                    #     --maxtasksperchild=1.
         except ReadError as e:
             db.session.rollback()
             variation.import_task_uuid = None
@@ -292,13 +292,8 @@ def import_coverage(coverage_id):
         raise TaskError('coverage_imported', 'Coverage already imported')
 
     if coverage.import_task_uuid is not None:
-        # Todo: Check somehow if the importing task is still running.
-        # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
         raise TaskError('coverage_importing', 'Coverage is being imported')
 
-    # Todo: This has a possible race condition, but I'm not bothered to fix it
-    #     at the moment. Reading and setting import_task_uuid should be an
-    #     atomic action.
     coverage.import_task_uuid = current_task.request.id
     db.session.commit()
 
@@ -319,11 +314,6 @@ def import_coverage(coverage_id):
     except DataUnavailable as e:
         raise TaskError(e.code, e.message)
 
-    # Remember that this only makes sence if autocommit and autoflush are off,
-    # which is the default for flask-sqlalchemy.
-    # Related discussion:
-    # https://groups.google.com/forum/?fromgroups=#!topic/sqlalchemy/ZD5RNfsmQmU
-
     with data as regions:
         try:
             old_percentage = -1
@@ -335,7 +325,6 @@ def import_coverage(coverage_id):
                 db.session.add(Region(coverage, chromosome, begin, end))
                 if i % FLUSH_COUNT == FLUSH_COUNT - 1:
                     db.session.flush()
-                    # Todo: Perhaps invalidating session helps memory usage?
         except ReadError as e:
             db.session.rollback()
             coverage.import_task_uuid = None
@@ -366,14 +355,8 @@ def write_annotation(annotation_id, ignore_sample_ids=None):
         raise TaskError('annotation_written', 'Annotation already written')
 
     if annotation.write_task_uuid is not None:
-        # Todo: Check somehow if the writing task is still running, it might
-        #     also be a failed task.
-        # http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
         raise TaskError('annotation_writing', 'Annotation is being written')
 
-    # Todo: This has a possible race condition, but I'm not bothered to fix it
-    #     at the moment. Reading and setting write_task_uuid should be an
-    #     atomic action.
     annotation.write_task_uuid = current_task.request.id
     db.session.commit()
 
