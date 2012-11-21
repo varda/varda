@@ -29,7 +29,8 @@ from .region_binning import all_bins
 from .utils import digest, normalize_variant, normalize_chromosome, normalize_region, ReferenceMismatch
 
 
-FLUSH_COUNT = 1000
+# Number of records to buffer before committing to the database.
+DB_BUFFER_SIZE = 5000
 
 
 logger = get_task_logger(__name__)
@@ -50,6 +51,28 @@ class TaskError(Exception):
         self.code = code
         self.message = message
         super(TaskError, self).__init__(code, message)
+
+
+class CleanTask(Task):
+    """
+    Ordinary Celery task, but with a way of registering cleanup routines that
+    are executed after the task failed (on the worker node).
+    """
+    abstract = True
+
+    # We maintain a list of cleanups per task id since the worker node only
+    # instantiates the task class once (not for every run). Just storing one
+    # list of cleanups in this instance would mean they are shared between
+    # different task runs.
+    _cleanups = defaultdict(list)
+
+    def register_cleanup(self, task_id, cleanup):
+        self._cleanups[task_id].append(cleanup)
+
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        for cleanup in reversed(self._cleanups[task_id]):
+            cleanup()
+        del self._cleanups[task_id]
 
 
 def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', exclude_sample_ids=None, include_sample_ids=None, original_records=1):
@@ -98,6 +121,7 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
             bins = all_bins(position, end_position)
 
             # Todo: Check if we handle pooled samples correctly.
+            # Todo: Only count activated samples.
 
             # Frequency over entire database, except:
             #  - samples in ``exclude_sample_ids``
@@ -174,6 +198,10 @@ def read_observations(observations, filetype='vcf'):
                     raise ReadError(str(e))
                 continue
 
+            # Todo: Ignore or abort?
+            if len(reference) > 200 or len(observed) > 200:
+                continue
+
             # Variant support is defined by the number of samples in which a
             # variant allele was called, ignoring homo-/heterozygocity.
             # Todo: This check can break if index > 9.
@@ -215,7 +243,7 @@ def read_regions(regions, filetype='bed'):
         yield current_record, chromosome, begin + 1, end
 
 
-@celery.task
+@celery.task(base=CleanTask)
 def import_variation(variation_id):
     """
     Import variation as observations.
@@ -261,6 +289,11 @@ def import_variation(variation_id):
     if DataSource.query.filter_by(checksum=data_source.checksum).join(Variation).filter_by(imported=True).count() > 0:
         raise TaskError('duplicate_data_source', 'Identical data source already imported')
 
+    def delete_observations():
+        variation.observations.delete()
+        db.session.commit()
+    current_task.register_cleanup(current_task.request.id, delete_observations)
+
     try:
         data = data_source.data()
     except DataUnavailable as e:
@@ -286,20 +319,21 @@ def import_variation(variation_id):
                     old_percentage = percentage
                 observation = Observation(variation, chromosome, position, reference, observed, support=support)
                 db.session.add(observation)
-                if i % FLUSH_COUNT == FLUSH_COUNT - 1:
-                    db.session.flush()
-                    # Todo: I don't understand why memory usage keeps growing
-                    #     during the entire import process. Even the following
-                    #     don't help after the flush:
-                    #     - db.session.expire_all()
-                    #     - db.session.expunge_all()
-                    #     CPython makes things worse by never giving garbage
-                    #     collected memory back to the OS, so after a task has
-                    #     had high memory usage it never goes down. A fix for
-                    #     this is to always run the workers with
-                    #     --maxtasksperchild=1.
+                if i % DB_BUFFER_SIZE == DB_BUFFER_SIZE - 1:
+                    db.session.commit()
+                    # Todo: In principle I think calling session.flush() once
+                    #     every N records should work perfectly. We could then
+                    #     just do a session.rollback() on error.
+                    #     Unfortunately, session.flush() does not prevent the
+                    #     memory usage from increasing (even with expire_all()
+                    #     or expunge_all() calls). So in practice we cannot
+                    #     use it (tested with psycopg2 2.4.5 and SQLAlchemy
+                    #     0.7.8).
+                    #     As an alternative, we call session.commit() but the
+                    #     problem is that a simple session.rollback() is not
+                    #     enough. Therefore we use the CleanTask base class
+                    #     to register a cleanup handler.
     except ReadError as e:
-        db.session.rollback()
         raise TaskError('invalid_observations', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})
@@ -309,7 +343,7 @@ def import_variation(variation_id):
     logger.info('Finished task: import_variation(%d)', variation_id)
 
 
-@celery.task
+@celery.task(base=CleanTask)
 def import_coverage(coverage_id):
     """
     Import coverage as regions.
@@ -343,6 +377,11 @@ def import_coverage(coverage_id):
     if DataSource.query.filter_by(checksum=data_source.checksum).join(Coverage).filter_by(imported=True).count() > 0:
         raise TaskError('duplicate_data_source', 'Identical data source already imported')
 
+    def delete_regions():
+        coverage.regions.delete()
+        db.session.commit()
+    current_task.register_cleanup(current_task.request.id, delete_regions)
+
     try:
         data = data_source.data()
     except DataUnavailable as e:
@@ -357,10 +396,9 @@ def import_coverage(coverage_id):
                     current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
                     old_percentage = percentage
                 db.session.add(Region(coverage, chromosome, begin, end))
-                if i % FLUSH_COUNT == FLUSH_COUNT - 1:
-                    db.session.flush()
+                if i % DB_BUFFER_SIZE == DB_BUFFER_SIZE - 1:
+                    db.session.commit()
     except ReadError as e:
-        db.session.rollback()
         raise TaskError('invalid_regions', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})

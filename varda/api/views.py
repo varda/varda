@@ -365,6 +365,9 @@ def variations_add(sample_id):
     """
     # Todo: Only if sample is not active.
     # Todo: Check for importer role.
+    # Todo: If import fails, observations are removed by task cleanup, but we
+    #     are still left with the variations instance. Not sure how to cleanup
+    #     in that case.
     data = request.json or request.form
     try:
         # Todo: Get internal ID in a more elegant way from URI
