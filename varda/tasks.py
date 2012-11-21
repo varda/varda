@@ -52,11 +52,12 @@ class TaskError(Exception):
         super(TaskError, self).__init__(code, message)
 
 
-def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', ignore_sample_ids=None, original_records=1):
+def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', exclude_sample_ids=None, include_sample_ids=None, original_records=1):
     """
     .. todo:: Calculate frequencies instead of counts.
     """
-    ignore_sample_ids = ignore_sample_ids or []
+    exclude_sample_ids = exclude_sample_ids or []
+    include_sample_ids = include_sample_ids or {}
 
     if original_filetype != 'vcf':
         raise ReadError('Original data must be in VCF format')
@@ -70,10 +71,11 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
     # ``varda.utils.digest``).
     current_record = len(reader._header_lines) + 1
 
-    reader.infos['OBS'] = VcfInfo('OBS', vcf_field_counts['A'], 'Integer',
-        'Samples with variant (out of %i)' % Sample.query.count())
-    reader.infos['COV'] = VcfInfo('COV', vcf_field_counts['A'], 'Integer',
-        'Samples with coverage (out of %i)' % Sample.query.count())
+    reader.infos['VARDA_FREQ'] = VcfInfo('VARDA_FREQ', vcf_field_counts['A'], 'Float',
+        'Frequency in Varda (over %i samples)' % Sample.query.filter_by(coverage_profile=True).filter(~Sample.id.in_(exclude_sample_ids)).count())
+    for label in include_sample_ids:
+        reader.infos['%s_FREQ' % label] = VcfInfo('%s_FREQ' % label, vcf_field_counts['A'], 'Float',
+                                                   'Frequency in %s' % label)
     writer = vcf.Writer(annotated_variants, reader, lineterminator='\n')
 
     old_percentage = -1
@@ -84,8 +86,8 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
             current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
             old_percentage = percentage
 
-        observations = []
-        coverage = []
+        frequencies = []
+        sample_frequencies = {label: [] for label in include_sample_ids}
         for index, allele in enumerate(record.ALT):
             try:
                 chromosome, position, reference, observed = normalize_variant(record.CHROM, record.POS, record.REF, str(allele))
@@ -95,15 +97,51 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
             end_position = position + max(1, len(reference)) - 1
             bins = all_bins(position, end_position)
 
-            observations.append(Observation.query.filter_by(chromosome=chromosome, position=position, reference=reference, observed=observed).join(Variation).filter(~Variation.sample_id.in_(ignore_sample_ids)).count())
-            coverage.append(Region.query.join(Coverage).filter(Region.chromosome == chromosome,
-                                                               Region.begin <= position,
-                                                               Region.end >= end_position,
-                                                               Region.bin.in_(bins),
-                                                               ~Coverage.sample_id.in_(ignore_sample_ids)).count())
+            # Todo: Check if we handle pooled samples correctly.
 
-        record.add_info('OBS', observations)
-        record.add_info('COV', coverage)
+            # Frequency over entire database, except:
+            #  - samples in ``exclude_sample_ids``
+            #  - samples without coverage profile
+            observations = Observation.query.filter_by(chromosome=chromosome,
+                                                       position=position,
+                                                       reference=reference,
+                                                       observed=observed).join(Variation).filter(~Variation.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(coverage_profile=True).count()
+            coverage = Region.query.join(Coverage).filter(Region.chromosome == chromosome,
+                                                          Region.begin <= position,
+                                                          Region.end >= end_position,
+                                                          Region.bin.in_(bins),
+                                                          ~Coverage.sample_id.in_(exclude_sample_ids)).count()
+            assert observations <= coverage
+            if coverage:
+                frequencies.append(observations / coverage)
+            else:
+                frequencies.append(0)
+
+            # Frequency for each sample in ``include_sample_ids``.
+            # Todo: This list has to be filtered for samples that are public
+            #     or the user is owner of.
+            for label, sample_id in include_sample_ids.items():
+                observations = Observation.query.filter_by(chromosome=chromosome,
+                                                           position=position,
+                                                           reference=reference,
+                                                           observed=observed).join(Variation).filter_by(sample_id=sample_id).count()
+                coverage = Region.query.join(Coverage).filter(Region.chromosome == chromosome,
+                                                              Region.begin <= position,
+                                                              Region.end >= end_position,
+                                                              Region.bin.in_(bins),
+                                                              Coverage.sample_id == sample_id).count()
+                # Todo: We'd better just check for sample.coverage_profile.
+                if not coverage:
+                    coverage = Sample.get(sample_id).pool_size
+                assert observations <= coverage
+                if coverage:
+                    sample_frequencies[label].append(observations / coverage)
+                else:
+                    sample_frequencies[label].append(0)
+
+        record.add_info('VARDA_FREQ', frequencies)
+        for label in include_sample_ids:
+            record.add_info('%s_FREQ' % label, sample_frequencies[label])
         writer.write_record(record)
 
 
@@ -333,13 +371,14 @@ def import_coverage(coverage_id):
 
 
 @celery.task
-def write_annotation(annotation_id, ignore_sample_ids=None):
+def write_annotation(annotation_id, exclude_sample_ids=None, include_sample_ids=None):
     """
     Annotate variants with frequencies from the database.
     """
     logger.info('Started task: write_annotation(%d)', annotation_id)
 
-    ignore_sample_ids = ignore_sample_ids or []
+    exclude_sample_ids = exclude_sample_ids or []
+    include_sample_ids = include_sample_ids or {}
 
     annotation = Annotation.query.get(annotation_id)
     if annotation is None:
@@ -376,7 +415,8 @@ def write_annotation(annotation_id, ignore_sample_ids=None):
             annotate_variants(original_variants, annotated_variants,
                               original_filetype=original_data_source.filetype,
                               annotated_filetype=annotated_data_source.filetype,
-                              ignore_sample_ids=ignore_sample_ids,
+                              exclude_sample_ids=exclude_sample_ids,
+                              include_sample_ids=include_sample_ids,
                               original_records=original_data_source.records)
     except ReadError as e:
         annotated_data_source.empty()

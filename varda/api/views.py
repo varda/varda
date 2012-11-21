@@ -597,6 +597,23 @@ def annotations_add(data_source_id):
     # - owns_data_source AND trader
     data = request.json or request.form
 
+    # Todo: Also support true json list instead of string with comma-separated
+    #     samples.
+    # Todo: Properly translate sample uri to sample id.
+    try:
+        exclude_samples = data['exclude_samples'].split(',')
+        exclude_sample_ids = [int(sample.split('/')[-1]) for sample in exclude_samples]
+    except (KeyError, IndexError):
+        exclude_sample_ids = []
+
+    # Todo: Properly handle this dictionary mapping sample names to samples.
+    # Example: "1KG=/samples/34,GONL=/samples/7"
+    try:
+        include_samples = data['include_samples'].split(',')
+        include_sample_ids = {sample.split('=')[0]: int(sample.split('=')[1].split('/')[-1]) for sample in include_samples}
+    except (KeyError, IndexError):
+        include_sample_ids = {}
+
     original_data_source = DataSource.query.get_or_404(data_source_id)
 
     if 'admin' not in g.user.roles and 'annotator' not in g.user.roles:
@@ -615,7 +632,7 @@ def annotations_add(data_source_id):
     current_app.logger.info('Added data source: %r', annotated_data_source)
     current_app.logger.info('Added annotation: %r', annotation)
 
-    result = write_annotation.delay(annotation.id)
+    result = write_annotation.delay(annotation.id, exclude_sample_ids=exclude_sample_ids, include_sample_ids=include_sample_ids)
     current_app.logger.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
     uri = url_for('.annotations_write_status', data_source_id=original_data_source.id, annotation_id=annotation.id)
     response = jsonify(annotation_write_status=uri)

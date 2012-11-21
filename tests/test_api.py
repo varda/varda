@@ -157,8 +157,8 @@ class TestApi():
 
         All annotations should have observation and coverage 1.
         """
-        _, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
-        annotated_data_source = self._annotate(vcf_data_source)
+        sample, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
+        annotated_data_source = self._annotate(vcf_data_source, exclude=[sample], include={'SAMPLE': sample})
 
         # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotated_data_source, headers=[auth_header()])
@@ -179,8 +179,8 @@ class TestApi():
         All annotations should have observation and coverage 2.
         """
         self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
-        _, vcf_data_source, _ = self._import('Test subset', 'tests/data/exome-samtools-subset.vcf', 'tests/data/exome-samtools-subset.bed')
-        annotated_data_source = self._annotate(vcf_data_source)
+        sample, vcf_data_source, _ = self._import('Test subset', 'tests/data/exome-samtools-subset.vcf', 'tests/data/exome-samtools-subset.bed')
+        annotated_data_source = self._annotate(vcf_data_source, exclude=[sample])
 
         # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotated_data_source, headers=[auth_header()])
@@ -200,9 +200,9 @@ class TestApi():
 
         All annotations should have observation and coverage (2, 2), (1, 2), or (1, 1).
         """
-        _, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
+        sample, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
         self._import('Test subset', 'tests/data/exome-samtools-subset.vcf', 'tests/data/exome-samtools-subset.bed')
-        annotated_data_source = self._annotate(vcf_data_source)
+        annotated_data_source = self._annotate(vcf_data_source, exclude=[sample])
 
         # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotated_data_source, headers=[auth_header()])
@@ -255,7 +255,8 @@ class TestApi():
         annotations = json.loads(r.data)['data_source']['annotations']
 
         # Annotate observations
-        r = self.client.post(annotations, headers=[auth_header(login='trader', password='test')])
+        data = {'exclude_samples': [sample]}
+        r = self.client.post(annotations, data=data, headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 400)
 
         # Get variations URI for this sample
@@ -282,7 +283,8 @@ class TestApi():
             assert False
 
         # Annotate observations
-        r = self.client.post(annotations, headers=[auth_header(login='trader', password='test')])
+        data = {'exclude_samples': [sample]}
+        r = self.client.post(annotations, data=data, headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 400)
 
         # Activate sample
@@ -291,20 +293,26 @@ class TestApi():
         assert_equal(r.status_code, 200)
 
         # Annotate observations
-        r = self.client.post(annotations, headers=[auth_header(login='trader', password='test')])
+        data = {'exclude_samples': [sample]}
+        r = self.client.post(annotations, data=data, headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 202)
 
-    def _annotate(self, vcf_data_source):
+    def _annotate(self, vcf_data_source, exclude=None, include=None):
         """
         Annotate observations and return the annotated data source URI.
         """
+        exclude = exclude or []
+        include = include or {}
+
         # Get annotations URI for the observations data source
         r = self.client.get(vcf_data_source, headers=[auth_header()])
         assert_equal(r.status_code, 200)
         annotations = json.loads(r.data)['data_source']['annotations']
 
         # Annotate observations
-        r = self.client.post(annotations, headers=[auth_header()])
+        data = {'exclude_samples': ','.join(exclude),
+                'include_samples': ','.join('%s=%s' % s for s in include.items())}
+        r = self.client.post(annotations, data=data, headers=[auth_header()])
         assert_equal(r.status_code, 202)
         annotation_write_status = json.loads(r.data)['annotation_write_status']
 
