@@ -35,10 +35,12 @@ REST server views.
 
 from functools import wraps
 import os
+import urlparse
 import uuid
 
 from celery.exceptions import TimeoutError
 from flask import abort, Blueprint, current_app, g, jsonify, redirect, request, send_from_directory, url_for
+from werkzeug.exceptions import HTTPException
 
 from .. import db, genome
 from ..models import Annotation, Coverage, DataSource, InvalidDataSource, Observation, Sample, User, Variation
@@ -52,6 +54,51 @@ API_VERSION = 1
 
 
 api = Blueprint('api', __name__)
+
+
+def parse_list(data):
+    """
+    Parse a list serialized as string into a Python list.
+    """
+    if isinstance(data, list):
+        return data
+    if not data:
+        return []
+    return [x.strip() for x in data.split(',')]
+
+
+def parse_dict(data):
+    """
+    Parse a dictionary serialized as string into a Python dictionary.
+    """
+    if isinstance(data, dict):
+        return data
+    if not data:
+        return {}
+    return dict(x.strip().split('=') for x in data.split(','))
+
+
+def parse_args(view, uri):
+    # Todo: Support an application root to be stripped from the uri path.
+    path = urlparse.urlsplit(uri).path
+    try:
+        endpoint, args = current_app.create_url_adapter(request).match(
+            path_info=path, method='GET')
+        assert current_app.view_functions[endpoint] is view
+    except (AssertionError, HTTPException):
+        raise ValueError('uri "%s" does not resolve to view "%s"'
+                         % (uri, view.__name__))
+    return args
+
+
+def get_data_source_id(uri):
+    args = parse_args(data_sources_get, uri)
+    return args['data_source_id']
+
+
+def get_sample_id(uri):
+    args = parse_args(samples_get, uri)
+    return args['sample_id']
 
 
 def get_user(login, password):
@@ -202,7 +249,7 @@ def users_add():
         name = data.get('name', data['login'])
         login = data['login']
         password = data['password']
-        roles = data['roles'].split(',')
+        roles = parse_list(data['roles'])
     except KeyError:
         abort(400)
     user = User(name, login, password, roles)
@@ -370,8 +417,7 @@ def variations_add(sample_id):
     #     in that case.
     data = request.json or request.form
     try:
-        # Todo: Get internal ID in a more elegant way from URI
-        data_source_id = int(data['data_source'].split('/')[-1])
+        data_source_id = get_data_source_id(data['data_source'])
     except (KeyError, ValueError):
         abort(400)
     sample = Sample.query.get_or_404(sample_id)
@@ -449,8 +495,7 @@ def coverages_add(sample_id):
     # Todo: Check for importer role.
     data = request.json or request.form
     try:
-        # Todo: Get internal ID in a more elegant way from URI
-        data_source_id = int(data['data_source'].split('/')[-1])
+        data_source_id = get_data_source_id(data['data_source'])
     except (KeyError, ValueError):
         abort(400)
     sample = Sample.query.get_or_404(sample_id)
@@ -600,22 +645,22 @@ def annotations_add(data_source_id):
     # - owns_data_source AND trader
     data = request.json or request.form
 
-    # Todo: Also support true json list instead of string with comma-separated
-    #     samples.
-    # Todo: Properly translate sample uri to sample id.
     try:
-        exclude_samples = data['exclude_samples'].split(',')
-        exclude_sample_ids = [int(sample.split('/')[-1]) for sample in exclude_samples]
-    except (KeyError, IndexError):
+        exclude_sample_ids = [get_sample_id(sample) for sample
+                              in parse_list(data['exclude_samples'])]
+    except KeyError:
         exclude_sample_ids = []
+    except ValueError:
+        abort(400)
 
-    # Todo: Properly handle this dictionary mapping sample names to samples.
     # Example: "1KG=/samples/34,GONL=/samples/7"
     try:
-        include_samples = data['include_samples'].split(',')
-        include_sample_ids = {sample.split('=')[0]: int(sample.split('=')[1].split('/')[-1]) for sample in include_samples}
-    except (KeyError, IndexError):
+        include_sample_ids = {label: get_sample_id(sample) for label, sample
+                              in parse_dict(data['include_samples']).items()}
+    except KeyError:
         include_sample_ids = {}
+    except ValueError:
+        abort(400)
 
     original_data_source = DataSource.query.get_or_404(data_source_id)
 
