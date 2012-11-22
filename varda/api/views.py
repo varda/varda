@@ -564,16 +564,16 @@ def data_sources_add():
     .. todo:: Have an option to add data source by external url instead of
         upload.
     """
-    rdata = request.json or request.form
+    data = request.json or request.form
     try:
-        name = rdata['name']
-        filetype = rdata['filetype']
+        name = data['name']
+        filetype = data['filetype']
     except KeyError:
         abort(400)
-    gzipped = parse_bool(rdata.get('gzipped', False))
-    data = request.files.get('data')
-    local_path = rdata.get('local_path')
-    data_source = DataSource(g.user, name, filetype, upload=data, local_path=local_path, gzipped=gzipped)
+    gzipped = parse_bool(data.get('gzipped', False))
+    data_arg = request.files.get('data')
+    local_path = data.get('local_path')
+    data_source = DataSource(g.user, name, filetype, upload=data_arg, local_path=local_path, gzipped=gzipped)
     db.session.add(data_source)
     db.session.commit()
     current_app.logger.info('Added data source: %r', data_source)
