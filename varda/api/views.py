@@ -605,7 +605,15 @@ def annotations_add(data_source_id):
     except ValueError:
         abort(400)
 
+    for sample_id in exclude_sample_ids:
+        sample = Sample.query.get(sample_id)
+        if sample is None:
+            abort(400)
+
     # Example: "1KG=/samples/34,GONL=/samples/7"
+    # Todo: Perhaps a better name would be ``local_frequencies`` instead of
+    #     ``include_sample_ids``, to contrast with the ``global_frequencies``
+    #     flag.
     try:
         include_sample_ids = {label: get_sample_id(sample) for label, sample
                               in parse_dict(data['include_samples']).items()}
@@ -616,6 +624,16 @@ def annotations_add(data_source_id):
 
     for label in include_sample_ids:
         if not re.match('[0-9A-Z]+', label):
+            abort(400)
+
+    for sample_id in include_sample_ids.values():
+        sample = Sample.query.get(sample_id)
+        if sample is None:
+            abort(400)
+        if not (sample.public or
+                sample.user is g.user or
+                'admin' in g.user.roles):
+            # Todo: Meaningful error message.
             abort(400)
 
     original_data_source = DataSource.query.get(data_source_id)
