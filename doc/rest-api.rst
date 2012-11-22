@@ -1,5 +1,10 @@
 REST server API
 ===============
 
-This will document the REST server API exposed by Varda server to client
-applications, hopefully auto-generated somehow.
+This page documents the REST server API exposed by Varda server to client
+applications.
+
+
+.. autoflask:: varda:create_app()
+   :undoc-static:
+   :include-empty-docstring:
