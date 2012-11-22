@@ -628,7 +628,7 @@ def annotations_add(data_source_id):
 
     for sample_id in include_sample_ids.values():
         sample = Sample.query.get(sample_id)
-        if sample is None:
+        if sample is None or not sample.active:
             abort(400)
         if not (sample.public or
                 sample.user is g.user or

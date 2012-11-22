@@ -416,6 +416,11 @@ class TestApi():
             else:
                 assert False
 
+        # Activate sample
+        data = {'active': True}
+        r = self.client.patch(sample, data=data, headers=[auth_header()])
+        assert_equal(r.status_code, 200)
+
         return sample, vcf_data_source, bed_data_source
 
     def test_import_1kg(self):

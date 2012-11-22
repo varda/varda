@@ -24,9 +24,11 @@ from vcf.parser import _Info as VcfInfo, field_counts as vcf_field_counts
 import vcf
 
 from . import db, celery
-from .models import Annotation, Coverage, DataSource, DataUnavailable, Observation, Sample, Region, Variation
+from .models import (Annotation, Coverage, DataSource, DataUnavailable,
+                     Observation, Sample, Region, Variation)
 from .region_binning import all_bins
-from .utils import digest, normalize_variant, normalize_chromosome, normalize_region, ReferenceMismatch
+from .utils import (digest, normalize_variant, normalize_chromosome,
+                    normalize_region, ReferenceMismatch)
 
 
 # Number of records to buffer before committing to the database.
@@ -75,10 +77,15 @@ class CleanTask(Task):
         del self._cleanups[task_id]
 
 
-def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', global_frequencies=False, exclude_sample_ids=None, include_sample_ids=None, original_records=1):
+def annotate_variants(original_variants, annotated_variants,
+                      original_filetype='vcf', annotated_filetype='vcf',
+                      global_frequencies=False, exclude_sample_ids=None,
+                      include_sample_ids=None, original_records=1):
     """
     Annotate variants.
     """
+    # Todo: Here we should check again if the samples we use are active, since
+    #     it could be a long time ago when this task was submitted.
     exclude_sample_ids = exclude_sample_ids or []
     include_sample_ids = include_sample_ids or {}
 
@@ -90,32 +97,45 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
 
     reader = vcf.Reader(original_variants)
 
+    # Header line in VCF output for global frequencies.
+    if global_frequencies:
+        reader.infos['VARDA_FREQ'] = VcfInfo(
+            'VARDA_FREQ', vcf_field_counts['A'], 'Float',
+            'Frequency in Varda (over %i samples, using coverage profiles)'
+            % Sample.query.filter_by(active=True,
+                                     coverage_profile=True).filter(
+                ~Sample.id.in_(exclude_sample_ids)).count())
+
+    # Header lines in VCF output for sample frequencies.
+    for label, sample_id in include_sample_ids.items():
+        sample = Sample.query.get(sample_id)
+        reader.infos['%s_FREQ' % label] = VcfInfo(
+            '%s_FREQ' % label, vcf_field_counts['A'], 'Float',
+            'Frequency in %s (over %i samples, %susing coverage profiles)'
+            % (sample.name, sample.pool_size,
+               '' if sample.coverage_profile else 'not '))
+
+    writer = vcf.Writer(annotated_variants, reader, lineterminator='\n')
+
     # Number of lines read (i.e. comparable to what is reported by
     # ``varda.utils.digest``).
     current_record = len(reader._header_lines) + 1
-
-    if global_frequencies:
-        reader.infos['VARDA_FREQ'] = VcfInfo('VARDA_FREQ', vcf_field_counts['A'], 'Float',
-                                             'Frequency in Varda (over %i samples, using coverage profiles)' % Sample.query.filter_by(coverage_profile=True).filter(~Sample.id.in_(exclude_sample_ids)).count())
-    for label, sample_id in include_sample_ids.items():
-        sample = Sample.query.get(sample_id)
-        reader.infos['%s_FREQ' % label] = VcfInfo('%s_FREQ' % label, vcf_field_counts['A'], 'Float',
-                                                   'Frequency in %s (over %i samples, %susing coverage profiles)' % (sample.name, sample.pool_size, '' if sample.coverage_profile else 'not '))
-    writer = vcf.Writer(annotated_variants, reader, lineterminator='\n')
 
     old_percentage = -1
     for record in reader:
         current_record += 1
         percentage = min(int(current_record / original_records * 100), 99)
         if percentage > old_percentage:
-            current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
+            current_task.update_state(state='PROGRESS',
+                                      meta={'percentage': percentage})
             old_percentage = percentage
 
         frequencies = []
         sample_frequencies = {label: [] for label in include_sample_ids}
         for index, allele in enumerate(record.ALT):
             try:
-                chromosome, position, reference, observed = normalize_variant(record.CHROM, record.POS, record.REF, str(allele))
+                chromosome, position, reference, observed = normalize_variant(
+                    record.CHROM, record.POS, record.REF, str(allele))
             except ReferenceMismatch as e:
                 raise ReadError(str(e))
 
@@ -123,45 +143,49 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
             bins = all_bins(position, end_position)
 
             # Todo: Check if we handle pooled samples correctly.
-            # Todo: Only count activated samples.
 
             if global_frequencies:
                 # Frequency over entire database, except:
                 #  - samples in ``exclude_sample_ids``
                 #  - samples without coverage profile
-                observations = Observation.query.filter_by(chromosome=chromosome,
-                                                           position=position,
-                                                           reference=reference,
-                                                           observed=observed).join(Variation).filter(~Variation.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(coverage_profile=True).count()
-                coverage = Region.query.join(Coverage).filter(Region.chromosome == chromosome,
-                                                              Region.begin <= position,
-                                                              Region.end >= end_position,
-                                                              Region.bin.in_(bins),
-                                                              ~Coverage.sample_id.in_(exclude_sample_ids)).count()
-                assert observations <= coverage
+                #  - samples not activated
+                observations = Observation.query.filter_by(
+                    chromosome=chromosome,
+                    position=position,
+                    reference=reference,
+                    observed=observed).join(Variation).filter(
+                    ~Variation.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(
+                        active=True, coverage_profile=True).count()
+                coverage = Region.query.join(Coverage).filter(
+                    Region.chromosome == chromosome,
+                    Region.begin <= position,
+                    Region.end >= end_position,
+                    Region.bin.in_(bins),
+                    ~Coverage.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(
+                    active=True).count()
                 if coverage:
                     frequencies.append(observations / coverage)
                 else:
                     frequencies.append(0)
 
             # Frequency for each sample in ``include_sample_ids``.
-            # Todo: This list has to be filtered for samples that are public
-            #     or the user is owner of.
             for label, sample_id in include_sample_ids.items():
-                observations = Observation.query.filter_by(chromosome=chromosome,
-                                                           position=position,
-                                                           reference=reference,
-                                                           observed=observed).join(Variation).filter_by(sample_id=sample_id).count()
+                observations = Observation.query.filter_by(
+                    chromosome=chromosome,
+                    position=position,
+                    reference=reference,
+                    observed=observed).join(Variation).filter_by(
+                    sample_id=sample_id).count()
                 sample = Sample.query.get(sample_id)
                 if sample.coverage_profile:
-                    coverage = Region.query.join(Coverage).filter(Region.chromosome == chromosome,
-                                                                  Region.begin <= position,
-                                                                  Region.end >= end_position,
-                                                                  Region.bin.in_(bins),
-                                                                  Coverage.sample_id == sample_id).count()
+                    coverage = Region.query.join(Coverage).filter(
+                        Region.chromosome == chromosome,
+                        Region.begin <= position,
+                        Region.end >= end_position,
+                        Region.bin.in_(bins),
+                        Coverage.sample_id == sample_id).count()
                 else:
                     coverage = sample.pool_size
-                assert observations <= coverage
                 if coverage:
                     sample_frequencies[label].append(observations / coverage)
                 else:
@@ -211,7 +235,8 @@ def read_observations(observations, filetype='vcf'):
             # variant allele was called, ignoring homo-/heterozygocity.
             # Todo: This check can break if index > 9.
             try:
-                support = sum(1 for sample in record.samples if str(index + 1) in sample['GT'])
+                support = sum(1 for sample in record.samples
+                              if str(index + 1) in sample['GT'])
             except AttributeError:
                 support = 1
 
@@ -224,7 +249,8 @@ def read_observations(observations, filetype='vcf'):
             #else:
             #    support = 1
 
-            yield current_record, chromosome, position, reference, observed, support
+            yield (current_record, chromosome, position, reference, observed,
+                   support)
 
 
 def read_regions(regions, filetype='bed'):
@@ -272,7 +298,8 @@ def import_variation(variation_id):
         #     See also: http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
         result = import_variation.AsyncResult(variation.import_task_uuid)
         if result.state in ('PENDING', 'STARTED', 'PROGRESS'):
-            raise TaskError('variation_importing', 'Variation is being imported')
+            raise TaskError('variation_importing',
+                            'Variation is being imported')
 
     # Todo: This has a possible race condition, but I'm not bothered to fix it
     #     at the moment. Reading and setting import_task_uuid should be an
@@ -291,13 +318,17 @@ def import_variation(variation_id):
         db.session.commit()
 
     # Check if checksum is not in imported data sources.
-    if DataSource.query.filter_by(checksum=data_source.checksum).join(Variation).filter_by(imported=True).count() > 0:
-        raise TaskError('duplicate_data_source', 'Identical data source already imported')
+    if DataSource.query.filter_by(checksum=data_source.checksum
+                                  ).join(Variation).filter_by(imported=True
+                                                              ).count() > 0:
+        raise TaskError('duplicate_data_source',
+                        'Identical data source already imported')
 
     def delete_observations():
         variation.observations.delete()
         db.session.commit()
-    current_task.register_cleanup(current_task.request.id, delete_observations)
+    current_task.register_cleanup(current_task.request.id,
+                                  delete_observations)
 
     try:
         data = data_source.data()
@@ -315,14 +346,19 @@ def import_variation(variation_id):
     try:
         with data as observations:
             old_percentage = -1
-            for i, (record, chromosome, position, reference, observed, support) in enumerate(read_observations(observations, filetype=data_source.filetype)):
+            for i, (record, chromosome, position, reference, observed, support) \
+                    in enumerate(read_observations(observations,
+                                                   filetype=data_source.filetype)):
                 # Task progress is updated in whole percentages, so for a
                 # maximum of 100 times per task.
                 percentage = min(int(record / data_source.records * 100), 99)
                 if percentage > old_percentage:
-                    current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
+                    current_task.update_state(state='PROGRESS',
+                                              meta={'percentage': percentage})
                     old_percentage = percentage
-                observation = Observation(variation, chromosome, position, reference, observed, support=support)
+                observation = Observation(variation, chromosome, position,
+                                          reference, observed,
+                                          support=support)
                 db.session.add(observation)
                 if i % DB_BUFFER_SIZE == DB_BUFFER_SIZE - 1:
                     db.session.commit()
@@ -365,7 +401,8 @@ def import_coverage(coverage_id):
     if coverage.import_task_uuid:
         result = import_coverage.AsyncResult(coverage.import_task_uuid)
         if result.state in ('PENDING', 'STARTED', 'PROGRESS'):
-            raise TaskError('coverage_importing', 'Coverage is being imported')
+            raise TaskError('coverage_importing',
+                            'Coverage is being imported')
 
     coverage.import_task_uuid = current_task.request.id
     db.session.commit()
@@ -379,8 +416,11 @@ def import_coverage(coverage_id):
         db.session.commit()
 
     # Check if checksum is not in imported data sources.
-    if DataSource.query.filter_by(checksum=data_source.checksum).join(Coverage).filter_by(imported=True).count() > 0:
-        raise TaskError('duplicate_data_source', 'Identical data source already imported')
+    if DataSource.query.filter_by(checksum=data_source.checksum
+                                  ).join(Coverage).filter_by(imported=True
+                                                             ).count() > 0:
+        raise TaskError('duplicate_data_source',
+                        'Identical data source already imported')
 
     def delete_regions():
         coverage.regions.delete()
@@ -395,10 +435,13 @@ def import_coverage(coverage_id):
     try:
         with data as regions:
             old_percentage = -1
-            for i, (record, chromosome, begin, end) in enumerate(read_regions(regions, filetype=data_source.filetype)):
+            for i, (record, chromosome, begin, end) \
+                    in enumerate(read_regions(regions,
+                                              filetype=data_source.filetype)):
                 percentage = min(int(record / data_source.records * 100), 99)
                 if percentage > old_percentage:
-                    current_task.update_state(state='PROGRESS', meta={'percentage': percentage})
+                    current_task.update_state(state='PROGRESS',
+                                              meta={'percentage': percentage})
                     old_percentage = percentage
                 db.session.add(Region(coverage, chromosome, begin, end))
                 if i % DB_BUFFER_SIZE == DB_BUFFER_SIZE - 1:
@@ -414,7 +457,8 @@ def import_coverage(coverage_id):
 
 
 @celery.task
-def write_annotation(annotation_id, global_frequencies=False, exclude_sample_ids=None, include_sample_ids=None):
+def write_annotation(annotation_id, global_frequencies=False,
+                     exclude_sample_ids=None, include_sample_ids=None):
     """
     Annotate variants with frequencies from the database.
     """
@@ -433,7 +477,8 @@ def write_annotation(annotation_id, global_frequencies=False, exclude_sample_ids
     if annotation.write_task_uuid:
         result = write_annotation.AsyncResult(annotation.write_task_uuid)
         if result.state in ('PENDING', 'STARTED', 'PROGRESS'):
-            raise TaskError('annotation_writing', 'Annotation is being written')
+            raise TaskError('annotation_writing',
+                            'Annotation is being written')
 
     annotation.write_task_uuid = current_task.request.id
     db.session.commit()
@@ -444,7 +489,8 @@ def write_annotation(annotation_id, global_frequencies=False, exclude_sample_ids
     # Calculate data digest if it is not yet known.
     if not original_data_source.checksum:
         with original_data_source.data() as data:
-            original_data_source.checksum, original_data_source.records = digest(data)
+            (original_data_source.checksum,
+             original_data_source.records) = digest(data)
         db.session.commit()
 
     try:
@@ -454,7 +500,8 @@ def write_annotation(annotation_id, global_frequencies=False, exclude_sample_ids
         raise TaskError(e.code, e.message)
 
     try:
-        with original_data as original_variants, annotated_data as annotated_variants:
+        with original_data as original_variants, \
+                annotated_data as annotated_variants:
             annotate_variants(original_variants, annotated_variants,
                               original_filetype=original_data_source.filetype,
                               annotated_filetype=annotated_data_source.filetype,
