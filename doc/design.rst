@@ -5,6 +5,40 @@ Application design
     user documentation.
 
 
+Implementation
+--------------
+
+Varda server is implemented on top of the `Flask web microframework <http://flask.pocoo.org/>`_,
+the `Celery distributed task queue <http://celeryproject.org/>`_, and the
+`SQLAlchemy object relational mapper <http://www.sqlalchemy.org/>`_.
+
+A typical deployment looks like this::
+
+                                ________
+                               /        \
+                              |\________/|
+                 ___________  |          |  ___________
+               /              | Database |              \
+              |               |          |               |
+              |                \________/                |
+              |                                          |
+              |
+         __________                      ________  +------------+
+        /          \              ____  /          |  Worker 1  |
+       |   Varda    |  ________  /    \  ________  +------------+
+       |____________|           /      \           |  Worker 2  |
+       |            |          | Broker | _______  +------------+
+       |  REST API  |           \      /           |  Worker 3  |
+        \__________/             \____/            +------------+
+                                                         ...
+              |
+              |
+         __________
+        /          \
+       |   Client   |
+        \__________/
+
+
 Sample types
 ------------
 
