@@ -75,7 +75,7 @@ class CleanTask(Task):
         del self._cleanups[task_id]
 
 
-def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', exclude_sample_ids=None, include_sample_ids=None, original_records=1):
+def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', global_frequencies=False, exclude_sample_ids=None, include_sample_ids=None, original_records=1):
     """
     Annotate variants.
     """
@@ -94,11 +94,13 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
     # ``varda.utils.digest``).
     current_record = len(reader._header_lines) + 1
 
-    reader.infos['VARDA_FREQ'] = VcfInfo('VARDA_FREQ', vcf_field_counts['A'], 'Float',
-        'Frequency in Varda (over %i samples)' % Sample.query.filter_by(coverage_profile=True).filter(~Sample.id.in_(exclude_sample_ids)).count())
-    for label in include_sample_ids:
+    if global_frequencies:
+        reader.infos['VARDA_FREQ'] = VcfInfo('VARDA_FREQ', vcf_field_counts['A'], 'Float',
+                                             'Frequency in Varda (over %i samples, using coverage profiles)' % Sample.query.filter_by(coverage_profile=True).filter(~Sample.id.in_(exclude_sample_ids)).count())
+    for label, sample_id in include_sample_ids.items():
+        sample = Sample.query.get(sample_id)
         reader.infos['%s_FREQ' % label] = VcfInfo('%s_FREQ' % label, vcf_field_counts['A'], 'Float',
-                                                   'Frequency in %s' % label)
+                                                   'Frequency in %s (over %i samples, %susing coverage profiles)' % (sample.name, sample.pool_size, '' if sample.coverage_profile else 'not '))
     writer = vcf.Writer(annotated_variants, reader, lineterminator='\n')
 
     old_percentage = -1
@@ -123,23 +125,24 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
             # Todo: Check if we handle pooled samples correctly.
             # Todo: Only count activated samples.
 
-            # Frequency over entire database, except:
-            #  - samples in ``exclude_sample_ids``
-            #  - samples without coverage profile
-            observations = Observation.query.filter_by(chromosome=chromosome,
-                                                       position=position,
-                                                       reference=reference,
-                                                       observed=observed).join(Variation).filter(~Variation.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(coverage_profile=True).count()
-            coverage = Region.query.join(Coverage).filter(Region.chromosome == chromosome,
-                                                          Region.begin <= position,
-                                                          Region.end >= end_position,
-                                                          Region.bin.in_(bins),
-                                                          ~Coverage.sample_id.in_(exclude_sample_ids)).count()
-            assert observations <= coverage
-            if coverage:
-                frequencies.append(observations / coverage)
-            else:
-                frequencies.append(0)
+            if global_frequencies:
+                # Frequency over entire database, except:
+                #  - samples in ``exclude_sample_ids``
+                #  - samples without coverage profile
+                observations = Observation.query.filter_by(chromosome=chromosome,
+                                                           position=position,
+                                                           reference=reference,
+                                                           observed=observed).join(Variation).filter(~Variation.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(coverage_profile=True).count()
+                coverage = Region.query.join(Coverage).filter(Region.chromosome == chromosome,
+                                                              Region.begin <= position,
+                                                              Region.end >= end_position,
+                                                              Region.bin.in_(bins),
+                                                              ~Coverage.sample_id.in_(exclude_sample_ids)).count()
+                assert observations <= coverage
+                if coverage:
+                    frequencies.append(observations / coverage)
+                else:
+                    frequencies.append(0)
 
             # Frequency for each sample in ``include_sample_ids``.
             # Todo: This list has to be filtered for samples that are public
@@ -149,21 +152,23 @@ def annotate_variants(original_variants, annotated_variants, original_filetype='
                                                            position=position,
                                                            reference=reference,
                                                            observed=observed).join(Variation).filter_by(sample_id=sample_id).count()
-                coverage = Region.query.join(Coverage).filter(Region.chromosome == chromosome,
-                                                              Region.begin <= position,
-                                                              Region.end >= end_position,
-                                                              Region.bin.in_(bins),
-                                                              Coverage.sample_id == sample_id).count()
-                # Todo: We'd better just check for sample.coverage_profile.
-                if not coverage:
-                    coverage = Sample.get(sample_id).pool_size
+                sample = Sample.query.get(sample_id)
+                if sample.coverage_profile:
+                    coverage = Region.query.join(Coverage).filter(Region.chromosome == chromosome,
+                                                                  Region.begin <= position,
+                                                                  Region.end >= end_position,
+                                                                  Region.bin.in_(bins),
+                                                                  Coverage.sample_id == sample_id).count()
+                else:
+                    coverage = sample.pool_size
                 assert observations <= coverage
                 if coverage:
                     sample_frequencies[label].append(observations / coverage)
                 else:
                     sample_frequencies[label].append(0)
 
-        record.add_info('VARDA_FREQ', frequencies)
+        if global_frequencies:
+            record.add_info('VARDA_FREQ', frequencies)
         for label in include_sample_ids:
             record.add_info('%s_FREQ' % label, sample_frequencies[label])
         writer.write_record(record)
@@ -409,7 +414,7 @@ def import_coverage(coverage_id):
 
 
 @celery.task
-def write_annotation(annotation_id, exclude_sample_ids=None, include_sample_ids=None):
+def write_annotation(annotation_id, global_frequencies=False, exclude_sample_ids=None, include_sample_ids=None):
     """
     Annotate variants with frequencies from the database.
     """
@@ -453,6 +458,7 @@ def write_annotation(annotation_id, exclude_sample_ids=None, include_sample_ids=
             annotate_variants(original_variants, annotated_variants,
                               original_filetype=original_data_source.filetype,
                               annotated_filetype=annotated_data_source.filetype,
+                              global_frequencies=global_frequencies,
                               exclude_sample_ids=exclude_sample_ids,
                               include_sample_ids=include_sample_ids,
                               original_records=original_data_source.records)

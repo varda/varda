@@ -9,6 +9,7 @@ REST API views.
 
 from functools import wraps
 import os
+import re
 import urlparse
 import uuid
 
@@ -367,7 +368,9 @@ def variations_add(sample_id):
     except (KeyError, ValueError):
         abort(400)
     sample = Sample.query.get_or_404(sample_id)
-    data_source = DataSource.query.get_or_404(data_source_id)
+    data_source = DataSource.query.get(data_source_id)
+    if data_source is None:
+        abort(400)
     variation = Variation(sample, data_source)
     db.session.add(variation)
     db.session.commit()
@@ -445,7 +448,9 @@ def coverages_add(sample_id):
     except (KeyError, ValueError):
         abort(400)
     sample = Sample.query.get_or_404(sample_id)
-    data_source = DataSource.query.get_or_404(data_source_id)
+    data_source = DataSource.query.get(data_source_id)
+    if data_source is None:
+        abort(400)
     coverage = Coverage(sample, data_source)
     db.session.add(coverage)
     db.session.commit()
@@ -580,7 +585,6 @@ def annotations_add(data_source_id):
     """
     Annotate a data source.
 
-    .. todo:: More parameters for annotation.
     .. todo:: Support other formats than VCF (and check that this is not e.g. a
         BED data source, which of course cannot be annotated).
     """
@@ -610,7 +614,13 @@ def annotations_add(data_source_id):
     except ValueError:
         abort(400)
 
-    original_data_source = DataSource.query.get_or_404(data_source_id)
+    for label in include_sample_ids:
+        if not re.match('[0-9A-Z]+', label):
+            abort(400)
+
+    original_data_source = DataSource.query.get(data_source_id)
+    if original_data_source is None:
+        abort(400)
 
     if 'admin' not in g.user.roles and 'annotator' not in g.user.roles:
         # This is a trader, so check if the data source has been imported in
@@ -628,7 +638,7 @@ def annotations_add(data_source_id):
     current_app.logger.info('Added data source: %r', annotated_data_source)
     current_app.logger.info('Added annotation: %r', annotation)
 
-    result = write_annotation.delay(annotation.id, exclude_sample_ids=exclude_sample_ids, include_sample_ids=include_sample_ids)
+    result = write_annotation.delay(annotation.id, global_frequencies=global_frequencies, exclude_sample_ids=exclude_sample_ids, include_sample_ids=include_sample_ids)
     current_app.logger.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
     uri = url_for('.annotations_write_status', data_source_id=original_data_source.id, annotation_id=annotation.id)
     response = jsonify(annotation_write_status=uri)
