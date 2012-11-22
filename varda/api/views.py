@@ -78,6 +78,15 @@ def parse_dict(data):
     return dict(x.strip().split('=') for x in data.split(','))
 
 
+def parse_bool(data):
+    """
+    Parse a boolean serialized as string into a Python bool.
+    """
+    if isinstance(data, bool):
+        return data
+    return data.lower() in ('true', 'yes', 'on')
+
+
 def parse_args(view, uri):
     # Todo: Support an application root to be stripped from the uri path.
     path = urlparse.urlsplit(uri).path
@@ -302,8 +311,8 @@ def samples_add():
     try:
         name = data['name']
         pool_size = int(data.get('pool_size', 1))
-        public = data.get('public', '').lower() == 'true'
-        coverage_profile = data.get('coverage_profile', '').lower() == 'true'
+        public = parse_bool(data.get('public', False))
+        coverage_profile = parse_bool(data.get('coverage_profile', False))
     except (KeyError, ValueError):
         abort(400)
     sample = Sample(g.user, name, pool_size=pool_size, public=public, coverage_profile=coverage_profile)
@@ -331,7 +340,7 @@ def samples_update(sample_id):
     sample = Sample.query.get_or_404(sample_id)
     data = request.json or request.form
     for field, value in data.items():
-        if field == 'active' and str(value).lower() == 'true':
+        if field == 'active' and parse_bool(value):
             # Todo: Check if sample is ready to activate, e.g. if there are
             #     expected imported data sources and no imports running at the
             #     moment. Also, number of coverage tracks should be 0 or equal
@@ -561,7 +570,7 @@ def data_sources_add():
         filetype = rdata['filetype']
     except KeyError:
         abort(400)
-    gzipped = rdata.get('gzipped', '').lower() == 'true'
+    gzipped = parse_bool(rdata.get('gzipped', False))
     data = request.files.get('data')
     local_path = rdata.get('local_path')
     data_source = DataSource(g.user, name, filetype, upload=data, local_path=local_path, gzipped=gzipped)
@@ -644,6 +653,8 @@ def annotations_add(data_source_id):
     # - owns_data_source AND annotator
     # - owns_data_source AND trader
     data = request.json or request.form
+
+    global_frequencies = parse_bool(data.get('global_frequencies', False))
 
     try:
         exclude_sample_ids = [get_sample_id(sample) for sample
