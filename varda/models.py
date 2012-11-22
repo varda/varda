@@ -25,10 +25,8 @@ from . import db
 from .region_binning import assign_bin
 
 
+# Todo: Use the types for which we have validators.
 DATA_SOURCE_FILETYPES = ('bed', 'vcf')
-"""
-.. todo:: Use the types for which we have validators.
-"""
 
 # Note: Add new roles at the end.
 USER_ROLES = (

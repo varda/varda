@@ -1,31 +1,5 @@
 """
-REST server views.
-
-.. todo:: Representations of resources can sometimes be nested arbitrarily
-    deeply.
-    One extreme would be to only represent nested resources by their URL, the
-    other extreme would be to always give the full JSON representation of the
-    nested resource (unless the nesting is infinitely deep of course). A
-    possible solution is to add a ?depth=N query parameter to view URLs, where
-    N would be how deep to expand URLs with JSON representations. A nice
-    implementation for this on the server side will require some thinking...
-    Also see `this discussion <http://news.ycombinator.com/item?id=3491227>`_.
-
-.. todo:: Use caching headers whenever we can. ETag headers are good when you
-    can easily reduce a resource to a hash value. Last-Modified should
-    indicate to you that keeping around a timestamp of when resources are
-    updated is a good idea. Cache-Control and Expires should be given sensible
-    values.
-
-.. todo:: Implement pagination for collection representations, perhaps with
-    HTTP range headers. This is related to sorting and filtering. See e.g.
-    `this document <http://dojotoolkit.org/reference-guide/quickstart/rest.html>`_.
-
-.. todo:: Less granular API, e.g. way to import and annotate sample with fewer
-    requests.
-
-.. todo:: Use accept HTTP headers.
-.. todo:: `Correctly use HTTP verbs <http://news.ycombinator.com/item?id=3514668>`_.
+REST API views.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
@@ -48,6 +22,7 @@ from ..tasks import write_annotation, import_variation, import_coverage, TaskErr
 from .errors import ActivationFailure
 from .permissions import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
 from .serialize import serialize
+from .utils import parse_args, parse_bool, parse_dict, parse_list
 
 
 API_VERSION = 1
@@ -56,57 +31,19 @@ API_VERSION = 1
 api = Blueprint('api', __name__)
 
 
-def parse_list(data):
-    """
-    Parse a list serialized as string into a Python list.
-    """
-    if isinstance(data, list):
-        return data
-    if not data:
-        return []
-    return [x.strip() for x in data.split(',')]
-
-
-def parse_dict(data):
-    """
-    Parse a dictionary serialized as string into a Python dictionary.
-    """
-    if isinstance(data, dict):
-        return data
-    if not data:
-        return {}
-    return dict(x.strip().split('=') for x in data.split(','))
-
-
-def parse_bool(data):
-    """
-    Parse a boolean serialized as string into a Python bool.
-    """
-    if isinstance(data, bool):
-        return data
-    return data.lower() in ('true', 'yes', 'on')
-
-
-def parse_args(view, uri):
-    # Todo: Support an application root to be stripped from the uri path.
-    path = urlparse.urlsplit(uri).path
-    try:
-        endpoint, args = current_app.create_url_adapter(request).match(
-            path_info=path, method='GET')
-        assert current_app.view_functions[endpoint] is view
-    except (AssertionError, HTTPException):
-        raise ValueError('uri "%s" does not resolve to view "%s"'
-                         % (uri, view.__name__))
-    return args
-
-
 def get_data_source_id(uri):
-    args = parse_args(data_sources_get, uri)
+    """
+    Get a data source identifier from its uri.
+    """
+    args = parse_args(current_app, data_sources_get, uri)
     return args['data_source_id']
 
 
 def get_sample_id(uri):
-    args = parse_args(samples_get, uri)
+    """
+    Get a sample identifier from its uri.
+    """
+    args = parse_args(current_app, samples_get, uri)
     return args['sample_id']
 
 

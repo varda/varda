@@ -77,7 +77,7 @@ class CleanTask(Task):
 
 def annotate_variants(original_variants, annotated_variants, original_filetype='vcf', annotated_filetype='vcf', exclude_sample_ids=None, include_sample_ids=None, original_records=1):
     """
-    .. todo:: Calculate frequencies instead of counts.
+    Annotate variants.
     """
     exclude_sample_ids = exclude_sample_ids or []
     include_sample_ids = include_sample_ids or {}
