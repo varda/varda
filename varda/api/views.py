@@ -59,10 +59,10 @@ def get_user(login, password):
 
 
 @api.before_request
-def before_request():
+def register_user():
     """
-    Make sure we add a :class:`User` instance to the global objects if we have
-    authentication.
+    Make sure we add a :class:`.User` instance to the global objects if we
+    have authentication.
     """
     auth = request.authorization
     g.user = get_user(auth.username, auth.password) if auth else None
@@ -170,10 +170,9 @@ def users_list():
 @ensure(has_role('admin'), has_login, satisfy=any)
 def users_get(login):
     """
+    Details for user identified by `login`.
 
-    Example usage::
-
-        curl -i http://127.0.0.1:5000/users/pietje
+    :return: A :ref:`user <users>` object.
     """
     user = User.query.filter_by(login=login).first()
     if user is None:
@@ -588,8 +587,8 @@ def annotations_add(data_source_id):
     .. todo:: Support other formats than VCF (and check that this is not e.g. a
         BED data source, which of course cannot be annotated).
     """
-    # The ``satisfy`` keyword argument used here in the ``ensure`` decorator
-    # means that we ensure at least one of:
+    # The `satisfy` keyword argument used here in the `ensure` decorator means
+    # that we ensure at least one of:
     # - admin
     # - owns_data_source AND annotator
     # - owns_data_source AND trader
@@ -611,8 +610,8 @@ def annotations_add(data_source_id):
             abort(400)
 
     # Example: "1KG=/samples/34,GONL=/samples/7"
-    # Todo: Perhaps a better name would be ``local_frequencies`` instead of
-    #     ``include_sample_ids``, to contrast with the ``global_frequencies``
+    # Todo: Perhaps a better name would be `local_frequencies` instead of
+    #     `include_sample_ids`, to contrast with the `global_frequencies`
     #     flag.
     try:
         include_sample_ids = {label: get_sample_id(sample) for label, sample
