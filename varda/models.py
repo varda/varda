@@ -11,7 +11,7 @@ Note that all genomic positions in this module are one-based and inclusive.
 """
 
 
-from datetime import date
+from datetime import datetime
 import gzip
 import os
 import uuid
@@ -78,7 +78,7 @@ class User(db.Model):
     login = db.Column(db.String(200), index=True, unique=True)
     password_hash = db.Column(db.String(200))
     roles_bitstring = db.Column(db.Integer)
-    added = db.Column(db.Date)
+    added = db.Column(db.DateTime)
 
     def __init__(self, name, login, password, roles=[]):
         self.name = name
@@ -86,7 +86,7 @@ class User(db.Model):
         self.password_hash = bcrypt.hashpw(password, bcrypt.gensalt())
         self.roles_bitstring = sum(pow(2, i) for i, role in enumerate(USER_ROLES)
                                    if role in roles)
-        self.added = date.today()
+        self.added = datetime.now()
 
     def __repr__(self):
         return 'User(%r, %r, %r, %r)' % (self.name, self.login, '***', list(self.roles))
@@ -114,7 +114,7 @@ class Sample(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     name = db.Column(db.String(200))
     pool_size = db.Column(db.Integer)
-    added = db.Column(db.Date)
+    added = db.Column(db.DateTime)
     active = db.Column(db.Boolean, default=False)
     coverage_profile = db.Column(db.Boolean)
     public = db.Column(db.Boolean)
@@ -125,7 +125,7 @@ class Sample(db.Model):
         self.user = user
         self.name = name
         self.pool_size = pool_size
-        self.added = date.today()
+        self.added = datetime.now()
         self.coverage_profile = coverage_profile
         self.public = public
 
@@ -154,7 +154,7 @@ class DataSource(db.Model):
     filename = db.Column(db.String(50))
     filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES, name='filetype'))
     gzipped = db.Column(db.Boolean)
-    added = db.Column(db.Date)
+    added = db.Column(db.DateTime)
     checksum = db.Column(db.String(40))
     records = db.Column(db.Integer)
 
@@ -171,7 +171,7 @@ class DataSource(db.Model):
         self.filename = str(uuid.uuid4())
         self.filetype = filetype
         self.gzipped = gzipped
-        self.added = date.today()
+        self.added = datetime.now()
 
         filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
 
