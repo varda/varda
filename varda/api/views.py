@@ -172,7 +172,31 @@ def users_get(login):
     """
     Details for user identified by `login`.
 
-    :return: A :ref:`user <users>` object.
+    :statuscode 200: Respond with a :ref:`user <api_users>` object as `user`.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        GET /users/34 HTTP/1.1
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 200 OK
+        Content-Type: application/json
+
+        {
+          "user":
+            {
+              "uri": "/users/34",
+              "name": "Frederick Sanger",
+              "login": "fred",
+              "roles": ["admin"],
+              "added": "2012-11-23T10:55:12.776706"
+            }
+        }
     """
     user = User.query.filter_by(login=login).first()
     if user is None:

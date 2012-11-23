@@ -20,6 +20,16 @@ sys.path.insert(0, os.path.abspath('..'))
 
 import varda
 
+# From: http://stackoverflow.com/questions/7825263/including-docstring-in-sphinx-documentation
+from sphinx.ext import autodoc
+class DocstringDocumenter(autodoc.MethodDocumenter):
+    objtype = 'docstring'
+    content_indent = ''
+    def add_directive_header(self, sig):
+        pass
+def setup(app):
+    app.add_autodocumenter(DocstringDocumenter)
+
 # -- General configuration -----------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.

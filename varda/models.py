@@ -162,7 +162,9 @@ class DataSource(db.Model):
 
     def __init__(self, user, name, filetype, upload=None, local_path=None, empty=False, gzipped=False):
         if not filetype in DATA_SOURCE_FILETYPES:
-            raise InvalidDataSource('unknown_filetype', 'Data source filetype is unknown')
+            raise InvalidDataSource('unknown_filetype',
+                                    'Data source filetype "%s" is unknown'
+                                    % filetype)
 
         self.user = user
         self.name = name

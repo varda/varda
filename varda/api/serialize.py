@@ -34,37 +34,96 @@ def serializes(model):
     return serializes_model
 
 
+# Note that the docstrings of the `serialize_*` functions below are included
+# verbatim in the REST API documentation.
+
+
 @serializes(User)
 def serialize_user(instance):
     """
-    Create a RESTfull representation of a user as dictionary.
+    A user is represented as an object with the following fields:
+
+    * **uri** (`string`) - URI for this user.
+    * **name** (`string`) - Name of this user.
+    * **login** (`string`) - Login name.
+    * **roles** (`list` of `string`) - Roles this user has.
+    * **added** (`string`) - Date and time this user was added.
+
+    Example representation:
+
+    .. sourcecode:: json
+
+        {
+          "uri": "/users/34",
+          "name": "Frederick Sanger",
+          "login": "fred",
+          "roles": ["admin"],
+          "added": "2012-11-23T10:55:12.776706"
+        }
     """
     return {'uri':   url_for('.users_get', login=instance.login),
             'name':  instance.name,
             'login': instance.login,
             'roles': list(instance.roles),
-            'added': str(instance.added)}
+            'added': str(instance.added.isoformat())}
 
 
 @serializes(DataSource)
 def serialize_data_source(instance):
     """
-    Create a RESTfull representation of a data source as dictionary.
+    A data source is represented as an object with the following fields:
+
+    * **uri** (`string`) - URI for this data source.
+    * **user** (`string`) - URI for the data source :ref:`owner <api_users>`.
+    * **annotations** (`string`) - URI for the data source :ref:`annotations <api_annotations>`.
+    * **data** (`string`) - URI for the data.
+    * **name** (`string`) - Name of this data source.
+    * **filetype** (`string`) - Data filetype.
+    * **gzipped** (`bool`) - Whether data is compressed.
+    * **added** (`string`) - Date this data source was added in ISO todo.
+
+    Example representation:
+
+    .. sourcecode:: json
+
+        {
+          "uri": "/data_sources/23",
+          "user": "/users/34",
+          "annotations": "/data_sources/23/annotations",
+          "data": "/data_sources/23/data",
+          "name": "1KG chromosome 20 SNPs",
+          "filetype": "vcf",
+          "gzipped": true,
+          "added": "2012-11-23T10:55:12.776706"
+        }
     """
     return {'uri':         url_for('.data_sources_get', data_source_id=instance.id),
             'user':        url_for('.users_get', login=instance.user.login),
             'annotations': url_for('.annotations_list', data_source_id=instance.id),
+            'data':        url_for('.data_sources_data', data_source_id=instance.id),
             'name':        instance.name,
             'filetype':    instance.filetype,
             'gzipped':     instance.gzipped,
-            'added':       str(instance.added),
-            'data':        url_for('.data_sources_data', data_source_id=instance.id)}
+            'added':       str(instance.added.isoformat())}
 
 
 @serializes(Variation)
 def serialize_variation(instance):
     """
-    Create a RESTfull representation of a variation as dictionary.
+    A set of observations is represented as an object with the following
+    fields:
+
+    * **uri** (`string`) - URI for this set of observations.
+    * **data_source** (`string`) - URI for the :ref:`data source <api_data_sources>`.
+
+    Example representation:
+
+    .. sourcecode:: json
+
+        {
+          "uri": "/samples/3/variations/17",
+          "data_source": "/data_sources/23"
+        }
     """
     return {'uri':         url_for('.variations_get', sample_id=instance.sample_id, variation_id=instance.id),
             'data_source': url_for('.data_sources_get', data_source_id=instance.data_source_id)}
@@ -73,7 +132,19 @@ def serialize_variation(instance):
 @serializes(Coverage)
 def serialize_coverage(instance):
     """
-    Create a RESTfull representation of a coverage as dictionary.
+    A set of regions is represented as an object with the following fields:
+
+    * **uri** (`string`) - URI for this set of regions.
+    * **data_source** (`string`) - URI for the :ref:`data source <api_data_sources>`.
+
+    Example representation:
+
+    .. sourcecode:: json
+
+        {
+          "uri": "/samples/3/coverages/11",
+          "data_source": "/data_sources/24"
+        }
     """
     return {'uri':         url_for('.coverages_get', sample_id=instance.sample_id, coverage_id=instance.id),
             'data_source': url_for('.data_sources_get', data_source_id=instance.data_source_id)}
@@ -82,7 +153,21 @@ def serialize_coverage(instance):
 @serializes(Annotation)
 def serialize_annotation(instance):
     """
-    Create a RESTfull representation of an annotation as dictionary.
+    An annotation is represented as an object with the following fields:
+
+    * **uri** (`string`) - URI for this annotation.
+    * **original_data_source** (`string`) - URI for the original :ref:`data source <api_data_sources>`.
+    * **annotated_data_source** (`string`) - URI for the annotated :ref:`data source <api_data_sources>`.
+
+    Example representation:
+
+    .. sourcecode:: json
+
+        {
+          "uri": "/data_sources/23/annotations/2",
+          "original_data_source": "/data_sources/23",
+          "annotated_data_source": "/data_sources/57"
+        }
     """
     return {'uri':                   url_for('.annotations_get', data_source_id=instance.original_data_source_id, annotation_id=instance.id),
             'original_data_source':  url_for('.data_sources_get', data_source_id=instance.original_data_source_id),
@@ -92,7 +177,29 @@ def serialize_annotation(instance):
 @serializes(Sample)
 def serialize_sample(instance):
     """
-    Create a RESTfull representation of a sample as dictionary.
+    A sample is represented as an object with the following fields:
+
+    * **uri** (`string`) - URI for this sample.
+    * **user** (`string`) - URI for the sample :ref:`owner <api_users>`.
+    * **variations** (`string`) - URI for the :ref:`sets of observations <api_variations>`.
+    * **coverages** (`string`) - URI for the :ref:`data source <api_coverages>`.
+    * **name** (`string`) - Name of this sample.
+    * **pool_size** (`string`) - Number of individuals.
+    * **added** (`string`) - Date and time this sample was added.
+
+    Example representation:
+
+    .. sourcecode:: json
+
+        {
+          "uri": "/samples/3",
+          "user": "/users/34",
+          "variations": "/samples/3/variations",
+          "coverages": "/samples/3/coverages",
+          "name": "1KG phase 1 release",
+          "pool_size": 1092,
+          "added": "2012-11-23T10:55:12.776706"
+        }
     """
     return {'uri':                url_for('.samples_get', sample_id=instance.id),
             'user':               url_for('.users_get', login=instance.user.login),
@@ -100,7 +207,7 @@ def serialize_sample(instance):
             'coverages':          url_for('.coverages_list', sample_id=instance.id),
             'name':               instance.name,
             'pool_size':          instance.pool_size,
-            'added':              str(instance.added)}
+            'added':              str(instance.added.isoformat())}
 
 
 @serializes(ActivationFailure)
@@ -108,7 +215,19 @@ def serialize_sample(instance):
 @serializes(TaskError)
 def serialize_exception(instance):
     """
-    Create a RESTfull representation of an exception as dictionary.
+    An error is represented as an object with the following fields:
+
+    * **code** (`string`) - Error code (todo: document error codes).
+    * **message** (`string`) - Human readable error message.
+
+    Example representation:
+
+    .. sourcecode:: json
+
+        {
+          "code": "unknown_filetype",
+          "message": "Data source filetype \"gff\" is unknown"
+        }
     """
     return {'code':    instance.code,
             'message': instance.message}
