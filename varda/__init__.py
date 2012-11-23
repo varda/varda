@@ -69,5 +69,10 @@ def create_app(settings=None):
     if app.config['GENOME'] is not None:
         genome.init(app.config['GENOME'])
     from .api import api
-    app.register_blueprint(api)
+    if app.config['VARDA_WEB'] is not None:
+        app.register_blueprint(api, url_prefix='/api')
+        from .web import web
+        app.register_blueprint(web)
+    else:
+        app.register_blueprint(api)
     return app

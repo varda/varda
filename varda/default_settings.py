@@ -4,6 +4,9 @@
 # Directory to store uploaded files
 FILES_DIR = '/tmp'
 
+# Path to serve the Varda web application from
+VARDA_WEB = None
+
 # Maximum size for uploaded files
 MAX_CONTENT_LENGTH = 1024 * 1024 * 1024  # 1 gigabyte
 
