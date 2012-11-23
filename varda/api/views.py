@@ -604,6 +604,8 @@ def data_sources_add():
     .. todo:: Have an option to add data source by external url instead of
         upload.
     """
+    # Todo: If files['data'] is missing (or non-existent file?), we crash with
+    #     a data_source_not_cached error.
     data = request.json or request.form
     try:
         name = data['name']
