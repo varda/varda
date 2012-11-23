@@ -1,22 +1,34 @@
 REST server API
 ===============
 
+.. Todo: Modify sphinxcontrib-httpdomain with an :autoroute: directive, such
+   that we can manually include documentation for specific resources (and in
+   the order we define, which is random with the :autoflask: directive).
+
 This page documents the REST server API exposed by Varda server to client
 applications.
 
-In general, the following HTTP status codes can be returned on any request:
+In general, the following HTTP error status codes can be returned on any
+request:
 
-* **404** - Nothing was found matching the request URI. Respond with an
-    :ref:`error <api_exceptions>` object as `error`.
-* **401** - The request requires user authentication. Respond with an
-    :ref:`error <api_exceptions>` object as `error`.
+* **400** - The request data was malformed.
+* **401** - The request requires user authentication.
+* **403** - Not allowed to make this request.
+* **404** - Nothing was found matching the request URI.
+* **413** - The request entity was too large.
+* **501** - Not implemented.
 
-Other status codes are documented with each request.
+All of them come with an :ref:`error <api_exceptions>` object as `error` in
+the response. Other status codes are documented with each request below.
 
-All date and time values are formatted following `ISO 8601 <http://en.wikipedia.org/wiki/ISO_8601>`_.
+All date and time values are formatted following
+`ISO 8601 <http://en.wikipedia.org/wiki/ISO_8601>`_.
 
 In the HTTP request/response examples below, some of the HTTP headers are
 omitted for brevity.
+
+If a request requires user authentication, it should be performed using
+`HTTP Basic Authentication <http://en.wikipedia.org/wiki/Basic_access_authentication>`_.
 
 
 .. _api_users:

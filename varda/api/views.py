@@ -157,10 +157,45 @@ def authentication():
 @ensure(has_role('admin'))
 def users_list():
     """
+    Details for all registered users.
 
-    Example usage::
+    Requires the `admin` role.
 
-        curl -i -u pietje:pi3tje http://127.0.0.1:5000/users
+    :statuscode 200: Respond with a list of :ref:`user <api_users>` objects
+        as `users`.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        GET /users HTTP/1.1
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 200 OK
+        Content-Type: application/json
+
+        {
+          "users":
+            [
+              {
+                "uri": "/users/34",
+                "name": "Frederick Sanger",
+                "login": "fred",
+                "roles": ["admin"],
+                "added": "2012-11-23T10:55:12.776706"
+              },
+              {
+                "uri": "/users/35",
+                "name": "Walter Gilbert",
+                "login": "walter",
+                "roles": ["importer", "annotator"],
+                "added": "2012-11-23T10:55:12.776706"
+              }
+            ]
+        }
     """
     return jsonify(users=[serialize(u) for u in User.query])
 
@@ -171,6 +206,8 @@ def users_list():
 def users_get(login):
     """
     Details for user identified by `login`.
+
+    Requires the `admin` role or being the requested user.
 
     :statuscode 200: Respond with a :ref:`user <api_users>` object as `user`.
 
@@ -209,11 +246,49 @@ def users_get(login):
 @ensure(has_role('admin'))
 def users_add():
     """
-    .. note:: Roles must be listed in a string separated by a comma.
+    Create a new user.
 
-    .. todo:: Check for duplicate login.
-    .. todo:: Optionally generate password.
+    Requires the `admin` role.
+
+    :arg login: User login used for identification.
+    :type login: string
+    :arg name: Human readable name (default: `login`).
+    :type name: string
+    :arg password: Password.
+    :type password: string
+    :arg roles: Roles to assign.
+    :type roles: list of string
+    :statuscode 201: Respond with a URI for the created user as `user`.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        POST /users/34 HTTP/1.1
+        Content-Type: application/json
+
+        {
+          "name": "Paul Berg",
+          "login": "paul",
+          "password": "dna",
+          "roles": ["importer"]
+        }
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 201 CREATED
+        Location: http://example.com/users/fred
+        Content-Type: application/json
+
+        {
+          "user": "/users/fred"
+        }
     """
+    # Todo: Validate login (alphanumeric).
+    # Todo: Check for duplicate login.
+    # Todo: Optionally generate password.
     data = request.json or request.form
     try:
         name = data.get('name', data['login'])

@@ -44,9 +44,9 @@ def serialize_user(instance):
     A user is represented as an object with the following fields:
 
     * **uri** (`string`) - URI for this user.
-    * **name** (`string`) - Name of this user.
-    * **login** (`string`) - Login name.
-    * **roles** (`list` of `string`) - Roles this user has.
+    * **name** (`string`) - Human readable name.
+    * **login** (`string`) - User login used for identification.
+    * **roles** (`list of string`) - Roles this user has.
     * **added** (`string`) - Date and time this user was added.
 
     Example representation:
@@ -77,7 +77,7 @@ def serialize_data_source(instance):
     * **user** (`string`) - URI for the data source :ref:`owner <api_users>`.
     * **annotations** (`string`) - URI for the data source :ref:`annotations <api_annotations>`.
     * **data** (`string`) - URI for the data.
-    * **name** (`string`) - Name of this data source.
+    * **name** (`string`) - Human readable name.
     * **filetype** (`string`) - Data filetype.
     * **gzipped** (`bool`) - Whether data is compressed.
     * **added** (`string`) - Date this data source was added in ISO todo.
@@ -183,7 +183,7 @@ def serialize_sample(instance):
     * **user** (`string`) - URI for the sample :ref:`owner <api_users>`.
     * **variations** (`string`) - URI for the :ref:`sets of observations <api_variations>`.
     * **coverages** (`string`) - URI for the :ref:`data source <api_coverages>`.
-    * **name** (`string`) - Name of this sample.
+    * **name** (`string`) - Human readable name.
     * **pool_size** (`string`) - Number of individuals.
     * **added** (`string`) - Date and time this sample was added.
 
