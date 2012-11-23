@@ -84,15 +84,17 @@ class User(db.Model):
         self.name = name
         self.login = login
         self.password_hash = bcrypt.hashpw(password, bcrypt.gensalt())
-        self.roles_bitstring = sum(pow(2, i) for i, role in enumerate(USER_ROLES)
-                                   if role in roles)
+        self.roles_bitstring = sum(pow(2, i) for i, role
+                                   in enumerate(USER_ROLES) if role in roles)
         self.added = datetime.now()
 
     def __repr__(self):
-        return 'User(%r, %r, %r, %r)' % (self.name, self.login, '***', list(self.roles))
+        return 'User(%r, %r, %r, %r)' % (self.name, self.login, '***',
+                                         list(self.roles))
 
     def check_password(self, password):
-        return bcrypt.hashpw(password, self.password_hash) == self.password_hash
+        return (bcrypt.hashpw(password, self.password_hash) ==
+                self.password_hash)
 
     @property
     def roles(self):
@@ -119,9 +121,11 @@ class Sample(db.Model):
     coverage_profile = db.Column(db.Boolean)
     public = db.Column(db.Boolean)
 
-    user = db.relationship(User, backref=db.backref('samples', lazy='dynamic'))
+    user = db.relationship(User,
+                           backref=db.backref('samples', lazy='dynamic'))
 
-    def __init__(self, user, name, pool_size=1, coverage_profile=True, public=False):
+    def __init__(self, user, name, pool_size=1, coverage_profile=True,
+                 public=False):
         self.user = user
         self.name = name
         self.pool_size = pool_size
@@ -130,17 +134,15 @@ class Sample(db.Model):
         self.public = public
 
     def __repr__(self):
-        return '<Sample "%s" of %d individuals added %s>' % (self.name, self.pool_size, str(self.added))
+        return '<Sample "%s" of %d individuals added %s>' % (self.name,
+                                                             self.pool_size,
+                                                             str(self.added))
 
 
 class DataSource(db.Model):
     """
-    Data source (probably uploaded as a file). E.g. VCF file to be imported, or
-    BED track from which Region entries are created.
-
-    .. todo:: We can now provide data as an uploaded file or as a path to a
-        local file. We also want to be able to give a link to an internet
-        resource.
+    Data source (probably uploaded as a file). E.g. VCF file to be imported,
+    or BED track from which Region entries are created.
 
     .. note:: Data source checksums are not forced to be unique, since several
         users might upload the same data source and do different things with
@@ -158,9 +160,11 @@ class DataSource(db.Model):
     checksum = db.Column(db.String(40))
     records = db.Column(db.Integer)
 
-    user = db.relationship(User, backref=db.backref('data_sources', lazy='dynamic'))
+    user = db.relationship(User,
+                           backref=db.backref('data_sources', lazy='dynamic'))
 
-    def __init__(self, user, name, filetype, upload=None, local_path=None, empty=False, gzipped=False):
+    def __init__(self, user, name, filetype, upload=None, local_path=None,
+                 empty=False, gzipped=False):
         if not filetype in DATA_SOURCE_FILETYPES:
             raise InvalidDataSource('unknown_filetype',
                                     'Data source filetype "%s" is unknown'
@@ -173,7 +177,8 @@ class DataSource(db.Model):
         self.gzipped = gzipped
         self.added = datetime.now()
 
-        filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
+        filepath = os.path.join(current_app.config['FILES_DIR'],
+                                self.filename)
 
         if upload is not None:
             if gzipped:
@@ -184,11 +189,15 @@ class DataSource(db.Model):
                 data.close()
             self.gzipped = True
         elif local_path is not None:
+            # Todo: Restrict this to a preconfigured directory, and only pass
+            #     filename instead of full path. Don't allow this method if
+            #     the directory is not configured.
             os.symlink(local_path, filepath)
 
         if not empty and not self.is_valid():
             os.unlink(filepath)
-            raise InvalidDataSource('invalid_data', 'Data source cannot be read')
+            raise InvalidDataSource('invalid_data',
+                                    'Data source cannot be read')
 
     def __repr__(self):
         # Todo: If CELERY_ALWAYS_EAGER=True, the worker can end up with a
@@ -198,7 +207,9 @@ class DataSource(db.Model):
         #     be a hack. I think this is something that could be fixed in
         #     celery itself.
         try:
-            return '<DataSource "%s" as %s added %s>' % (self.name, self.filetype, str(self.added))
+            return '<DataSource "%s" as %s added %s>' % (self.name,
+                                                         self.filetype,
+                                                         str(self.added))
         except DetachedInstanceError:
             return '<DataSource ...>'
 
@@ -209,14 +220,16 @@ class DataSource(db.Model):
 
         .. note:: Be sure to close after calling this.
         """
-        filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
+        filepath = os.path.join(current_app.config['FILES_DIR'],
+                                self.filename)
         try:
             if self.gzipped:
                 return gzip.open(filepath)
             else:
                 return open(filepath)
         except EnvironmentError:
-            raise DataUnavailable('data_source_not_cached', 'Data source is not in the cache')
+            raise DataUnavailable('data_source_not_cached',
+                                  'Data source is not in the cache')
 
     def data_writer(self):
         """
@@ -225,14 +238,16 @@ class DataSource(db.Model):
 
         .. note:: Be sure to close after calling this.
         """
-        filepath = os.path.join(current_app.config['FILES_DIR'], self.filename)
+        filepath = os.path.join(current_app.config['FILES_DIR'],
+                                self.filename)
         try:
             if self.gzipped:
                 return gzip.open(filepath, 'wb')
             else:
                 return open(filepath, 'wb')
         except EnvironmentError:
-            raise DataUnavailable('data_source_not_cached', 'Data source is not in the cache')
+            raise DataUnavailable('data_source_not_cached',
+                                  'Data source is not in the cache')
 
     def empty(self):
         """
@@ -278,15 +293,19 @@ class Variation(db.Model):
     imported = db.Column(db.Boolean, default=False)
     import_task_uuid = db.Column(db.String(36))
 
-    sample = db.relationship(Sample, backref=db.backref('variations', lazy='dynamic'))
-    data_source = db.relationship(DataSource, backref=db.backref('variations', lazy='dynamic'))
+    sample = db.relationship(Sample,
+                             backref=db.backref('variations', lazy='dynamic'))
+    data_source = db.relationship(DataSource,
+                                  backref=db.backref('variations',
+                                                     lazy='dynamic'))
 
     def __init__(self, sample, data_source):
         self.sample = sample
         self.data_source = data_source
 
     def __repr__(self):
-        return '<Variation ...>'
+        return '<Variation "%d", %simported>' % (
+            self.id, '' if self.imported else 'not ')
 
 
 class Coverage(db.Model):
@@ -301,15 +320,19 @@ class Coverage(db.Model):
     imported = db.Column(db.Boolean, default=False)
     import_task_uuid = db.Column(db.String(36))
 
-    sample = db.relationship(Sample, backref=db.backref('coverages', lazy='dynamic'))
-    data_source = db.relationship(DataSource, backref=db.backref('coverages', lazy='dynamic'))
+    sample = db.relationship(Sample,
+                             backref=db.backref('coverages', lazy='dynamic'))
+    data_source = db.relationship(DataSource,
+                                  backref=db.backref('coverages',
+                                                     lazy='dynamic'))
 
     def __init__(self, sample, data_source):
         self.sample = sample
         self.data_source = data_source
 
     def __repr__(self):
-        return '<Coverage ...>'
+        return '<Coverage "%d", %simported>' % (
+            self.id, '' if self.imported else 'not ')
 
 
 class Annotation(db.Model):
@@ -319,20 +342,29 @@ class Annotation(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    original_data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
-    annotated_data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
+    original_data_source_id = db.Column(db.Integer,
+                                        db.ForeignKey('data_source.id'))
+    annotated_data_source_id = db.Column(db.Integer,
+                                         db.ForeignKey('data_source.id'))
     written = db.Column(db.Boolean, default=False)
     write_task_uuid = db.Column(db.String(36))
 
-    original_data_source = db.relationship(DataSource, primaryjoin='DataSource.id==Annotation.original_data_source_id', backref=db.backref('annotations', lazy='dynamic'))
-    annotated_data_source = db.relationship(DataSource, primaryjoin='DataSource.id==Annotation.annotated_data_source_id', backref=db.backref('annotation', uselist=False, lazy='dynamic'))
+    original_data_source = db.relationship(
+        DataSource,
+        primaryjoin='DataSource.id==Annotation.original_data_source_id',
+        backref=db.backref('annotations', lazy='dynamic'))
+    annotated_data_source = db.relationship(
+        DataSource,
+        primaryjoin='DataSource.id==Annotation.annotated_data_source_id',
+        backref=db.backref('annotation', uselist=False, lazy='dynamic'))
 
     def __init__(self, original_data_source, annotated_data_source):
         self.original_data_source = original_data_source
         self.annotated_data_source = annotated_data_source
 
     def __repr__(self):
-        return '<Annotation ...>'
+        return '<Variation "%d", %swritten>' % (
+            self.id, '' if self.written else 'not ')
 
 
 class Observation(db.Model):
@@ -353,9 +385,12 @@ class Observation(db.Model):
     # Number of individuals.
     support = db.Column(db.Integer)
 
-    variation = db.relationship(Variation, backref=db.backref('observations', lazy='dynamic'))
+    variation = db.relationship(Variation,
+                                backref=db.backref('observations',
+                                                   lazy='dynamic'))
 
-    def __init__(self, variation, chromosome, position, reference, observed, support=1):
+    def __init__(self, variation, chromosome, position, reference, observed,
+                 support=1):
         self.variation = variation
         self.chromosome = chromosome
         self.position = position
@@ -403,7 +438,8 @@ class Region(db.Model):
     end = db.Column(db.Integer)
     bin = db.Column(db.Integer)
 
-    coverage = db.relationship(Coverage, backref=db.backref('regions', lazy='dynamic'))
+    coverage = db.relationship(Coverage,
+                               backref=db.backref('regions', lazy='dynamic'))
 
     def __init__(self, coverage, chromosome, begin, end):
         self.coverage = coverage
@@ -413,7 +449,8 @@ class Region(db.Model):
         self.bin = assign_bin(self.begin, self.end)
 
     def __repr__(self):
-        return '<Region chr%s:%i-%i>' % (self.chromosome, self.begin, self.end)
+        return '<Region chr%s:%i-%i>' % (self.chromosome, self.begin,
+                                         self.end)
 
 
 Index('region_location',
