@@ -131,6 +131,23 @@ def error_activation_failure(error):
 
 @api.route('/')
 def apiroot():
+    """
+    Varda server status information.
+
+    :statuscode 200: Respond with an object as defined below.
+
+    The response object has the following fields:
+
+    * **status** (`string`) - Currently always ``ok``, but future versions of
+      the API might add other values (e.g. ``maintanance``).
+    * **version** (`integer`) - API version.
+    * **genome** (`list of string`) - Reference genome chromosome names.
+    * **collections** (`object`) - Object with fields:
+
+      - **users** (`string`) - URI for the :http:get:`registered users resource </users>`.
+      - **samples** (`string`) - URI for the :http:get:`samples resource </samples>`.
+      - **data_sources** (`string`) - URI for the :http:get:`data sources resource </data_sources>`.
+    """
     api = {'status':  'ok',
            'version': API_VERSION,
            'genome':  genome.keys(),
@@ -144,8 +161,36 @@ def apiroot():
 @api.route('/authentication')
 def authentication():
     """
-    Return current authentication state.
-    """
+    Authentication state (for this very request).
+
+    :statuscode 200: Respond with the authentication state as `authenticated`
+        and, if true, a :ref:`user <api_users>` object as `user`.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        GET /authentication HTTP/1.1
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 200 OK
+        Content-Type: application/json
+
+        {
+          "authenticated": true,
+          "user":
+            {
+              "uri": "/users/34",
+              "name": "Frederick Sanger",
+              "login": "fred",
+              "roles": ["admin"],
+              "added": "2012-11-23T10:55:12.776706"
+            }
+        }
+     """
     authentication = {'authenticated': False}
     if g.user is not None:
         authentication.update(authenticated=True, user=serialize(g.user))
