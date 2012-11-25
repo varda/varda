@@ -59,7 +59,7 @@ def create_app(settings=None):
 
     :return: Flask application instance.
     """
-    app = Flask(__name__)
+    app = Flask('varda')
     app.config.from_object('varda.default_settings')
     app.config.from_envvar('VARDA_SETTINGS', silent=True)
     if settings:

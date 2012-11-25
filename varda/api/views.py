@@ -29,7 +29,7 @@ from .utils import parse_args, parse_bool, parse_dict, parse_list
 API_VERSION = 1
 
 
-api = Blueprint('api', __name__)
+api = Blueprint('api', 'api')
 
 
 def get_data_source_id(uri):
