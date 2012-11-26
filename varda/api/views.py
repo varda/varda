@@ -190,7 +190,7 @@ def authentication():
               "added": "2012-11-23T10:55:12.776706"
             }
         }
-     """
+    """
     authentication = {'authenticated': False}
     if g.user is not None:
         authentication.update(authenticated=True, user=serialize(g.user))

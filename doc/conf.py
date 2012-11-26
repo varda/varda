@@ -37,7 +37,7 @@ def setup(app):
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.todo', 'sphinx.ext.viewcode', 'sphinxcontrib.autohttp.flask']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.todo', 'sphinx.ext.viewcode', 'sphinxcontrib.httpdomain', 'sphinxcontrib.autohttp.flask']
 
 # Include todo directives.
 todo_include_todos = False

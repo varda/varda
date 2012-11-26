@@ -1,10 +1,6 @@
 REST server API
 ===============
 
-.. Todo: Modify sphinxcontrib-httpdomain with an :autoroute: directive, such
-   that we can manually include documentation for specific resources (and in
-   the order we define, which is random with the :autoflask: directive).
-
 This page documents the REST server API exposed by Varda server to client
 applications.
 
@@ -30,6 +26,9 @@ omitted for brevity.
 If a request requires user authentication, it should be performed using
 `HTTP Basic Authentication <http://en.wikipedia.org/wiki/Basic_access_authentication>`_.
 
+.. autoflask:: varda:create_app()
+   :endpoints: api.apiroot, api.authentication
+
 
 .. _api_users:
 
@@ -38,6 +37,9 @@ Users
 
 .. autodocstring:: varda.api.serialize.serialize_user
 
+.. autoflask:: varda:create_app()
+   :endpoints: api.users_list, api.users_get, api.users_add
+
 
 .. _api_samples:
 
@@ -45,6 +47,9 @@ Samples
 -------
 
 .. autodocstring:: varda.api.serialize.serialize_sample
+
+.. autoflask:: varda:create_app()
+   :endpoints: api.samples_list, api.samples_get, api.samples_add, api.samples_update
 
 
 .. _api_variations:
@@ -85,13 +90,3 @@ Errors
 ------
 
 .. autodocstring:: varda.api.serialize.serialize_exception
-
-
-
-Requests
---------
-
-The following are all HTTP requests that can be made on the API.
-
-.. autoflask:: varda:create_app()
-   :undoc-static:

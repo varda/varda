@@ -182,7 +182,7 @@ def serialize_sample(instance):
     * **uri** (`string`) - URI for this sample.
     * **user** (`string`) - URI for the sample :ref:`owner <api_users>`.
     * **variations** (`string`) - URI for the :ref:`sets of observations <api_variations>`.
-    * **coverages** (`string`) - URI for the :ref:`data source <api_coverages>`.
+    * **coverages** (`string`) - URI for the :ref:`sets of regions <api_coverages>`.
     * **name** (`string`) - Human readable name.
     * **pool_size** (`string`) - Number of individuals.
     * **added** (`string`) - Date and time this sample was added.
