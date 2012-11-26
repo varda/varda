@@ -144,9 +144,9 @@ def apiroot():
     * **genome** (`list of string`) - Reference genome chromosome names.
     * **collections** (`object`) - Object with fields:
 
-      - **users** (`string`) - URI for the :http:get:`registered users resource </users>`.
-      - **samples** (`string`) - URI for the :http:get:`samples resource </samples>`.
-      - **data_sources** (`string`) - URI for the :http:get:`data sources resource </data_sources>`.
+      - **users** (`string`) - URI for the :ref:`registered users resource <api_users>`.
+      - **samples** (`string`) - URI for the :ref:`samples resource <api_samples>`.
+      - **data_sources** (`string`) - URI for the :ref:`data sources resource <api_data_sources>`.
     """
     api = {'status':  'ok',
            'version': API_VERSION,
@@ -465,6 +465,7 @@ def variations_import_status(sample_id, variation_id):
     """
     Get variation import status.
     """
+    # Todo: Merge this with the `variations_get` endpoint.
     # Todo: We might want to handle the special (error) case where .imported
     #     is False but no .import_task_uuid is set, or the task with that uuid
     #     is not running. Instead of ready=True/False maybe this needs a

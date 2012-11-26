@@ -25,9 +25,7 @@ omitted for brevity.
 
 If a request requires user authentication, it should be performed using
 `HTTP Basic Authentication <http://en.wikipedia.org/wiki/Basic_access_authentication>`_.
-
-.. autoflask:: varda:create_app()
-   :endpoints: api.apiroot, api.authentication
+Authentication state can be checked on the :http:get:`authentication endpoint </authentication>`.
 
 
 .. _api_users:
@@ -59,6 +57,9 @@ Sets of observations
 
 .. autodocstring:: varda.api.serialize.serialize_variation
 
+.. autoflask:: varda:create_app()
+   :endpoints: api.variations_list, api.variations_get, api.variations_import_status, api.samples_add
+
 
 .. _api_coverages:
 
@@ -67,13 +68,8 @@ Sets of regions
 
 .. autodocstring:: varda.api.serialize.serialize_coverage
 
-
-.. _api_annotations:
-
-Annotations
------------
-
-.. autodocstring:: varda.api.serialize.serialize_annotation
+.. autoflask:: varda:create_app()
+   :endpoints: api.coverages_list, api.coverages_get, api.coverages_import_status, api.coverages_add
 
 
 .. _api_data_sources:
@@ -83,6 +79,20 @@ Data sources
 
 .. autodocstring:: varda.api.serialize.serialize_data_source
 
+.. autoflask:: varda:create_app()
+   :endpoints: api.data_sources_list, api.data_sources_get, api.data_sources_data, api.data_sources_add
+
+
+.. _api_annotations:
+
+Annotations
+-----------
+
+.. autodocstring:: varda.api.serialize.serialize_annotation
+
+.. autoflask:: varda:create_app()
+   :endpoints: api.annotations_list, api.annotations_get, api.annotations_write_status, api.annotations_add
+
 
 .. _api_exceptions:
 
@@ -90,3 +100,10 @@ Errors
 ------
 
 .. autodocstring:: varda.api.serialize.serialize_exception
+
+
+Miscellaneous
+-------------
+
+.. autoflask:: varda:create_app()
+   :endpoints: api.apiroot, api.authentication
