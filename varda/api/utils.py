@@ -11,7 +11,7 @@ from functools import wraps
 import re
 import urlparse
 
-from cerberus import Validator
+from cerberus import ValidationError as CerberusValidationError, Validator
 from flask import request
 from werkzeug.exceptions import HTTPException
 
@@ -36,6 +36,17 @@ class ApiValidator(Validator):
         else:
             super(ApiValidator, self)._validate_allowed(allowed_values,
                                                         field, value)
+
+    def _validate_schema(self, schema, field, value):
+        # And another hack, we add a special case for the `schema` rule on
+        # list values.
+        if isinstance(value, list):
+            for v in value:
+                validator = self.__class__({field: schema})
+                if not validator.validate({field: v}):
+                    self._error(validator.errors)
+        else:
+            super(V, self)._validate_schema(schema, field, value)
 
     def _validate_safe(self, safe, field, value):
         expression = '[a-zA-Z][a-zA-Z0-9._-]*$'
@@ -72,10 +83,12 @@ def validate(schema):
             #     proper datatype such as JSON. If we accept HTTP form data,
             #     we should somehow decode all values from strings.
             data = request.json or request.form
-            if not validator.validate(data):
-                print '; '.join(validator.errors)
-                raise ValidationError('Invalid request content: %s'
-                                      % '; '.join(validator.errors))
+            try:
+                if not validator.validate(data):
+                    raise ValidationError('Invalid request content: %s'
+                                          % '; '.join(validator.errors))
+            except CerberusValidationError as e:
+                raise ValidationError('Invalid request content: %s' % str(e))
             return rule(data, *args, **kwargs)
         return validating_rule
     return validate_with_schema

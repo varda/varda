@@ -729,8 +729,13 @@ def annotations_write_status(data_source_id, annotation_id):
         has_role('trader'),
         satisfy=lambda conditions: next(conditions) or (next(conditions) and any(conditions)))
 @validate({'global_frequencies': {'type': 'boolean', 'required': False},
-           'exclude_samples': {'type': 'list', 'required': False},
-           'include_samples': {'type': 'dict', 'required': False}})
+           'exclude_samples': {'type': 'list', 'schema': {'type': 'string'},
+                               'required': False},
+           'include_samples': {'type': 'list',
+                               'schema': {'type': 'list',
+                                          'items': [{'type': 'string'},
+                                                    {'type': 'string'}]},
+                               'required': False}})
 def annotations_add(data, data_source_id):
     """
     Annotate a data source.
@@ -738,8 +743,8 @@ def annotations_add(data, data_source_id):
     .. todo:: Support other formats than VCF (and check that this is not e.g. a
         BED data source, which of course cannot be annotated).
     """
-    # Todo: In the validator, types of elements in `exclude_samples` and
-    #     `include_samples`.
+    # Todo: The `include_samples` might be better structured as a list of
+    #     objects, e.g. ``[{label: GoNL, sample: ...}, {label: 1KG, sample: ...}]``.
     # The `satisfy` keyword argument used here in the `ensure` decorator means
     # that we ensure at least one of:
     # - admin
@@ -752,12 +757,11 @@ def annotations_add(data, data_source_id):
         uri = dict(zip(exclude_samples, data['exclude_samples']))[None]
         raise ValidationError('Not a sample: "%s"' % uri)
 
-    # Example: "1KG=/samples/34,GONL=/samples/7"
     # Todo: Perhaps a better name would be `local_frequencies` instead of
     #     `include_sample_ids`, to contrast with the `global_frequencies`
     #     flag.
     include_samples = {label: sample_by_uri(sample_uri) for label, sample_uri
-                       in data.get('include_samples', {}).items()}
+                       in dict(data.get('include_samples', [])).items()}
 
     if None in include_samples.values():
         # include_samples = {GoNL: None, 1KG: <Sample 34>}

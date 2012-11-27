@@ -157,7 +157,7 @@ class TestApi():
         All annotations should have observation and coverage 1.
         """
         sample, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
-        annotated_data_source = self._annotate(vcf_data_source, exclude=[sample], include={'SAMPLE': sample})
+        annotated_data_source = self._annotate(vcf_data_source, exclude=[sample], include=[('SAMPLE', sample)])
 
         # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotated_data_source, headers=[auth_header()])
@@ -300,7 +300,7 @@ class TestApi():
         Annotate observations and return the annotated data source URI.
         """
         exclude = exclude or []
-        include = include or {}
+        include = include or []
 
         # Get annotations URI for the observations data source
         r = self.client.get(vcf_data_source, headers=[auth_header()])
