@@ -107,14 +107,13 @@ class TestApi():
         r = self.client.get('/', headers=[auth_header(login='user', password='test')])
         assert_equal(r.status_code, 200)
 
-    def test_user(self):
+    def test_user_formdata(self):
         """
-        Test user creation.
+        Test user creation with HTTP formdata payload.
         """
         data = {'name': 'Test Tester',
                 'login': 'test',
-                'password': 'test',
-                'roles': ''}
+                'password': 'test'}
         r = self.client.post('/users', data=data, headers=[auth_header()])
         assert_equal(r.status_code, 201)
         # Todo: Something better than the replace.
@@ -130,7 +129,7 @@ class TestApi():
         data = {'name': 'Test Tester',
                 'login': 'test',
                 'password': 'test',
-                'roles': ''}
+                'roles': []}
         r = self.client.post('/users', data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 201)
         # Todo: Something better than the replace.
@@ -234,9 +233,8 @@ class TestApi():
         """
         # Create sample
         data = {'name': 'Test sample',
-                'coverage_threshold': 8,
                 'pool_size': 1}
-        r = self.client.post('/samples', data=data, headers=[auth_header(login='trader', password='test')])
+        r = self.client.post('/samples', data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample']
 
@@ -256,7 +254,7 @@ class TestApi():
 
         # Annotate observations
         data = {'exclude_samples': [sample]}
-        r = self.client.post(annotations, data=data, headers=[auth_header(login='trader', password='test')])
+        r = self.client.post(annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 400)
 
         # Get variations URI for this sample
@@ -284,17 +282,17 @@ class TestApi():
 
         # Annotate observations
         data = {'exclude_samples': [sample]}
-        r = self.client.post(annotations, data=data, headers=[auth_header(login='trader', password='test')])
+        r = self.client.post(annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 400)
 
         # Activate sample
         data = {'active': True}
-        r = self.client.patch(sample, data=data, headers=[auth_header(login='trader', password='test')])
+        r = self.client.patch(sample, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 200)
 
         # Annotate observations
         data = {'exclude_samples': [sample]}
-        r = self.client.post(annotations, data=data, headers=[auth_header(login='trader', password='test')])
+        r = self.client.post(annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 202)
 
     def _annotate(self, vcf_data_source, exclude=None, include=None):
@@ -310,9 +308,9 @@ class TestApi():
         annotations = json.loads(r.data)['data_source']['annotations']
 
         # Annotate observations
-        data = {'exclude_samples': ','.join(exclude),
-                'include_samples': ','.join('%s=%s' % s for s in include.items())}
-        r = self.client.post(annotations, data=data, headers=[auth_header()])
+        data = {'exclude_samples': exclude,
+                'include_samples': include}
+        r = self.client.post(annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 202)
         annotation_write_status = json.loads(r.data)['annotation_write_status']
 
@@ -342,9 +340,9 @@ class TestApi():
         """
         # Create sample
         data = {'name': name,
-                'coverage_threshold': 8,
+                'coverage_profile': bed_file is not None,
                 'pool_size': pool_size}
-        r = self.client.post('/samples', data=data, headers=[auth_header()])
+        r = self.client.post('/samples', data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample']
 
@@ -418,7 +416,7 @@ class TestApi():
 
         # Activate sample
         data = {'active': True}
-        r = self.client.patch(sample, data=data, headers=[auth_header()])
+        r = self.client.patch(sample, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 200)
 
         return sample, vcf_data_source, bed_data_source
@@ -430,9 +428,9 @@ class TestApi():
         return  # disabled due to population-study refactoring
         # Create sample
         data = {'name': '1KG',
-                'coverage_threshold': 6,
+                'coverage_profile': False,
                 'pool_size': 1092}
-        r = self.client.post('/samples', data=data, headers=[auth_header()])
+        r = self.client.post('/samples', data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample']
 

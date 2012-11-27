@@ -15,3 +15,12 @@ class ActivationFailure(Exception):
         self.code = code
         self.message = message
         super(ActivationFailure, self).__init__(code, message)
+
+
+class ValidationError(Exception):
+    """
+    Exception thrown on unsuccessful data validation.
+    """
+    def __init__(self, message):
+        self.message = message
+        super(ValidationError, self).__init__(message)

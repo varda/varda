@@ -113,7 +113,7 @@ def all_bins(start, end=None):
 
     :arg start: Start position of genomic region (one-based, inclusive).
     :type start: int
-    :kwarg end: End position of genomic region (one-based, inclusive). If not
+    :arg end: End position of genomic region (one-based, inclusive). If not
         provided, the region is assumed to be of length 1 (equivalent to
         setting ``start=end``).
     :type end: int

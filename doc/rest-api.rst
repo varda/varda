@@ -1,6 +1,8 @@
 REST server API
 ===============
 
+.. Todo: Cleanup this intro.
+
 This page documents the REST server API exposed by Varda server to client
 applications.
 
@@ -22,6 +24,17 @@ All date and time values are formatted following
 
 In the HTTP request/response examples below, some of the HTTP headers are
 omitted for brevity.
+
+Request content must be in `JSON <http://www.json.org>`_ format. An exception
+is request content with no nested data and only string datatypes, this can
+also be HTTP form data. Example of an API request using `curl`:
+
+.. sourcecode:: bash
+
+    curl -u user:password -X POST -H 'Content-Type: application/json' \
+        -d '{"name": "1000 Genomes"}' https://example.com/samples
+
+Response content is always in JSON format.
 
 If a request requires user authentication, it should be performed using
 `HTTP Basic Authentication <http://en.wikipedia.org/wiki/Basic_access_authentication>`_.
@@ -81,6 +94,8 @@ Data sources
 
 .. autoflask:: varda:create_app()
    :endpoints: api.data_sources_list, api.data_sources_get, api.data_sources_data, api.data_sources_add
+
+.. Todo: Note that the data_sources_data response content is not JSON.
 
 
 .. _api_annotations:

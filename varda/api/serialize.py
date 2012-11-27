@@ -13,7 +13,7 @@ from flask import url_for
 
 from ..models import Annotation, Coverage, DataSource, InvalidDataSource, Sample, User, Variation
 from ..tasks import TaskError
-from .errors import ActivationFailure
+from .errors import ActivationFailure, ValidationError
 
 
 # Dispatch table for the serialize function below.
@@ -230,6 +230,16 @@ def serialize_exception(instance):
         }
     """
     return {'code':    instance.code,
+            'message': instance.message}
+
+
+@serializes(ValidationError)
+def serialize_validation_error(instance):
+    """
+    A validation error is represented like other exceptions, but with the
+    error code fixed as ``bad_request``.
+    """
+    return {'code':    'bad_request',
             'message': instance.message}
 
 

@@ -7,47 +7,85 @@ Various REST API utilities.
 """
 
 
+from functools import wraps
+import re
 import urlparse
 
+from cerberus import Validator
+from flask import request
 from werkzeug.exceptions import HTTPException
 
-
-def parse_list(data):
-    """
-    Parse a list serialized as string into a Python list.
-    """
-    if isinstance(data, list):
-        return data
-    if not data:
-        return []
-    return [x.strip() for x in data.split(',')]
+from .errors import ValidationError
 
 
-def parse_dict(data):
-    """
-    Parse a dictionary serialized as string into a Python dictionary.
-    """
-    if isinstance(data, dict):
-        return data
-    if not data:
-        return {}
-    return dict(x.strip().split('=') for x in data.split(','))
+class ApiValidator(Validator):
+    def _validate_required_fields(self):
+        # This is a bit of a hack, we modify the schema to set the `required`
+        # `rule` for each field if it is not set to ``False``.
+        for definition in self.schema.values():
+            definition['required'] = definition.get('required', True)
+        super(ApiValidator, self)._validate_required_fields()
+
+    def _validate_allowed(self, allowed_values, field, value):
+        # This is also a bit of a hack, we add a special case for the
+        # `allowed` rule on string values.
+        if isinstance(value, basestring):
+            if value not in allowed_values:
+                self._error("unallowed value '%s' for field '%s'"
+                            % (value, field))
+        else:
+            super(ApiValidator, self)._validate_allowed(allowed_values,
+                                                        field, value)
+
+    def _validate_safe(self, safe, field, value):
+        expression = '[a-zA-Z][a-zA-Z0-9._-]*$'
+        if safe and not re.match(expression, value):
+            self._error("value for field '%s' must match the expression '%s'"
+                        % (field, expression))
 
 
-def parse_bool(data):
+def validate(schema):
     """
-    Parse a boolean serialized as string into a Python bool.
+    Decorator for request payload validation.
+
+    :arg schema: Schema as used by `Cerberus <http://cerberus.readthedocs.org/>`_.
+    :type schema: dict
+
+    All defined fields in the schema are required by default.
+
+    The decorated view function recieves validated data as its first argument,
+    any arguments from the parsed route URL come after that.
+
+    Example::
+
+        @api.route('/users/<int:user_id>/samples', methods=['POST'])
+        @validate({'name': {'type': 'string'}})
+        def add_sample(data, user_id):
+            user = User.query.get(user_id)
+            sample = Sample(user, data['name'])
     """
-    if isinstance(data, bool):
-        return data
-    return data.lower() in ('true', 'yes', 'on')
+    validator = ApiValidator(schema)
+    def validate_with_schema(rule):
+        @wraps(rule)
+        def validating_rule(*args, **kwargs):
+            # Todo: For nested data structures, we only want to accept a
+            #     proper datatype such as JSON. If we accept HTTP form data,
+            #     we should somehow decode all values from strings.
+            data = request.json or request.form
+            if not validator.validate(data):
+                print '; '.join(validator.errors)
+                raise ValidationError('Invalid request content: %s'
+                                      % '; '.join(validator.errors))
+            return rule(data, *args, **kwargs)
+        return validating_rule
+    return validate_with_schema
 
 
 def parse_args(app, view, uri):
     """
-    Parse view arguments from given uri.
+    Parse view arguments from given URI.
 
-    .. todo:: Support an application root to be stripped from the uri path.
+    .. todo:: Support an application root to be stripped from the URI path.
     """
     path = urlparse.urlsplit(uri).path
     try:

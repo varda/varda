@@ -52,9 +52,9 @@ def create_app(settings=None):
     from a file specified by the ``VARDA_SETTINGS`` environment variable, if
     it exists.
 
-    :kwarg settings: Dictionary of configuration settings. These take
-        precedence over settings read from the file pointed to by the
-        ``VARDA_SETTINGS`` environment variable.
+    :arg settings: Dictionary of configuration settings. These take precedence
+        over settings read from the file pointed to by the ``VARDA_SETTINGS``
+        environment variable.
     :type settings: dict
 
     :return: Flask application instance.

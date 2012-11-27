@@ -18,12 +18,12 @@ from flask import abort, Blueprint, current_app, g, jsonify, redirect, request, 
 from werkzeug.exceptions import HTTPException
 
 from .. import db, genome
-from ..models import Annotation, Coverage, DataSource, InvalidDataSource, Observation, Sample, User, Variation
+from ..models import Annotation, Coverage, DataSource, DATA_SOURCE_FILETYPES, InvalidDataSource, Observation, Sample, User, USER_ROLES, Variation
 from ..tasks import write_annotation, import_variation, import_coverage, TaskError
-from .errors import ActivationFailure
+from .errors import ActivationFailure, ValidationError
 from .permissions import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
 from .serialize import serialize
-from .utils import parse_args, parse_bool, parse_dict, parse_list
+from .utils import parse_args, validate
 
 
 API_VERSION = 1
@@ -32,23 +32,29 @@ API_VERSION = 1
 api = Blueprint('api', 'api')
 
 
-def get_data_source_id(uri):
+def data_source_by_uri(uri):
     """
-    Get a data source identifier from its uri.
+    Get a data source from its URI.
     """
-    args = parse_args(current_app, data_sources_get, uri)
-    return args['data_source_id']
+    try:
+        args = parse_args(current_app, data_sources_get, uri)
+    except ValueError:
+        return None
+    return DataSource.query.get(args['data_source_id'])
 
 
-def get_sample_id(uri):
+def sample_by_uri(uri):
     """
-    Get a sample identifier from its uri.
+    Get a sample from its URI.
     """
-    args = parse_args(current_app, samples_get, uri)
-    return args['sample_id']
+    try:
+        args = parse_args(current_app, samples_get, uri)
+    except ValueError:
+        return None
+    return Sample.query.get(args['sample_id'])
 
 
-def get_user(login, password):
+def user_by_login(login, password):
     """
     Check if login and password are correct and return the user if so, else
     return ``None``.
@@ -65,7 +71,7 @@ def register_user():
     have authentication.
     """
     auth = request.authorization
-    g.user = get_user(auth.username, auth.password) if auth else None
+    g.user = user_by_login(auth.username, auth.password) if auth else None
     if auth and g.user is None:
         current_app.logger.warning('Unsuccessful authentication with '
                                    'username "%s"', auth.username)
@@ -126,6 +132,11 @@ def error_invalid_data_source(error):
 
 @api.errorhandler(ActivationFailure)
 def error_activation_failure(error):
+    return jsonify(error=serialize(error)), 400
+
+
+@api.errorhandler(ValidationError)
+def error_validation_error(error):
     return jsonify(error=serialize(error)), 400
 
 
@@ -289,7 +300,13 @@ def users_get(login):
 @api.route('/users', methods=['POST'])
 @require_user
 @ensure(has_role('admin'))
-def users_add():
+@validate({'login': {'type': 'string', 'minlength': 3, 'maxlength': 40,
+                     'safe': True},
+           'name': {'type': 'string', 'required': False},
+           'password': {'type': 'string'},
+           'roles': {'type': 'list', 'allowed': USER_ROLES,
+                     'required': False}})
+def users_add(data):
     """
     Create a new user.
 
@@ -324,25 +341,19 @@ def users_add():
     .. sourcecode:: http
 
         HTTP/1.1 201 CREATED
-        Location: http://example.com/users/fred
+        Location: https://example.com/users/fred
         Content-Type: application/json
 
         {
           "user": "/users/fred"
         }
     """
-    # Todo: Validate login (alphanumeric).
-    # Todo: Check for duplicate login.
-    # Todo: Optionally generate password.
-    data = request.json or request.form
-    try:
-        name = data.get('name', data['login'])
-        login = data['login']
-        password = data['password']
-        roles = parse_list(data['roles'])
-    except KeyError:
-        abort(400)
-    user = User(name, login, password, roles)
+    if User.query.filter_by(login=data['login']).first() is not None:
+        raise ValidationError('User login is not unique')
+    user = User(data.get('name', data['login']),
+                data['login'],
+                data['password'],
+                data.get('roles', []))
     db.session.add(user)
     db.session.commit()
     current_app.logger.info('Added user: %r', user)
@@ -381,22 +392,22 @@ def samples_get(sample_id):
 @api.route('/samples', methods=['POST'])
 @require_user
 @ensure(has_role('admin'), has_role('importer'), satisfy=any)
-def samples_add():
+@validate({'name': {'type': 'string'},
+           'pool_size': {'type': 'integer', 'required': False},
+           'coverage_profile': {'type': 'boolean', 'required': False},
+           'public': {'type': 'boolean', 'required': False}})
+def samples_add(data):
     """
 
     Example usage::
 
         curl -i -d 'name=My big sequencing experiment' -d 'pool_size=500' http://127.0.0.1:5000/samples
     """
-    data = request.json or request.form
-    try:
-        name = data['name']
-        pool_size = int(data.get('pool_size', 1))
-        public = parse_bool(data.get('public', False))
-        coverage_profile = parse_bool(data.get('coverage_profile', False))
-    except (KeyError, ValueError):
-        abort(400)
-    sample = Sample(g.user, name, pool_size=pool_size, public=public, coverage_profile=coverage_profile)
+    sample = Sample(g.user,
+                    data['name'],
+                    pool_size=data.get('pool_size', 1),
+                    coverage_profile=data.get('coverage_profile', True),
+                    public=data.get('public', False))
     db.session.add(sample)
     db.session.commit()
     current_app.logger.info('Added sample: %r', sample)
@@ -409,7 +420,8 @@ def samples_add():
 @api.route('/samples/<int:sample_id>', methods=['PATCH'])
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-def samples_update(sample_id):
+@validate({'active': {'type': 'boolean', 'required': False}})
+def samples_update(data, sample_id):
     """
 
     Example usage::
@@ -419,9 +431,8 @@ def samples_update(sample_id):
     # Todo: I'm not sure if this is really the pattern we want the API to use
     #     for updating objects. But works for now.
     sample = Sample.query.get_or_404(sample_id)
-    data = request.json or request.form
     for field, value in data.items():
-        if field == 'active' and parse_bool(value):
+        if field == 'active' and value:
             # Todo: Check if sample is ready to activate, e.g. if there are
             #     expected imported data sources and no imports running at the
             #     moment. Also, number of coverage tracks should be 0 or equal
@@ -494,7 +505,8 @@ def variations_import_status(sample_id, variation_id):
 @api.route('/samples/<int:sample_id>/variations', methods=['POST'])
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-def variations_add(sample_id):
+@validate({'data_source': {'type': 'string'}})
+def variations_add(data, sample_id):
     """
 
     Example usage::
@@ -506,15 +518,10 @@ def variations_add(sample_id):
     # Todo: If import fails, observations are removed by task cleanup, but we
     #     are still left with the variations instance. Not sure how to cleanup
     #     in that case.
-    data = request.json or request.form
-    try:
-        data_source_id = get_data_source_id(data['data_source'])
-    except (KeyError, ValueError):
-        abort(400)
-    sample = Sample.query.get_or_404(sample_id)
-    data_source = DataSource.query.get(data_source_id)
+    data_source = data_source_by_uri(data['data_source'])
     if data_source is None:
-        abort(400)
+        raise ValidationError('Not a data source: "%s"' % data['data_source'])
+    sample = Sample.query.get_or_404(sample_id)
     variation = Variation(sample, data_source)
     db.session.add(variation)
     db.session.commit()
@@ -577,7 +584,8 @@ def coverages_import_status(sample_id, coverage_id):
 @api.route('/samples/<int:sample_id>/coverages', methods=['POST'])
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-def coverages_add(sample_id):
+@validate({'data_source': {'type': 'string'}})
+def coverages_add(data, sample_id):
     """
 
     Example usage::
@@ -586,15 +594,10 @@ def coverages_add(sample_id):
     """
     # Todo: Only if sample is not active.
     # Todo: Check for importer role.
-    data = request.json or request.form
-    try:
-        data_source_id = get_data_source_id(data['data_source'])
-    except (KeyError, ValueError):
-        abort(400)
-    sample = Sample.query.get_or_404(sample_id)
-    data_source = DataSource.query.get(data_source_id)
+    data_source = data_source_by_uri(data['data_source'])
     if data_source is None:
-        abort(400)
+        raise ValidationError('Not a data source: "%s"' % data['data_source'])
+    sample = Sample.query.get_or_404(sample_id)
     coverage = Coverage(sample, data_source)
     db.session.add(coverage)
     db.session.commit()
@@ -641,27 +644,25 @@ def data_sources_data(data_source_id):
 
 @api.route('/data_sources', methods=['POST'])
 @require_user
-def data_sources_add():
+@validate({'name': {'type': 'string'},
+           'filetype': {'type': 'string', 'allowed': DATA_SOURCE_FILETYPES},
+           'gzipped': {'type': 'boolean', 'required': False},
+           'local_path': {'type': 'string', 'required': False}})
+def data_sources_add(data):
     """
     Upload VCF or BED file.
 
     .. todo:: It might be better to use the mimetype for filetype here instead
         of a separate field.
-    .. todo:: Have an option to add data source by external url instead of
-        upload.
     """
     # Todo: If files['data'] is missing (or non-existent file?), we crash with
     #     a data_source_not_cached error.
-    data = request.json or request.form
-    try:
-        name = data['name']
-        filetype = data['filetype']
-    except KeyError:
-        abort(400)
-    gzipped = parse_bool(data.get('gzipped', False))
-    data_arg = request.files.get('data')
-    local_path = data.get('local_path')
-    data_source = DataSource(g.user, name, filetype, upload=data_arg, local_path=local_path, gzipped=gzipped)
+    data_source = DataSource(g.user,
+                             data['name'],
+                             data['filetype'],
+                             upload=request.files.get('data'),
+                             local_path=data.get('local_path'),
+                             gzipped=data.get('gzipped', False))
     db.session.add(data_source)
     db.session.commit()
     current_app.logger.info('Added data source: %r', data_source)
@@ -727,55 +728,50 @@ def annotations_write_status(data_source_id, annotation_id):
 @ensure(has_role('admin'), owns_data_source, has_role('annotator'),
         has_role('trader'),
         satisfy=lambda conditions: next(conditions) or (next(conditions) and any(conditions)))
-def annotations_add(data_source_id):
+@validate({'global_frequencies': {'type': 'boolean', 'required': False},
+           'exclude_samples': {'type': 'list', 'required': False},
+           'include_samples': {'type': 'dict', 'required': False}})
+def annotations_add(data, data_source_id):
     """
     Annotate a data source.
 
     .. todo:: Support other formats than VCF (and check that this is not e.g. a
         BED data source, which of course cannot be annotated).
     """
+    # Todo: In the validator, types of elements in `exclude_samples` and
+    #     `include_samples`.
     # The `satisfy` keyword argument used here in the `ensure` decorator means
     # that we ensure at least one of:
     # - admin
     # - owns_data_source AND annotator
     # - owns_data_source AND trader
-    data = request.json or request.form
+    exclude_samples = [sample_by_uri(sample_uri) for sample_uri
+                       in data.get('exclude_samples', [])]
 
-    global_frequencies = parse_bool(data.get('global_frequencies', False))
-
-    try:
-        exclude_sample_ids = [get_sample_id(sample) for sample
-                              in parse_list(data['exclude_samples'])]
-    except KeyError:
-        exclude_sample_ids = []
-    except ValueError:
-        abort(400)
-
-    for sample_id in exclude_sample_ids:
-        sample = Sample.query.get(sample_id)
-        if sample is None:
-            abort(400)
+    if None in exclude_samples:
+        uri = dict(zip(exclude_samples, data['exclude_samples']))[None]
+        raise ValidationError('Not a sample: "%s"' % uri)
 
     # Example: "1KG=/samples/34,GONL=/samples/7"
     # Todo: Perhaps a better name would be `local_frequencies` instead of
     #     `include_sample_ids`, to contrast with the `global_frequencies`
     #     flag.
-    try:
-        include_sample_ids = {label: get_sample_id(sample) for label, sample
-                              in parse_dict(data['include_samples']).items()}
-    except KeyError:
-        include_sample_ids = {}
-    except ValueError:
-        abort(400)
+    include_samples = {label: sample_by_uri(sample_uri) for label, sample_uri
+                       in data.get('include_samples', {}).items()}
 
-    for label in include_sample_ids:
-        if not re.match('[0-9A-Z]+', label):
-            abort(400)
+    if None in include_samples.values():
+        # include_samples = {GoNL: None, 1KG: <Sample 34>}
+        # data['include_samples'] = {GoNL: /sample/bla, 1KG: /sample/34}
+        label = next(label for label, sample in include_samples.items()
+                     if sample is None)
+        raise ValidationError('Not a sample: "%s"'
+                              % data['include_samples'][label])
 
-    for sample_id in include_sample_ids.values():
-        sample = Sample.query.get(sample_id)
-        if sample is None or not sample.active:
-            abort(400)
+    if not all(re.match('[0-9A-Z]+', label) for label in include_samples):
+        raise ValidationError('Labels for inluded samples must contain only'
+                              ' uppercase alphanumeric characters')
+
+    for sample in include_samples.values():
         if not (sample.public or
                 sample.user is g.user or
                 'admin' in g.user.roles):
@@ -794,7 +790,10 @@ def annotations_add(data_source_id):
             raise InvalidDataSource('inactive_data_source', 'Data source '
                 'cannot be annotated unless it is imported in an active sample')
 
-    annotated_data_source = DataSource(g.user, '%s (annotated)' % original_data_source.name, original_data_source.filetype, empty=True, gzipped=True)
+    annotated_data_source = DataSource(g.user,
+                                       '%s (annotated)' % original_data_source.name,
+                                       original_data_source.filetype,
+                                       empty=True, gzipped=True)
     db.session.add(annotated_data_source)
     annotation = Annotation(original_data_source, annotated_data_source)
     db.session.add(annotation)
@@ -802,7 +801,10 @@ def annotations_add(data_source_id):
     current_app.logger.info('Added data source: %r', annotated_data_source)
     current_app.logger.info('Added annotation: %r', annotation)
 
-    result = write_annotation.delay(annotation.id, global_frequencies=global_frequencies, exclude_sample_ids=exclude_sample_ids, include_sample_ids=include_sample_ids)
+    result = write_annotation.delay(annotation.id,
+                                    global_frequencies=data.get('global_frequencies', False),
+                                    exclude_sample_ids=[sample.id for sample in exclude_samples],
+                                    include_sample_ids={label: sample.id for label, sample in include_samples.items()})
     current_app.logger.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
     uri = url_for('.annotations_write_status', data_source_id=original_data_source.id, annotation_id=annotation.id)
     response = jsonify(annotation_write_status=uri)
