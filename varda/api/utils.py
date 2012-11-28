@@ -97,8 +97,6 @@ def validate(schema):
 def parse_args(app, view, uri):
     """
     Parse view arguments from given URI.
-
-    .. todo:: Support an application root to be stripped from the URI path.
     """
     path = urlparse.urlsplit(uri).path
     try:

@@ -1,11 +1,17 @@
 # You can overwrite these settings in the file specified by the VARDA_SETTINGS
 # environment variable.
 
-# Directory to store uploaded files
-FILES_DIR = '/tmp'
+# URL prefix to serve the Varda server API under
+API_URL_PREFIX = None
 
 # Path to serve the Varda web application from
-VARDA_WEB = None
+VARDA_WEB_LOCAL_PATH = None
+
+# URL prefix to serve Varda web under
+VARDA_WEB_URL_PREFIX = '/varda-web'
+
+# Directory to store uploaded files
+FILES_DIR = '/tmp'
 
 # Maximum size for uploaded files
 MAX_CONTENT_LENGTH = 1024 * 1024 * 1024  # 1 gigabyte

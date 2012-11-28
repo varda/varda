@@ -70,11 +70,30 @@ class TestApi():
             db.session.remove()
             db.drop_all()
 
+    @property
+    def uri_root(self):
+        return (self.app.config['API_URL_PREFIX'] or '') + '/'
+
+    @property
+    def uri_users(self):
+        r = self.client.get(self.uri_root)
+        return json.loads(r.data)['api']['collections']['users']
+
+    @property
+    def uri_samples(self):
+        r = self.client.get(self.uri_root)
+        return json.loads(r.data)['api']['collections']['samples']
+
+    @property
+    def uri_data_sources(self):
+        r = self.client.get(self.uri_root)
+        return json.loads(r.data)['api']['collections']['data_sources']
+
     def test_root(self):
         """
         Dummy test.
         """
-        r = self.client.get('/')
+        r = self.client.get(self.uri_root)
         assert_equal(r.status_code, 200)
         assert_equal(json.loads(r.data)['api']['status'], 'ok')
 
@@ -82,29 +101,29 @@ class TestApi():
         """
         Test request with incorrect parameter type.
         """
-        r = self.client.post('/data_sources/abc/annotations', headers=[auth_header()])
+        r = self.client.post(self.uri_samples + 'abc', headers=[auth_header()])
         assert_equal(r.status_code, 404)
 
     def test_authentication(self):
         """
         Test authentication stuff.
         """
-        r = self.client.get('/users')
+        r = self.client.get(self.uri_users)
         assert_equal(r.status_code, 401)
 
-        r = self.client.get('/users', headers=[auth_header(password='incorrect')])
+        r = self.client.get(self.uri_users, headers=[auth_header(password='incorrect')])
         assert_equal(r.status_code, 401)
 
-        r = self.client.get('/users', headers=[auth_header()])
+        r = self.client.get(self.uri_users, headers=[auth_header()])
         assert_equal(r.status_code, 200)
 
-        r = self.client.get('/users', headers=[auth_header(login='user', password='test')])
+        r = self.client.get(self.uri_users, headers=[auth_header(login='user', password='test')])
         assert_equal(r.status_code, 403)
 
-        r = self.client.get('/')
+        r = self.client.get(self.uri_root)
         assert_equal(r.status_code, 200)
 
-        r = self.client.get('/', headers=[auth_header(login='user', password='test')])
+        r = self.client.get(self.uri_root, headers=[auth_header(login='user', password='test')])
         assert_equal(r.status_code, 200)
 
     def test_user_formdata(self):
@@ -114,7 +133,7 @@ class TestApi():
         data = {'name': 'Test Tester',
                 'login': 'test',
                 'password': 'test'}
-        r = self.client.post('/users', data=data, headers=[auth_header()])
+        r = self.client.post(self.uri_users, data=data, headers=[auth_header()])
         assert_equal(r.status_code, 201)
         # Todo: Something better than the replace.
         user = r.headers['Location'].replace('http://localhost', '')
@@ -130,7 +149,7 @@ class TestApi():
                 'login': 'test',
                 'password': 'test',
                 'roles': []}
-        r = self.client.post('/users', data=json.dumps(data), content_type='application/json', headers=[auth_header()])
+        r = self.client.post(self.uri_users, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 201)
         # Todo: Something better than the replace.
         user = r.headers['Location'].replace('http://localhost', '')
@@ -234,7 +253,7 @@ class TestApi():
         # Create sample
         data = {'name': 'Test sample',
                 'pool_size': 1}
-        r = self.client.post('/samples', data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
+        r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample']
 
@@ -242,7 +261,7 @@ class TestApi():
         data = {'name': 'Test observations',
                 'filetype': 'vcf',
                 'data': open('tests/data/exome-samtools.vcf')}
-        r = self.client.post('/data_sources', data=data, headers=[auth_header(login='trader', password='test')])
+        r = self.client.post(self.uri_data_sources, data=data, headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 201)
         # Todo: Something better than the replace.
         vcf_data_source = r.headers['Location'].replace('http://localhost', '')
@@ -342,7 +361,7 @@ class TestApi():
         data = {'name': name,
                 'coverage_profile': bed_file is not None,
                 'pool_size': pool_size}
-        r = self.client.post('/samples', data=json.dumps(data), content_type='application/json', headers=[auth_header()])
+        r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample']
 
@@ -350,7 +369,7 @@ class TestApi():
         data = {'name': '%s observations' % name,
                 'filetype': 'vcf',
                 'data': open(vcf_file)}
-        r = self.client.post('/data_sources', data=data, headers=[auth_header()])
+        r = self.client.post(self.uri_data_sources, data=data, headers=[auth_header()])
         assert_equal(r.status_code, 201)
         # Todo: Something better than the replace.
         vcf_data_source = r.headers['Location'].replace('http://localhost', '')
@@ -360,7 +379,7 @@ class TestApi():
             data = {'name': '%s coverage' % name,
                     'filetype': 'bed',
                     'data': open(bed_file)}
-            r = self.client.post('/data_sources', data=data, headers=[auth_header()])
+            r = self.client.post(self.uri_data_sources, data=data, headers=[auth_header()])
             assert_equal(r.status_code, 201)
             # Todo: Something better than the replace.
             bed_data_source = r.headers['Location'].replace('http://localhost', '')
@@ -430,7 +449,7 @@ class TestApi():
         data = {'name': '1KG',
                 'coverage_profile': False,
                 'pool_size': 1092}
-        r = self.client.post('/samples', data=json.dumps(data), content_type='application/json', headers=[auth_header()])
+        r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample']
 
@@ -443,7 +462,7 @@ class TestApi():
         data = {'name': 'Some variants',
                 'filetype': 'vcf',
                 'data': open('tests/data/1kg.vcf')}
-        r = self.client.post('/data_sources', data=data, headers=[auth_header()])
+        r = self.client.post(self.uri_data_sources, data=data, headers=[auth_header()])
         assert_equal(r.status_code, 201)
         # Todo: Something better than the replace.
         data_source = r.headers['Location'].replace('http://localhost', '')
