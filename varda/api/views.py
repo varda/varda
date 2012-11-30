@@ -23,7 +23,7 @@ from ..tasks import write_annotation, import_variation, import_coverage, TaskErr
 from .errors import ActivationFailure, ValidationError
 from .permissions import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
 from .serialize import serialize
-from .utils import parse_args, validate
+from .utils import collection, parse_args, validate
 
 
 API_VERSION = 1
@@ -366,14 +366,18 @@ def users_add(data):
 @api.route('/samples', methods=['GET'])
 @require_user
 @ensure(has_role('admin'))
-def samples_list():
+@collection
+def samples_list(first, count):
     """
 
     Example usage::
 
         curl -i -u pietje:pi3tje http://127.0.0.1:5000/samples
     """
-    return jsonify(samples=[serialize(s) for s in Sample.query])
+    samples = Sample.query
+    return (samples.count(),
+            jsonify(samples=[serialize(s) for s in
+                             samples.limit(count).offset(first)]))
 
 
 @api.route('/samples/<int:sample_id>', methods=['GET'])

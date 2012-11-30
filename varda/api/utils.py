@@ -69,11 +69,11 @@ def validate(schema):
 
     Example::
 
-        @api.route('/users/<int:user_id>/samples', methods=['POST'])
-        @validate({'name': {'type': 'string'}})
-        def add_sample(data, user_id):
-            user = User.query.get(user_id)
-            sample = Sample(user, data['name'])
+        >>> @api.route('/users/<int:user_id>/samples', methods=['POST'])
+        >>> @validate({'name': {'type': 'string'}})
+        >>> def add_sample(data, user_id):
+        ...    user = User.query.get(user_id)
+        ...    sample = Sample(user, data['name'])
     """
     validator = ApiValidator(schema)
     def validate_with_schema(rule):
@@ -92,6 +92,46 @@ def validate(schema):
             return rule(data, *args, **kwargs)
         return validating_rule
     return validate_with_schema
+
+
+def collection(rule):
+    """
+    Decorator for rules returning collections.
+
+    The decorated view function recieves `first` and `count` arguments, any
+    arguments from the parsed route URL come after that. The view function
+    should return a tuple of the total number of items in the collection and
+    a response object.
+
+    Example::
+
+        >>> @api.route('/samples', methods=['GET'])
+        >>> @collection
+        >>> def samples_list(first, count):
+        ...     samples = Samples.query
+        ...     return (samples.count(),
+                        jsonify(samples=[serialize(s) for s in
+                                         samples.limit(count).offset(first)]))
+    """
+    @wraps(rule)
+    def collection_rule(*args, **kwargs):
+        range_header = request.headers.get('Range', 'items=0-19')
+        if not range_header.startswith('items='):
+            raise ValidationError('Invalid range')
+        try:
+            first, last = (int(i) for i in range_header[6:].split('-'))
+        except ValueError:
+            raise ValidationError('Invalid range')
+        if not 0 <= first <= last or last - first + 1 > 500:
+            raise ValidationError('Invalid range')
+        total, response = rule(first, last - first + 1, *args, **kwargs)
+        if first > max(total - 1, 0):
+            abort(404)
+        last = min(last, total - 1)
+        response.headers.add('Content-Range',
+                             'items %d-%d/%d' % (first, last, total))
+        return response
+    return collection_rule
 
 
 def parse_args(app, view, uri):
