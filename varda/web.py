@@ -28,4 +28,7 @@ def varda_web(filename=None):
     path = current_app.config['VARDA_WEB_LOCAL_PATH']
     if not filename or not os.path.isfile(os.path.join(path, filename)):
         filename = 'varda.html'
-    return send_from_directory(path, filename)
+    send_kwargs = {}
+    if current_app.debug:
+        send_kwargs.update(add_etags=False, cache_timeout=1)
+    return send_from_directory(path, filename, **send_kwargs)
