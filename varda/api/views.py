@@ -194,7 +194,8 @@ def authentication():
           "authenticated": true,
           "user":
             {
-              "uri": "/users/34",
+              "uri": "/users/fred",
+              "samples": "/users/fred/samples",
               "name": "Frederick Sanger",
               "login": "fred",
               "roles": ["admin"],
@@ -237,14 +238,16 @@ def users_list():
           "users":
             [
               {
-                "uri": "/users/34",
+                "uri": "/users/fred",
+                "samples": "/users/fred/samples",
                 "name": "Frederick Sanger",
                 "login": "fred",
                 "roles": ["admin"],
                 "added": "2012-11-23T10:55:12.776706"
               },
               {
-                "uri": "/users/35",
+                "uri": "/users/walter",
+                "samples": "/users/walter/samples",
                 "name": "Walter Gilbert",
                 "login": "walter",
                 "roles": ["importer", "annotator"],
@@ -283,7 +286,8 @@ def users_get(login):
         {
           "user":
             {
-              "uri": "/users/34",
+              "uri": "/users/fred",
+              "samples": "/users/fred/samples",
               "name": "Frederick Sanger",
               "login": "fred",
               "roles": ["admin"],
@@ -377,8 +381,6 @@ def samples_list(first, count, login=None):
 
         curl -i -u pietje:pi3tje http://127.0.0.1:5000/samples
     """
-    # Todo: Have users_samples endpoint in serialization of User (and update
-    #     documentation examples to include it.
     if login is not None:
         user = User.query.filter_by(login=login).first()
         if user is None:
