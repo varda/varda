@@ -27,7 +27,7 @@ web = Blueprint('web', __name__)
 def varda_web(filename=None):
     path = current_app.config['VARDA_WEB_LOCAL_PATH']
     if not filename or not os.path.isfile(os.path.join(path, filename)):
-        filename = 'varda.html'
+        filename = 'index.html'
     send_kwargs = {}
     if current_app.debug:
         send_kwargs.update(add_etags=False, cache_timeout=1)
