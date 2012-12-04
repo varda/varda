@@ -117,6 +117,8 @@ Errors
 .. autodocstring:: varda.api.serialize.serialize_exception
 
 
+.. _api_misc:
+
 Miscellaneous
 -------------
 

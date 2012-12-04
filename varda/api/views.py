@@ -153,15 +153,17 @@ def apiroot():
       the API might add other values (e.g. ``maintanance``).
     * **version** (`integer`) - API version.
     * **genome** (`list of string`) - Reference genome chromosome names.
+    * **authentication** (`string`) - URI for the :ref:`authentication state <api_misc>`.
     * **collections** (`object`) - Object with fields:
 
       - **users** (`string`) - URI for the :ref:`registered users resource <api_users>`.
       - **samples** (`string`) - URI for the :ref:`samples resource <api_samples>`.
       - **data_sources** (`string`) - URI for the :ref:`data sources resource <api_data_sources>`.
     """
-    api = {'status':  'ok',
-           'version': API_VERSION,
-           'genome':  genome.keys(),
+    api = {'status':         'ok',
+           'version':        API_VERSION,
+           'genome':         genome.keys(),
+           'authentication': url_for('.authentication'),
            'collections': {
                'users':        url_for('.users_list'),
                'samples':      url_for('.samples_list'),
