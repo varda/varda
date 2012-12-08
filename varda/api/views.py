@@ -369,27 +369,18 @@ def users_add(data):
     return response, 201
 
 
-@api.route('/users/<login>/samples', methods=['GET'], endpoint='users_samples')
 @api.route('/samples', methods=['GET'])
 @require_user
-@ensure(has_role('admin'), has_login, satisfy=any)
+@ensure(has_role('admin'))
 @collection
-def samples_list(first, count, login=None):
+def samples_list(first, count):
     """
-    This can also be reached through /users/<login>/samples to get only the
-    samples for that user.
 
     Example usage::
 
         curl -i -u pietje:pi3tje http://127.0.0.1:5000/samples
     """
-    if login is not None:
-        user = User.query.filter_by(login=login).first()
-        if user is None:
-            abort(404)
-        samples = user.samples
-    else:
-        samples = Sample.query
+    samples = Sample.query
     return (samples.count(),
             jsonify(samples=[serialize(s) for s in
                              samples.limit(count).offset(first)]))
