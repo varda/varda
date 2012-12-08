@@ -196,8 +196,7 @@ def authentication():
           "authenticated": true,
           "user":
             {
-              "uri": "/users/fred",
-              "samples": "/users/fred/samples",
+              "uri": "/users/34",
               "name": "Frederick Sanger",
               "login": "fred",
               "roles": ["admin"],
@@ -240,16 +239,14 @@ def users_list():
           "users":
             [
               {
-                "uri": "/users/fred",
-                "samples": "/users/fred/samples",
+                "uri": "/users/34",
                 "name": "Frederick Sanger",
                 "login": "fred",
                 "roles": ["admin"],
                 "added": "2012-11-23T10:55:12.776706"
               },
               {
-                "uri": "/users/walter",
-                "samples": "/users/walter/samples",
+                "uri": "/users/35",
                 "name": "Walter Gilbert",
                 "login": "walter",
                 "roles": ["importer", "annotator"],
@@ -288,8 +285,7 @@ def users_get(login):
         {
           "user":
             {
-              "uri": "/users/fred",
-              "samples": "/users/fred/samples",
+              "uri": "/users/34",
               "name": "Frederick Sanger",
               "login": "fred",
               "roles": ["admin"],

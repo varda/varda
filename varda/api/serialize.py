@@ -44,7 +44,6 @@ def serialize_user(instance):
     A user is represented as an object with the following fields:
 
     * **uri** (`string`) - URI for this user.
-    * **samples** (`string`) - URI for samples owned by this user.
     * **name** (`string`) - Human readable name.
     * **login** (`string`) - User login used for identification.
     * **roles** (`list of string`) - Roles this user has.
@@ -55,20 +54,18 @@ def serialize_user(instance):
     .. sourcecode:: json
 
         {
-          "uri": "/users/fred",
-          "samples": "/users/fred/samples",
+          "uri": "/users/34",
           "name": "Frederick Sanger",
           "login": "fred",
           "roles": ["admin"],
           "added": "2012-11-23T10:55:12.776706"
         }
     """
-    return {'uri':     url_for('.users_get', login=instance.login),
-            'samples': url_for('.users_samples', login=instance.login),
-            'name':    instance.name,
-            'login':   instance.login,
-            'roles':   list(instance.roles),
-            'added':   str(instance.added.isoformat())}
+    return {'uri':   url_for('.users_get', login=instance.login),
+            'name':  instance.name,
+            'login': instance.login,
+            'roles': list(instance.roles),
+            'added': str(instance.added.isoformat())}
 
 
 @serializes(DataSource)
@@ -91,7 +88,7 @@ def serialize_data_source(instance):
 
         {
           "uri": "/data_sources/23",
-          "user": "/users/fred",
+          "user": "/users/34",
           "annotations": "/data_sources/23/annotations",
           "data": "/data_sources/23/data",
           "name": "1KG chromosome 20 SNPs",
@@ -196,7 +193,7 @@ def serialize_sample(instance):
 
         {
           "uri": "/samples/3",
-          "user": "/users/fred",
+          "user": "/users/34",
           "variations": "/samples/3/variations",
           "coverages": "/samples/3/coverages",
           "name": "1KG phase 1 release",
