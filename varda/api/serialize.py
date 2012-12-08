@@ -54,7 +54,7 @@ def serialize_user(instance):
     .. sourcecode:: json
 
         {
-          "uri": "/users/34",
+          "uri": "/users/fred",
           "name": "Frederick Sanger",
           "login": "fred",
           "roles": ["admin"],
@@ -88,7 +88,7 @@ def serialize_data_source(instance):
 
         {
           "uri": "/data_sources/23",
-          "user": "/users/34",
+          "user": "/users/fred",
           "annotations": "/data_sources/23/annotations",
           "data": "/data_sources/23/data",
           "name": "1KG chromosome 20 SNPs",
@@ -193,7 +193,7 @@ def serialize_sample(instance):
 
         {
           "uri": "/samples/3",
-          "user": "/users/34",
+          "user": "/users/fred",
           "variations": "/samples/3/variations",
           "coverages": "/samples/3/coverages",
           "name": "1KG phase 1 release",

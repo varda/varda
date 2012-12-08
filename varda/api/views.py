@@ -196,7 +196,7 @@ def authentication():
           "authenticated": true,
           "user":
             {
-              "uri": "/users/34",
+              "uri": "/users/fred",
               "name": "Frederick Sanger",
               "login": "fred",
               "roles": ["admin"],
@@ -239,14 +239,14 @@ def users_list():
           "users":
             [
               {
-                "uri": "/users/34",
+                "uri": "/users/fred",
                 "name": "Frederick Sanger",
                 "login": "fred",
                 "roles": ["admin"],
                 "added": "2012-11-23T10:55:12.776706"
               },
               {
-                "uri": "/users/35",
+                "uri": "/users/walter",
                 "name": "Walter Gilbert",
                 "login": "walter",
                 "roles": ["importer", "annotator"],
@@ -273,7 +273,7 @@ def users_get(login):
 
     .. sourcecode:: http
 
-        GET /users/34 HTTP/1.1
+        GET /users/fred HTTP/1.1
 
     Example response:
 
@@ -285,7 +285,7 @@ def users_get(login):
         {
           "user":
             {
-              "uri": "/users/34",
+              "uri": "/users/fred",
               "name": "Frederick Sanger",
               "login": "fred",
               "roles": ["admin"],
@@ -328,7 +328,7 @@ def users_add(data):
 
     .. sourcecode:: http
 
-        POST /users/34 HTTP/1.1
+        POST /users HTTP/1.1
         Content-Type: application/json
 
         {
@@ -347,7 +347,7 @@ def users_add(data):
         Content-Type: application/json
 
         {
-          "user": "/users/fred"
+          "user": "/users/paul"
         }
     """
     if User.query.filter_by(login=data['login']).first() is not None:
