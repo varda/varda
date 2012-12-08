@@ -115,6 +115,8 @@ def collection(rule):
     """
     @wraps(rule)
     def collection_rule(*args, **kwargs):
+        # Todo: Use `parse_range_header` from Werkzeug:
+        #     http://werkzeug.pocoo.org/docs/http/#werkzeug.http.parse_range_header
         range_header = request.headers.get('Range', 'items=0-19')
         if not range_header.startswith('items='):
             raise ValidationError('Invalid range')
