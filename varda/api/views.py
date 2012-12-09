@@ -23,71 +23,13 @@ from ..tasks import write_annotation, import_variation, import_coverage, TaskErr
 from .errors import ActivationFailure, ValidationError
 from .permissions import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
 from .serialize import serialize
-from .utils import collection, parse_args, validate
+from .utils import collection, data, data_is_true, data_is_user, data_source_by_uri, sample_by_uri, user_by_login, user_by_uri
 
 
 API_VERSION = 1
 
 
 api = Blueprint('api', 'api')
-
-
-# Todo: A way to have these in another module (this means another way of
-#     specifying the `view` argument for `parse_args`, probably by a string
-#     indexing some internal routing table.
-def data_source_by_uri(uri):
-    """
-    Get a data source from its URI.
-    """
-    try:
-        args = parse_args(current_app, data_sources_get, uri)
-    except ValueError:
-        return None
-    return DataSource.query.get(args['data_source_id'])
-
-
-def sample_by_uri(uri):
-    """
-    Get a sample from its URI.
-    """
-    try:
-        args = parse_args(current_app, samples_get, uri)
-    except ValueError:
-        return None
-    return Sample.query.get(args['sample_id'])
-
-
-def user_by_uri(uri):
-    """
-    Get a user from its URI.
-    """
-    try:
-        args = parse_args(current_app, users_get, uri)
-    except ValueError:
-        return None
-    return User.query.filter_by(login=args['login']).first()
-
-
-def user_by_login(login, password):
-    """
-    Check if login and password are correct and return the user if so, else
-    return ``None``.
-    """
-    user = User.query.filter_by(login=login).first()
-    if user is not None and user.check_password(password):
-        return user
-
-
-def filter_true(field):
-    def condition(filters, **_):
-        return filters.get(field)
-    return condition
-
-
-def filter_user(field):
-    def condition(filters, **_):
-        return g.user is not None and g.user is user_by_uri(filters.get(field))
-    return condition
 
 
 @api.before_request
@@ -98,8 +40,6 @@ def register_user():
     """
     auth = request.authorization
     g.user = user_by_login(auth.username, auth.password) if auth else None
-    print '------------1'
-    print g.user
     if auth and g.user is None:
         current_app.logger.warning('Unsuccessful authentication with '
                                    'username "%s"', auth.username)
@@ -328,14 +268,13 @@ def users_get(login):
 
 
 @api.route('/users', methods=['POST'])
+@data(login={'type': 'string', 'minlength': 3, 'maxlength': 40, 'safe': True,
+             'required': True},
+      name={'type': 'string'},
+      password={'type': 'string', 'required': True},
+      roles={'type': 'list', 'allowed': USER_ROLES})
 @require_user
 @ensure(has_role('admin'))
-@validate({'login': {'type': 'string', 'minlength': 3, 'maxlength': 40,
-                     'safe': True},
-           'name': {'type': 'string', 'required': False},
-           'password': {'type': 'string'},
-           'roles': {'type': 'list', 'allowed': USER_ROLES,
-                     'required': False}})
 def users_add(data):
     """
     Create a new user.
@@ -394,19 +333,23 @@ def users_add(data):
 
 
 @api.route('/samples', methods=['GET'])
-@collection(public='bool', user='string')
-@ensure(has_role('admin'), filter_true('public'), filter_user('user'),
+@collection
+@data(public={'type': 'boolean'},
+      user={'type': 'user'})
+@ensure(has_role('admin'), data_is_true('public'), data_is_user('user'),
         satisfy=any)
-def samples_list(first, count, filters):
+def samples_list(first, count, data):
     """
 
     Example usage::
 
         curl -i -u pietje:pi3tje http://127.0.0.1:5000/samples
     """
-    if 'user' in filters:
-        filters['user'] = user_by_uri(filters['user'])
-    samples = Sample.query.filter_by(**filters)
+    samples = Sample.query
+    if data.get('public') is not None:
+        samples = samples.filter_by(public=data.get('public'))
+    if data.get('user') is not None:
+        samples = samples.filter_by(user=data.get('user'))
     return (samples.count(),
             jsonify(samples=[serialize(s) for s in
                              samples.limit(count).offset(first)]))
@@ -426,12 +369,12 @@ def samples_get(sample_id):
 
 
 @api.route('/samples', methods=['POST'])
+@data(name={'type': 'string', 'required': True},
+      pool_size={'type': 'integer'},
+      coverage_profile={'type': 'boolean'},
+      public={'type': 'boolean'})
 @require_user
 @ensure(has_role('admin'), has_role('importer'), satisfy=any)
-@validate({'name': {'type': 'string'},
-           'pool_size': {'type': 'integer', 'required': False},
-           'coverage_profile': {'type': 'boolean', 'required': False},
-           'public': {'type': 'boolean', 'required': False}})
 def samples_add(data):
     """
 
@@ -454,9 +397,9 @@ def samples_add(data):
 
 
 @api.route('/samples/<int:sample_id>', methods=['PATCH'])
+@data(active={'type': 'boolean'})
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-@validate({'active': {'type': 'boolean', 'required': False}})
 def samples_update(data, sample_id):
     """
 
@@ -539,9 +482,9 @@ def variations_import_status(sample_id, variation_id):
 
 
 @api.route('/samples/<int:sample_id>/variations', methods=['POST'])
+@data(data_source={'type': 'data_source', 'required': True})
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-@validate({'data_source': {'type': 'string'}})
 def variations_add(data, sample_id):
     """
 
@@ -554,11 +497,8 @@ def variations_add(data, sample_id):
     # Todo: If import fails, observations are removed by task cleanup, but we
     #     are still left with the variations instance. Not sure how to cleanup
     #     in that case.
-    data_source = data_source_by_uri(data['data_source'])
-    if data_source is None:
-        raise ValidationError('Not a data source: "%s"' % data['data_source'])
     sample = Sample.query.get_or_404(sample_id)
-    variation = Variation(sample, data_source)
+    variation = Variation(sample, data['data_source'])
     db.session.add(variation)
     db.session.commit()
     current_app.logger.info('Added variation: %r', variation)
@@ -618,9 +558,9 @@ def coverages_import_status(sample_id, coverage_id):
 
 
 @api.route('/samples/<int:sample_id>/coverages', methods=['POST'])
+@data(data_source={'type': 'data_source', 'required': True})
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-@validate({'data_source': {'type': 'string'}})
 def coverages_add(data, sample_id):
     """
 
@@ -630,11 +570,8 @@ def coverages_add(data, sample_id):
     """
     # Todo: Only if sample is not active.
     # Todo: Check for importer role.
-    data_source = data_source_by_uri(data['data_source'])
-    if data_source is None:
-        raise ValidationError('Not a data source: "%s"' % data['data_source'])
     sample = Sample.query.get_or_404(sample_id)
-    coverage = Coverage(sample, data_source)
+    coverage = Coverage(sample, data['data_source'])
     db.session.add(coverage)
     db.session.commit()
     current_app.logger.info('Added coverage: %r', coverage)
@@ -679,11 +616,12 @@ def data_sources_data(data_source_id):
 
 
 @api.route('/data_sources', methods=['POST'])
+@data(name={'type': 'string', 'required': True},
+      filetype={'type': 'string', 'allowed': DATA_SOURCE_FILETYPES,
+                'required': True},
+      gzipped={'type': 'boolean'},
+      local_path={'type': 'string'})
 @require_user
-@validate({'name': {'type': 'string'},
-           'filetype': {'type': 'string', 'allowed': DATA_SOURCE_FILETYPES},
-           'gzipped': {'type': 'boolean', 'required': False},
-           'local_path': {'type': 'string', 'required': False}})
 def data_sources_add(data):
     """
     Upload VCF or BED file.
@@ -693,6 +631,7 @@ def data_sources_add(data):
     """
     # Todo: If files['data'] is missing (or non-existent file?), we crash with
     #     a data_source_not_cached error.
+    # Todo: Sandbox local_path.
     data_source = DataSource(g.user,
                              data['name'],
                              data['filetype'],
@@ -760,18 +699,16 @@ def annotations_write_status(data_source_id, annotation_id):
 
 
 @api.route('/data_sources/<int:data_source_id>/annotations', methods=['POST'])
+@data(global_frequencies={'type': 'boolean'},
+      exclude_samples={'type': 'list', 'schema': {'type': 'sample'}},
+      include_samples={'type': 'list',
+                       'schema': {'type': 'list',
+                                  'items': [{'type': 'string'},
+                                            {'type': 'sample'}]}})
 @require_user
 @ensure(has_role('admin'), owns_data_source, has_role('annotator'),
         has_role('trader'),
         satisfy=lambda conditions: next(conditions) or (next(conditions) and any(conditions)))
-@validate({'global_frequencies': {'type': 'boolean', 'required': False},
-           'exclude_samples': {'type': 'list', 'schema': {'type': 'string'},
-                               'required': False},
-           'include_samples': {'type': 'list',
-                               'schema': {'type': 'list',
-                                          'items': [{'type': 'string'},
-                                                    {'type': 'string'}]},
-                               'required': False}})
 def annotations_add(data, data_source_id):
     """
     Annotate a data source.
@@ -786,26 +723,12 @@ def annotations_add(data, data_source_id):
     # - admin
     # - owns_data_source AND annotator
     # - owns_data_source AND trader
-    exclude_samples = [sample_by_uri(sample_uri) for sample_uri
-                       in data.get('exclude_samples', [])]
-
-    if None in exclude_samples:
-        uri = dict(zip(exclude_samples, data['exclude_samples']))[None]
-        raise ValidationError('Not a sample: "%s"' % uri)
+    exclude_samples = data.get('exclude_samples', [])
 
     # Todo: Perhaps a better name would be `local_frequencies` instead of
     #     `include_sample_ids`, to contrast with the `global_frequencies`
     #     flag.
-    include_samples = {label: sample_by_uri(sample_uri) for label, sample_uri
-                       in dict(data.get('include_samples', [])).items()}
-
-    if None in include_samples.values():
-        # include_samples = {GoNL: None, 1KG: <Sample 34>}
-        # data['include_samples'] = {GoNL: /sample/bla, 1KG: /sample/34}
-        label = next(label for label, sample in include_samples.items()
-                     if sample is None)
-        raise ValidationError('Not a sample: "%s"'
-                              % data['include_samples'][label])
+    include_samples = dict(data.get('include_samples', []))
 
     if not all(re.match('[0-9A-Z]+', label) for label in include_samples):
         raise ValidationError('Labels for inluded samples must contain only'

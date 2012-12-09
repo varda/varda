@@ -7,25 +7,26 @@ Various REST API utilities.
 """
 
 
+from copy import deepcopy
 from functools import wraps
 import re
 import urlparse
 
 from cerberus import ValidationError as CerberusValidationError, Validator
-from flask import request
+from cerberus.errors import ERROR_BAD_TYPE
+from flask import current_app, g, request
 from werkzeug.exceptions import HTTPException
 
+from ..models import DataSource, Sample, User
 from .errors import ValidationError
 
 
+# Todo: We currently hacked the Validator class a bit such that some type
+#     casting is done in the 'type' rules by modifying the document in-place.
+#     Perhaps it is a better (and safer) idea to reconstruct a validated
+#     document from scratch, which would only contain fields that are
+#     defined in the schema.
 class ApiValidator(Validator):
-    def _validate_required_fields(self):
-        # This is a bit of a hack, we modify the schema to set the `required`
-        # `rule` for each field if it is not set to ``False``.
-        for definition in self.schema.values():
-            definition['required'] = definition.get('required', True)
-        super(ApiValidator, self)._validate_required_fields()
-
     def _validate_allowed(self, allowed_values, field, value):
         # This is also a bit of a hack, we add a special case for the
         # `allowed` rule on string values.
@@ -41,12 +42,27 @@ class ApiValidator(Validator):
         # And another hack, we add a special case for the `schema` rule on
         # list values.
         if isinstance(value, list):
+            self.document[field] = []
             for v in value:
                 validator = self.__class__({field: schema})
                 if not validator.validate({field: v}):
                     self._error(validator.errors)
+                self.document[field].append(validator.document[field])
         else:
             super(V, self)._validate_schema(schema, field, value)
+
+    def _validate_items_list(self, schemas, field, values):
+        if len(schemas) != len(values):
+            self._error(ERROR_ITEMS_LIST % (field, len(schemas)))
+        else:
+            self.document[field] = []
+            for i in range(len(schemas)):
+                key = "_data" + str(i)
+                validator = self.__class__({key: schemas[i]})
+                if not validator.validate({key: values[i]}):
+                    self._error(["'%s': " % field + error
+                                for error in validator.errors])
+                self.document[field].append(validator.document[key])
 
     def _validate_safe(self, safe, field, value):
         expression = '[a-zA-Z][a-zA-Z0-9._-]*$'
@@ -54,10 +70,46 @@ class ApiValidator(Validator):
             self._error("value for field '%s' must match the expression '%s'"
                         % (field, expression))
 
+    def _validate_type_integer(self, field, value):
+        if isinstance(value, basestring):
+            try:
+                self.document[field] = int(value)
+            except ValueError:
+                pass
+        super(ApiValidator, self)._validate_type_integer(field,
+                                                         self.document[field])
 
-def validate(schema):
+    def _validate_type_boolean(self, field, value):
+        if isinstance(value, basestring):
+            if value.lower() in ('true', 'yes', 'on', '1'):
+                self.document[field] = True
+            elif value.lower() in ('false', 'no', 'off', '0'):
+                self.document[field] = False
+        super(ApiValidator, self)._validate_type_boolean(field,
+                                                         self.document[field])
+
+    def _validate_type_user(self, field, value):
+        if isinstance(value, basestring):
+            self.document[field] = user_by_uri(value)
+        if not isinstance(self.document[field], User):
+            self.error(ERROR_BAD_TYPE % (field, 'user'))
+
+    def _validate_type_sample(self, field, value):
+        if isinstance(value, basestring):
+            self.document[field] = sample_by_uri(value)
+        if not isinstance(self.document[field], Sample):
+            self.error(ERROR_BAD_TYPE % (field, 'sample'))
+
+    def _validate_type_data_source(self, field, value):
+        if isinstance(value, basestring):
+            self.document[field] = data_source_by_uri(value)
+        if not isinstance(self.document[field], DataSource):
+            self.error(ERROR_BAD_TYPE % (field, 'data_source'))
+
+
+def data(**schema):
     """
-    Decorator for request payload validation.
+    Decorator for request payload parsing and validation.
 
     :arg schema: Schema as used by `Cerberus <http://cerberus.readthedocs.org/>`_.
     :type schema: dict
@@ -76,38 +128,26 @@ def validate(schema):
         ...    sample = Sample(user, data['name'])
     """
     validator = ApiValidator(schema)
-    def validate_with_schema(rule):
+    def data_with_validator(rule):
         @wraps(rule)
-        def validating_rule(*args, **kwargs):
-            # Todo: For nested data structures, we only want to accept a
-            #     proper datatype such as JSON. If we accept HTTP form data,
-            #     we should somehow decode all values from strings.
-            data = request.json or request.form
+        def data_rule(*args, **kwargs):
+            # Todo: Look into Flask's `request.on_json_loading_failed`.
+            data = deepcopy(request.json) or request.values.to_dict()
             try:
                 if not validator.validate(data):
                     raise ValidationError('Invalid request content: %s'
                                           % '; '.join(validator.errors))
             except CerberusValidationError as e:
                 raise ValidationError('Invalid request content: %s' % str(e))
-            kwargs.update(data=data)
+            kwargs.update(data=validator.document)
             return rule(*args, **kwargs)
-        return validating_rule
-    return validate_with_schema
+        return data_rule
+    return data_with_validator
 
 
-def optional_kwargs(decorator):
-    @wraps(decorator)
-    def decorator_with_optional_kwargs(*args, **kwargs):
-        if len(args) == 1 and not kwargs and callable(args[0]):
-            return decorator()(args[0])
-        return decorator(*args, **kwargs)
-    return decorator_with_optional_kwargs
-
-
-@optional_kwargs
-def collection(**fields):
+def collection(rule):
     """
-    Decorator for rules returning collections, adding ranges and filters.
+    Decorator for rules returning collections.
 
     .. todo:: Correct documentation, we now use kwargs. Also not the order of
         the decorators to play nice with eachother (collection before ensure).
@@ -129,45 +169,31 @@ def collection(**fields):
 
     .. todo:: Example with filters.
     """
-    def filtered_collection(rule):
-        @wraps(rule)
-        def collection_rule(*args, **kwargs):
-            filters = {}
-            for field, field_type in fields.items():
-                if field not in request.args:
-                    continue
-                if field_type == 'bool':
-                    if request.args[field] not in ('true', 'false'):
-                        raise ValidationError('Invalid filter on "%s"' % field)
-                    filters[field] = request.args[field] == 'true'
-                elif field_type == 'string':
-                    filters[field] = request.args[field]
-
-            # Todo: Use `parse_range_header` from Werkzeug:
-            #     http://werkzeug.pocoo.org/docs/http/#werkzeug.http.parse_range_header
-            range_header = request.headers.get('Range', 'items=0-19')
-            if not range_header.startswith('items='):
-                raise ValidationError('Invalid range')
-            try:
-                first, last = (int(i) for i in range_header[6:].split('-'))
-            except ValueError:
-                raise ValidationError('Invalid range')
-            if not 0 <= first <= last or last - first + 1 > 500:
-                raise ValidationError('Invalid range')
-            kwargs.update(first=first, count=last - first + 1, filters=filters)
-            total, response = rule(*args, **kwargs)
-            if first > max(total - 1, 0):
-                abort(404)
-            last = min(last, total - 1)
-            response.headers.add('Content-Range',
-                                 'items %d-%d/%d' % (first, last, total))
-            return response
-        return collection_rule
-
-    return filtered_collection
+    @wraps(rule)
+    def collection_rule(*args, **kwargs):
+        # Todo: Use `parse_range_header` from Werkzeug:
+        #     http://werkzeug.pocoo.org/docs/http/#werkzeug.http.parse_range_header
+        range_header = request.headers.get('Range', 'items=0-19')
+        if not range_header.startswith('items='):
+            raise ValidationError('Invalid range')
+        try:
+            first, last = (int(i) for i in range_header[6:].split('-'))
+        except ValueError:
+            raise ValidationError('Invalid range')
+        if not 0 <= first <= last or last - first + 1 > 500:
+            raise ValidationError('Invalid range')
+        kwargs.update(first=first, count=last - first + 1)
+        total, response = rule(*args, **kwargs)
+        if first > max(total - 1, 0):
+            abort(404)
+        last = min(last, total - 1)
+        response.headers.add('Content-Range',
+                             'items %d-%d/%d' % (first, last, total))
+        return response
+    return collection_rule
 
 
-def parse_args(app, view, uri):
+def parse_args(app, endpoint, uri):
     """
     Parse view arguments from given URI.
     """
@@ -175,9 +201,64 @@ def parse_args(app, view, uri):
         raise ValueError('no uri to resolve')
     path = urlparse.urlsplit(uri).path
     try:
-        endpoint, args = app.url_map.bind('').match(path)
-        assert app.view_functions[endpoint] is view
+        matched_endpoint, args = app.url_map.bind('').match(path)
+        assert matched_endpoint == endpoint
     except (AssertionError, HTTPException):
-        raise ValueError('uri "%s" does not resolve to view "%s"'
-                         % (uri, view.__name__))
+        raise ValueError('uri "%s" does not resolve to endpoint "%s"'
+                         % (uri, endpoint))
     return args
+
+
+def data_source_by_uri(uri):
+    """
+    Get a data source from its URI.
+    """
+    try:
+        args = parse_args(current_app, 'api.data_sources_get', uri)
+    except ValueError:
+        return None
+    return DataSource.query.get(args['data_source_id'])
+
+
+def sample_by_uri(uri):
+    """
+    Get a sample from its URI.
+    """
+    try:
+        args = parse_args(current_app, 'api.samples_get', uri)
+    except ValueError:
+        return None
+    return Sample.query.get(args['sample_id'])
+
+
+def user_by_uri(uri):
+    """
+    Get a user from its URI.
+    """
+    try:
+        args = parse_args(current_app, 'api.users_get', uri)
+    except ValueError:
+        return None
+    return User.query.filter_by(login=args['login']).first()
+
+
+def user_by_login(login, password):
+    """
+    Check if login and password are correct and return the user if so, else
+    return ``None``.
+    """
+    user = User.query.filter_by(login=login).first()
+    if user is not None and user.check_password(password):
+        return user
+
+
+def data_is_true(field):
+    def condition(data, **_):
+        return data.get(field)
+    return condition
+
+
+def data_is_user(field):
+    def condition(data, **_):
+        return g.user is not None and g.user is data.get(field)
+    return condition
