@@ -64,8 +64,8 @@ def validate(schema):
 
     All defined fields in the schema are required by default.
 
-    The decorated view function recieves validated data as its first argument,
-    any arguments from the parsed route URL come after that.
+    The decorated view function recieves validated data as keyword argument
+    `data` as well as all of its original arguments.
 
     Example::
 
@@ -89,19 +89,33 @@ def validate(schema):
                                           % '; '.join(validator.errors))
             except CerberusValidationError as e:
                 raise ValidationError('Invalid request content: %s' % str(e))
-            return rule(data, *args, **kwargs)
+            kwargs.update(data=data)
+            return rule(*args, **kwargs)
         return validating_rule
     return validate_with_schema
 
 
-def collection(rule):
-    """
-    Decorator for rules returning collections.
+def optional_kwargs(decorator):
+    @wraps(decorator)
+    def decorator_with_optional_kwargs(*args, **kwargs):
+        if len(args) == 1 and not kwargs and callable(args[0]):
+            return decorator()(args[0])
+        return decorator(*args, **kwargs)
+    return decorator_with_optional_kwargs
 
-    The decorated view function recieves `first` and `count` arguments, any
-    arguments from the parsed route URL come after that. The view function
-    should return a tuple of the total number of items in the collection and
-    a response object.
+
+@optional_kwargs
+def collection(**fields):
+    """
+    Decorator for rules returning collections, adding ranges and filters.
+
+    .. todo:: Correct documentation, we now use kwargs. Also not the order of
+        the decorators to play nice with eachother (collection before ensure).
+
+    The decorated view function recieves `first`, `count` and `filters`
+    arguments, any arguments from the parsed route URL come after that. The
+    view function should return a tuple of the total number of items in the
+    collection and a response object.
 
     Example::
 
@@ -112,34 +126,53 @@ def collection(rule):
         ...     return (samples.count(),
                         jsonify(samples=[serialize(s) for s in
                                          samples.limit(count).offset(first)]))
+
+    .. todo:: Example with filters.
     """
-    @wraps(rule)
-    def collection_rule(*args, **kwargs):
-        # Todo: Use `parse_range_header` from Werkzeug:
-        #     http://werkzeug.pocoo.org/docs/http/#werkzeug.http.parse_range_header
-        range_header = request.headers.get('Range', 'items=0-19')
-        if not range_header.startswith('items='):
-            raise ValidationError('Invalid range')
-        try:
-            first, last = (int(i) for i in range_header[6:].split('-'))
-        except ValueError:
-            raise ValidationError('Invalid range')
-        if not 0 <= first <= last or last - first + 1 > 500:
-            raise ValidationError('Invalid range')
-        total, response = rule(first, last - first + 1, *args, **kwargs)
-        if first > max(total - 1, 0):
-            abort(404)
-        last = min(last, total - 1)
-        response.headers.add('Content-Range',
-                             'items %d-%d/%d' % (first, last, total))
-        return response
-    return collection_rule
+    def filtered_collection(rule):
+        @wraps(rule)
+        def collection_rule(*args, **kwargs):
+            filters = {}
+            for field, field_type in fields.items():
+                if field not in request.args:
+                    continue
+                if field_type == 'bool':
+                    if request.args[field] not in ('true', 'false'):
+                        raise ValidationError('Invalid filter on "%s"' % field)
+                    filters[field] = request.args[field] == 'true'
+                elif field_type == 'string':
+                    filters[field] = request.args[field]
+
+            # Todo: Use `parse_range_header` from Werkzeug:
+            #     http://werkzeug.pocoo.org/docs/http/#werkzeug.http.parse_range_header
+            range_header = request.headers.get('Range', 'items=0-19')
+            if not range_header.startswith('items='):
+                raise ValidationError('Invalid range')
+            try:
+                first, last = (int(i) for i in range_header[6:].split('-'))
+            except ValueError:
+                raise ValidationError('Invalid range')
+            if not 0 <= first <= last or last - first + 1 > 500:
+                raise ValidationError('Invalid range')
+            kwargs.update(first=first, count=last - first + 1, filters=filters)
+            total, response = rule(*args, **kwargs)
+            if first > max(total - 1, 0):
+                abort(404)
+            last = min(last, total - 1)
+            response.headers.add('Content-Range',
+                                 'items %d-%d/%d' % (first, last, total))
+            return response
+        return collection_rule
+
+    return filtered_collection
 
 
 def parse_args(app, view, uri):
     """
     Parse view arguments from given URI.
     """
+    if not uri:
+        raise ValueError('no uri to resolve')
     path = urlparse.urlsplit(uri).path
     try:
         endpoint, args = app.url_map.bind('').match(path)

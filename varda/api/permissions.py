@@ -201,3 +201,14 @@ def has_login(login, **_):
        if there are unrelated keyword arguments for the decorated rule.
     """
     return g.user.login == login
+
+
+def filter_true(field):
+    def condition(filters, **_):
+        return filters.get(field) == True
+    return condition
+
+
+def filter_user(field):
+    def condition(filters, **_):
+        return filters.get(field)

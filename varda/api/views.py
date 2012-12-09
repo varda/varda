@@ -32,6 +32,9 @@ API_VERSION = 1
 api = Blueprint('api', 'api')
 
 
+# Todo: A way to have these in another module (this means another way of
+#     specifying the `view` argument for `parse_args`, probably by a string
+#     indexing some internal routing table.
 def data_source_by_uri(uri):
     """
     Get a data source from its URI.
@@ -54,6 +57,17 @@ def sample_by_uri(uri):
     return Sample.query.get(args['sample_id'])
 
 
+def user_by_uri(uri):
+    """
+    Get a user from its URI.
+    """
+    try:
+        args = parse_args(current_app, users_get, uri)
+    except ValueError:
+        return None
+    return User.query.filter_by(login=args['login']).first()
+
+
 def user_by_login(login, password):
     """
     Check if login and password are correct and return the user if so, else
@@ -64,6 +78,18 @@ def user_by_login(login, password):
         return user
 
 
+def filter_true(field):
+    def condition(filters, **_):
+        return filters.get(field)
+    return condition
+
+
+def filter_user(field):
+    def condition(filters, **_):
+        return g.user is not None and g.user is user_by_uri(filters.get(field))
+    return condition
+
+
 @api.before_request
 def register_user():
     """
@@ -72,6 +98,8 @@ def register_user():
     """
     auth = request.authorization
     g.user = user_by_login(auth.username, auth.password) if auth else None
+    print '------------1'
+    print g.user
     if auth and g.user is None:
         current_app.logger.warning('Unsuccessful authentication with '
                                    'username "%s"', auth.username)
@@ -366,17 +394,19 @@ def users_add(data):
 
 
 @api.route('/samples', methods=['GET'])
-@require_user
-@ensure(has_role('admin'))
-@collection
-def samples_list(first, count):
+@collection(public='bool', user='string')
+@ensure(has_role('admin'), filter_true('public'), filter_user('user'),
+        satisfy=any)
+def samples_list(first, count, filters):
     """
 
     Example usage::
 
         curl -i -u pietje:pi3tje http://127.0.0.1:5000/samples
     """
-    samples = Sample.query
+    if 'user' in filters:
+        filters['user'] = user_by_uri(filters['user'])
+    samples = Sample.query.filter_by(**filters)
     return (samples.count(),
             jsonify(samples=[serialize(s) for s in
                              samples.limit(count).offset(first)]))
