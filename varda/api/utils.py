@@ -23,13 +23,13 @@ from .errors import ValidationError
 
 # Todo: We currently hacked the Validator class a bit such that some type
 #     casting is done in the 'type' rules by modifying the document in-place.
-#     Perhaps it is a better (and safer) idea to reconstruct a validated
-#     document from scratch, which would only contain fields that are
-#     defined in the schema.
+#     This isn't really how Cerberus works and there might be a better way of
+#     doing things.
 class ApiValidator(Validator):
+    # Todo: Try to get this in upstream Cerberus.
     def _validate_allowed(self, allowed_values, field, value):
-        # This is also a bit of a hack, we add a special case for the
-        # `allowed` rule on string values.
+        # This is a bit of a hack, we add a special case for the `allowed`
+        # rule on string values.
         if isinstance(value, basestring):
             if value not in allowed_values:
                 self._error("unallowed value '%s' for field '%s'"
@@ -38,6 +38,7 @@ class ApiValidator(Validator):
             super(ApiValidator, self)._validate_allowed(allowed_values,
                                                         field, value)
 
+    # Todo: Try to get this in upstream Cerberus.
     def _validate_schema(self, schema, field, value):
         # And another hack, we add a special case for the `schema` rule on
         # list values.
