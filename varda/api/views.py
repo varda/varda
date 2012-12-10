@@ -7,23 +7,21 @@ REST API views.
 """
 
 
-from functools import wraps
 import os
 import re
-import urlparse
 import uuid
 
 from celery.exceptions import TimeoutError
 from flask import abort, Blueprint, current_app, g, jsonify, redirect, request, send_from_directory, url_for
-from werkzeug.exceptions import HTTPException
 
 from .. import db, genome
 from ..models import Annotation, Coverage, DataSource, DATA_SOURCE_FILETYPES, InvalidDataSource, Observation, Sample, User, USER_ROLES, Variation
 from ..tasks import write_annotation, import_variation, import_coverage, TaskError
+from .data import data, data_is_true, data_is_user
 from .errors import ActivationFailure, ValidationError
 from .permissions import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
 from .serialize import serialize
-from .utils import collection, data, data_is_true, data_is_user, data_source_by_uri, sample_by_uri, user_by_login, user_by_uri
+from .utils import collection, user_by_login
 
 
 API_VERSION = 1
@@ -338,7 +336,7 @@ def users_add(data):
       user={'type': 'user'})
 @ensure(has_role('admin'), data_is_true('public'), data_is_user('user'),
         satisfy=any)
-def samples_list(first, count, data):
+def samples_list(begin, count, data):
     """
 
     Example usage::
@@ -352,7 +350,7 @@ def samples_list(first, count, data):
         samples = samples.filter_by(user=data.get('user'))
     return (samples.count(),
             jsonify(samples=[serialize(s) for s in
-                             samples.limit(count).offset(first)]))
+                             samples.limit(count).offset(begin)]))
 
 
 @api.route('/samples/<int:sample_id>', methods=['GET'])
