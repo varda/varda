@@ -1,5 +1,6 @@
 """
-API permission checking.
+Security helper functions for the API, offering authorization and
+authentication checking.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
@@ -26,8 +27,8 @@ def require_user(rule):
         ...     return 'sample'
 
     If authentication was successful, the authenticated user instance can be
-    accessed through ``g.user``. Otherwise, the request is aborted with a 401
-    response code.
+    accessed through `g.user`. Otherwise, the request is aborted and a ``401``
+    response code is generated.
     """
     @wraps(rule)
     def secure_rule(*args, **kwargs):
@@ -43,13 +44,13 @@ def ensure(*conditions, **options):
 
     The conditions arguments are functions returning ``True`` on success and
     ``False`` otherwise. By default, all conditions must be met. A custom
-    scheme can be specified with the ``satisfy`` keyword argument, which must
-    be a function consuming an iterable and returning a boolean. For example,
-    ``satisfy=any`` uses the standard library function ``any`` to ensure that
-    at least one of the conditions is met.
+    scheme can be specified with the `satisfy` keyword argument, which must be
+    a function consuming an iterable and returning a boolean. For example,
+    ``satisfy=any`` uses the standard library function `any` to ensure that at
+    least one of the conditions is met.
 
     Typical conditions may depend on the authorized user. In that case, use
-    the ``require_user`` decorator first, for example::
+    the `require_user` decorator first, for example::
 
         >>> def is_admin():
         ...     return 'admin' in g.user.roles
@@ -60,13 +61,20 @@ def ensure(*conditions, **options):
         >>> def list_variants():
         ...     return []
 
+    .. note:: While the `is_admin` condition could be made more robust by
+        first checking if `g.user` is not ``None``, it is still a good idea
+        to have the check preceded by `require_user`. This makes sure a HTTP
+        ``401`` response code is generated if there is no user authenticated,
+        and a ``403`` response code is only generated if there is a user
+        authenticated but certain conditions are not met.
+
     To specify which keyword arguments to pass to the condition functions as
-    positional and keyword arguments, use the ``args`` and ``kwargs`` keyword
+    positional and keyword arguments, use the `args` and `kwargs` keyword
     arguments, respectively.
 
-    The ``args`` keyword argument lists the rule keyword arguments by name
-    that should be passed as positional arguments to the condition functions,
-    in that order. For example, to pass the ``variant_id`` argument::
+    The `args` keyword argument lists the rule keyword arguments by name that
+    should be passed as positional arguments to the condition functions, in
+    that order. For example, to pass the `variant_id` argument::
 
         >>> def owns_variant(variant):
         ...     return True
@@ -77,10 +85,10 @@ def ensure(*conditions, **options):
         >>> def get_variant(sample_id, variant_id):
         ...     return 'variant'
 
-    The ``kwargs`` keyword argument maps condition function keyword arguments
-    to their respective rule keyword arguments. For example, to pass the
-    ``sample_id`` and ``variant_id`` rule arguments as ``sample`` and
-    ``variant`` keyword arguments to the condition functions::
+    The `kwargs` keyword argument maps condition function keyword arguments to
+    their respective rule keyword arguments. For example, to pass the
+    `sample_id` and `variant_id` rule arguments as `sample` and `variant`
+    keyword arguments to the condition functions::
 
         >>> def owns_sample_and_variant(variant=None, sample=None):
         ...     return True
@@ -93,8 +101,8 @@ def ensure(*conditions, **options):
 
     By default, the condition functions are passed all rule keyword arguments.
     This makes it easy to use conditions that use the same names for keyword
-    arguments as the decorated rule without the need for the ``args`` or
-    ``kwargs`` arguments::
+    arguments as the decorated rule without the need for the `args` or
+    `kwargs` arguments::
 
         >>> def owns_variant(variant_id, **_):
         ...     return True
@@ -149,7 +157,7 @@ def ensure(*conditions, **options):
 def has_role(role):
     """
     Given a role, return a function that can be used as a condition argument
-    for the ensure decorator.
+    to the `ensure` decorator.
 
     Example::
 
@@ -161,10 +169,6 @@ def has_role(role):
 
     The resulting condition returns ``True`` if there is an authenticated user
     and it has the requested role, ``False`` otherwise.
-
-    .. note:: We add the keyword arguments wildcard ``**_`` so this function
-        can be easily used as condition argument to the ensure decorator even
-        if there are unrelated keyword arguments for the decorated rule.
     """
     def condition(**_):
         return g.user is not None and role in g.user.roles
@@ -173,10 +177,8 @@ def has_role(role):
 
 def owns_sample(sample_id, **_):
     """
-
-    .. note:: We add the keyword arguments wildcard ``**_`` so this function
-        can be easily used as condition argument to the ensure decorator even
-        if there are unrelated keyword arguments for the decorated rule.
+    Condition that is satisfied if the view argument `sample_id` refers to a
+    sample owned by the currently authenticated user.
     """
     sample = Sample.query.get(sample_id)
     return sample is not None and sample.user is g.user
@@ -184,10 +186,8 @@ def owns_sample(sample_id, **_):
 
 def owns_data_source(data_source_id, **_):
     """
-
-    .. note:: We add the keyword arguments wildcard ``**_`` so this function
-        can be easily used as condition argument to the ensure decorator even
-        if there are unrelated keyword arguments for the decorated rule.
+    Condition that is satisfied if the view argument `data_source_id` refers
+    to a data source owned by the currently authenticated user.
     """
     data_source = DataSource.query.get(data_source_id)
     return data_source is not None and data_source.user is g.user
@@ -195,20 +195,7 @@ def owns_data_source(data_source_id, **_):
 
 def has_login(login, **_):
     """
-
-    .. note:: We add the keyword arguments wildcard ``**_`` so this function
-       can be easily used as condition argument to the ensure decorator even
-       if there are unrelated keyword arguments for the decorated rule.
+    Condition that is satisfied if the view argument `login` is equal to the
+    login of the currently authenticated user.
     """
-    return g.user.login == login
-
-
-def filter_true(field):
-    def condition(filters, **_):
-        return filters.get(field) == True
-    return condition
-
-
-def filter_user(field):
-    def condition(filters, **_):
-        return filters.get(field)
+    return g.user is not None and g.user.login == login

@@ -19,7 +19,7 @@ from ..models import Annotation, Coverage, DataSource, DATA_SOURCE_FILETYPES, In
 from ..tasks import write_annotation, import_variation, import_coverage, TaskError
 from .data import data, data_is_true, data_is_user
 from .errors import ActivationFailure, ValidationError
-from .permissions import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
+from .security import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
 from .serialize import serialize
 from .utils import collection, user_by_login
 

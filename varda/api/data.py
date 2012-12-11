@@ -119,7 +119,9 @@ def data(**schema):
     :arg schema: Schema as used by `Cerberus <http://cerberus.readthedocs.org/>`_.
     :type schema: dict
 
-    All defined fields in the schema are required by default.
+    Request payload is either read from a json-encoded request body, or from a
+    combination of the request body encoded as form data and query string
+    parameters.
 
     The decorated view function recieves validated data as keyword argument
     `data` as well as all of its original arguments.
@@ -127,10 +129,10 @@ def data(**schema):
     Example::
 
         >>> @api.route('/users/<int:user_id>/samples', methods=['POST'])
-        >>> @validate({'name': {'type': 'string'}})
+        >>> @data(name={'type': 'string'})
         >>> def add_sample(data, user_id):
-        ...    user = User.query.get(user_id)
-        ...    sample = Sample(user, data['name'])
+        ...     user = User.query.get(user_id)
+        ...     sample = Sample(user, data['name'])
     """
     validator = ApiValidator(schema)
     def data_with_validator(rule):
@@ -151,12 +153,35 @@ def data(**schema):
 
 
 def data_is_true(field):
+    """
+    Given a data field name, return a function that can be used as a condition
+    argument to the `ensure` decorator.
+
+    Example::
+
+        >>> @app.route('/sample', methods=['GET'])
+        >>> @data(public={'type': 'boolean'})
+        >>> @ensure(data_is_true('public'))
+        >>> def samples_list(data):
+        ...     assert data.get('public') == True
+
+    The resulting condition returns ``True`` if the specified data field has a
+    true value, ``False`` otherwise.
+    """
     def condition(data, **_):
         return data.get(field)
     return condition
 
 
 def data_is_user(field):
+    """
+    Given a data field name, return a function that can be used as a condition
+    argument to the `ensure` decorator.
+
+    The resulting condition returns ``True`` if the specified data field has
+    as value a user equal to the currently authenticated user, ``False``
+    otherwise.
+    """
     def condition(data, **_):
         return g.user is not None and g.user is data.get(field)
     return condition
