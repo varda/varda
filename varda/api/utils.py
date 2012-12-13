@@ -42,7 +42,8 @@ def collection(rule):
     """
     @wraps(rule)
     def collection_rule(*args, **kwargs):
-        r = parse_range_header(request.headers.get()) or Range('items', [0, 20])
+        r = parse_range_header(request.headers.get('Range')) \
+            or Range('items', [(0, 20)])
         if r.units != 'items' or len(r.ranges) != 1:
             raise ValidationError('Invalid range')
         begin, end = r.ranges[0]

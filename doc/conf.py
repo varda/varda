@@ -40,7 +40,7 @@ def setup(app):
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.todo', 'sphinx.ext.viewcode', 'sphinxcontrib.httpdomain', 'sphinxcontrib.autohttp.flask']
 
 # Include todo directives.
-todo_include_todos = False
+todo_include_todos = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['.templates']

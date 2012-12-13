@@ -11,15 +11,19 @@ import os
 import re
 import uuid
 
-from celery.exceptions import TimeoutError
-from flask import abort, Blueprint, current_app, g, jsonify, redirect, request, send_from_directory, url_for
+import celery.exceptions
+from flask import (abort, Blueprint, current_app, g, jsonify, redirect,
+                   request, send_from_directory, url_for)
 
 from .. import db, genome
-from ..models import Annotation, Coverage, DataSource, DATA_SOURCE_FILETYPES, InvalidDataSource, Observation, Sample, User, USER_ROLES, Variation
-from ..tasks import write_annotation, import_variation, import_coverage, TaskError
+from ..models import (Annotation, Coverage, DataSource, DATA_SOURCE_FILETYPES,
+                      InvalidDataSource, Observation, Sample, User,
+                      USER_ROLES, Variation)
+from .. import tasks
 from .data import data, data_is_true, data_is_user
 from .errors import ActivationFailure, ValidationError
-from .security import ensure, has_login, has_role, owns_data_source, owns_sample, require_user
+from .security import (ensure, has_login, has_role, owns_data_source,
+                       owns_sample, require_user)
 from .serialize import serialize
 from .utils import collection, user_by_login
 
@@ -46,63 +50,55 @@ def register_user():
 @api.errorhandler(400)
 def error_bad_request(error):
     return jsonify(error={
-            'code': 'bad_request',
-            'message': 'The request could not be understood due to malformed syntax'}), 400
+        'code': 'bad_request',
+        'message': 'The request could not be understood due to malformed syntax'}), 400
 
 
 @api.errorhandler(401)
 def error_unauthorized(error):
     return jsonify(error={
-            'code': 'unauthorized',
-            'message': 'The request requires user authentication'}), 401
+        'code': 'unauthorized',
+        'message': 'The request requires user authentication'}), 401
 
 
 @api.errorhandler(403)
 def error_forbidden(error):
     return jsonify(error={
-            'code': 'forbidden',
-            'message': 'Not allowed to make this request'}), 403
+        'code': 'forbidden',
+        'message': 'Not allowed to make this request'}), 403
 
 
 @api.errorhandler(404)
 @api.app_errorhandler(404)
 def error_not_found(error):
     return jsonify(error={
-            'code': 'not_found',
-            'message': 'The requested entity could not be found'}), 404
+        'code': 'not_found',
+        'message': 'The requested entity could not be found'}), 404
 
 
 @api.errorhandler(413)
 def error_entity_too_large(error):
     return jsonify(error={
-            'code': 'entity_too_large',
-            'message': 'The request entity is too large'}), 413
+        'code': 'entity_too_large',
+        'message': 'The request entity is too large'}), 413
 
 
 @api.errorhandler(501)
 def error_not_implemented(error):
     return jsonify(error={
-            'code': 'not_implemented',
-            'message': 'The functionality required to fulfill the request is currently not implemented'}), 501
+        'code': 'not_implemented',
+        'message': 'The functionality required to fulfill the request is currently not implemented'}), 501
 
 
-@api.errorhandler(TaskError)
+@api.errorhandler(tasks.TaskError)
 def error_task_error(error):
     return jsonify(error=serialize(error)), 500
 
 
-@api.errorhandler(InvalidDataSource)
-def error_invalid_data_source(error):
-    return jsonify(error=serialize(error)), 400
-
-
 @api.errorhandler(ActivationFailure)
-def error_activation_failure(error):
-    return jsonify(error=serialize(error)), 400
-
-
+@api.errorhandler(InvalidDataSource)
 @api.errorhandler(ValidationError)
-def error_validation_error(error):
+def error_(error):
     return jsonify(error=serialize(error)), 400
 
 
@@ -177,11 +173,14 @@ def authentication():
 
 
 @api.route('/users', methods=['GET'])
+@collection
 @require_user
 @ensure(has_role('admin'))
-def users_list():
+def users_list(begin, count):
     """
-    Details for all registered users.
+    Collection of registered users.
+
+    .. todo:: Document what it means to be a collection of resources.
 
     Requires the `admin` role.
 
@@ -221,7 +220,10 @@ def users_list():
             ]
         }
     """
-    return jsonify(users=[serialize(u) for u in User.query])
+    users = User.query
+    return (users.count(),
+            jsonify(users=[serialize(u) for u in
+                           users.limit(count).offset(begin)]))
 
 
 @api.route('/users/<login>', methods=['GET'])
@@ -275,7 +277,7 @@ def users_get(login):
 @ensure(has_role('admin'))
 def users_add(data):
     """
-    Create a new user.
+    Create a user.
 
     Requires the `admin` role.
 
@@ -338,16 +340,62 @@ def users_add(data):
         satisfy=any)
 def samples_list(begin, count, data):
     """
+    Collection of samples.
 
-    Example usage::
+    Requires one of the following:
+     * the `admin` role
+     * being the user specified in the `user` argument
+     * the `public` argument set to ``True``
 
-        curl -i -u pietje:pi3tje http://127.0.0.1:5000/samples
+    :arg public: If set to ``True`` or ``False``, restrict the collection to
+        public or non-public samples, respectively.
+    :type public: boolean
+    :arg user: If set to the URI for a user, restrict the collection to
+        samples owned by this user.
+    :type user: string
+    :statuscode 200: Respond with a list of :ref:`sample <api_samples>`
+        objects as `samples`.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        GET /samples?public=true HTTP/1.1
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 200 OK
+        Content-Type: application/json
+
+        {
+          "users":
+            [
+              {
+                "uri": "/samples/3",
+                "user": "/users/fred",
+                "variations": "/samples/3/variations",
+                "coverages": "/samples/3/coverages",
+                "name": "1KG phase 1 release",
+                "pool_size": 1092,
+                "public": true,
+                "added": "2012-11-23T10:55:12.776706"
+              },
+              {
+                "uri": "/samples/4",
+                "user": "/users/fred",
+                "variations": "/samples/4/variations",
+                "coverages": "/samples/4/coverages",
+                "name": "GoNL SNP release 4",
+                "pool_size": 769,
+                "public": true,
+                "added": "2012-11-23T10:55:13.776706"
+              }
+            ]
+        }
     """
-    samples = Sample.query
-    if data.get('public') is not None:
-        samples = samples.filter_by(public=data.get('public'))
-    if data.get('user') is not None:
-        samples = samples.filter_by(user=data.get('user'))
+    samples = Sample.query.filter_by(**data)
     return (samples.count(),
             jsonify(samples=[serialize(s) for s in
                              samples.limit(count).offset(begin)]))
@@ -358,10 +406,39 @@ def samples_list(begin, count, data):
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def samples_get(sample_id):
     """
+    Details for sample.
 
-    Example usage::
+    Requires the `admin` role or being the owner of the requested sample.
 
-        curl -i http://127.0.0.1:5000/samples/2
+    :statuscode 200: Respond with a :ref:`sample <api_samples>` object as
+        `sample`.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        GET /samples/3 HTTP/1.1
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 200 OK
+        Content-Type: application/json
+
+        {
+          "sample":
+            {
+              "uri": "/samples/3",
+              "user": "/users/fred",
+              "variations": "/samples/3/variations",
+              "coverages": "/samples/3/coverages",
+              "name": "1KG phase 1 release",
+              "pool_size": 1092,
+              "public": true,
+              "added": "2012-11-23T10:55:12.776706"
+            }
+        }
     """
     return jsonify(sample=serialize(Sample.query.get_or_404(sample_id)))
 
@@ -375,10 +452,46 @@ def samples_get(sample_id):
 @ensure(has_role('admin'), has_role('importer'), satisfy=any)
 def samples_add(data):
     """
+    Create a sample.
 
-    Example usage::
+    Requires the `admin` or `importer` role.
 
-        curl -i -d 'name=My big sequencing experiment' -d 'pool_size=500' http://127.0.0.1:5000/samples
+    :arg name: Human readable name.
+    :type name: string
+    :arg pool_size: Number of individuals (default: ``1``).
+    :type pool_size: integer
+    :arg coverage_profile: Whether or not this sample has a coverage profile
+        (default: ``True``).
+    :type coverage_profile: boolean
+    :arg public: Whether or not this sample is public (default: ``False``).
+    :type public: boolean
+    :statuscode 201: Respond with a URI for the created sample as `sample`.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        POST /samples HTTP/1.1
+        Content-Type: application/json
+
+        {
+          "name": "1KG phase 1 release",
+          "pool_size": 1092,
+          "coverage_profile": false,
+          "public": true
+        }
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 201 CREATED
+        Location: https://example.com/samples/3
+        Content-Type: application/json
+
+        {
+          "user": "/samples/3"
+        }
     """
     sample = Sample(g.user,
                     data['name'],
@@ -400,13 +513,51 @@ def samples_add(data):
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def samples_update(data, sample_id):
     """
+    Update a sample.
 
-    Example usage::
+    Requires the `admin` role or being the owner of the requested sample.
 
-        curl -X PATCH -d 'active=true' http://127.0.0.1:5000/samples/3
+    :arg active: If set to ``True`` or ``False``, activate or de-activate the
+        sample, respectively.
+    :type active: boolean
+    :statuscode 200: Respond with a :ref:`sample <api_samples>` object as
+        `sample`.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        PATCH /samples/3 HTTP/1.1
+        Content-Type: application/json
+
+        {
+          "active": true
+        }
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 200 OK
+        Content-Type: application/json
+
+        {
+          "sample":
+            {
+              "uri": "/samples/3",
+              "user": "/users/fred",
+              "variations": "/samples/3/variations",
+              "coverages": "/samples/3/coverages",
+              "name": "1KG phase 1 release",
+              "pool_size": 1092,
+              "public": true,
+              "added": "2012-11-23T10:55:12.776706"
+            }
+        }
     """
     # Todo: I'm not sure if this is really the pattern we want the API to use
-    #     for updating objects. But works for now.
+    #     for updating objects. But works for now. Not sure if the 200 status
+    #     is the correct one.
     sample = Sample.query.get_or_404(sample_id)
     for field, value in data.items():
         if field == 'active' and value:
@@ -423,14 +574,15 @@ def samples_update(data, sample_id):
 
 
 @api.route('/samples/<int:sample_id>/variations', methods=['GET'])
+@collection
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-def variations_list(sample_id):
+def variations_list(begin, count, sample_id):
     """
-    Get variations in a sample.
+    Collection of sets of observations in a sample.
+
+    .. warning:: Not implemented.
     """
-    # Todo.
-    #return jsonify(variations=[serialize(v) for v in Sample.query.get_or_404(sample_id).variations])
     abort(501)
 
 
@@ -439,10 +591,10 @@ def variations_list(sample_id):
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def variations_get(sample_id, variation_id):
     """
-    Get variation.
+    Set of observations details.
+
+    .. warning:: Not implemented.
     """
-    # Todo.
-    #return jsonify(variation=serialize(Variation.query.get_or_404(variation_id)))
     abort(501)
 
 
@@ -451,7 +603,9 @@ def variations_get(sample_id, variation_id):
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def variations_import_status(sample_id, variation_id):
     """
-    Get variation import status.
+    Get set of observations import status.
+
+    .. todo:: Documentation.
     """
     # Todo: Merge this with the `variations_get` endpoint.
     # Todo: We might want to handle the special (error) case where .imported
@@ -464,13 +618,13 @@ def variations_import_status(sample_id, variation_id):
     percentage = None
 
     if variation.import_task_uuid:
-        result = import_variation.AsyncResult(variation.import_task_uuid)
+        result = tasks.import_variation.AsyncResult(variation.import_task_uuid)
         try:
             # This re-raises a possible TaskError, handled by error_task_error
             # above.
             # Todo: Re-raising doesn't seem to work at the moment...
             result.get(timeout=3)
-        except TimeoutError:
+        except celery.exceptions.TimeoutError:
             pass
         if result.state == 'PROGRESS':
             percentage = result.info['percentage']
@@ -485,10 +639,9 @@ def variations_import_status(sample_id, variation_id):
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def variations_add(data, sample_id):
     """
+    Create a set of observations.
 
-    Example usage::
-
-        curl -i -d 'data_source=/data_sources/3' http://127.0.0.1:5000/samples/1/variations
+    .. todo:: Documentation.
     """
     # Todo: Only if sample is not active.
     # Todo: Check for importer role.
@@ -500,7 +653,7 @@ def variations_add(data, sample_id):
     db.session.add(variation)
     db.session.commit()
     current_app.logger.info('Added variation: %r', variation)
-    result = import_variation.delay(variation.id)
+    result = tasks.import_variation.delay(variation.id)
     current_app.logger.info('Called task: import_variation(%d) %s', variation.id, result.task_id)
     uri = url_for('.variations_import_status', sample_id=sample.id, variation_id=variation.id)
     response = jsonify(variation_import_status=uri)
@@ -509,13 +662,15 @@ def variations_add(data, sample_id):
 
 
 @api.route('/samples/<int:sample_id>/coverages', methods=['GET'])
+@collection
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-def coverages_list(sample_id):
+def coverages_list(begin, count, sample_id):
     """
-    Get coverages in a sample.
+    Collection of sets of regions in a sample.
+
+    .. warning:: Not implemented.
     """
-    # Todo.
     abort(501)
 
 
@@ -524,9 +679,10 @@ def coverages_list(sample_id):
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def coverages_get(sample_id, coverage_id):
     """
-    Get coverage.
+    Set of regions details.
+
+    .. warning:: Not implemented.
     """
-    # Todo.
     abort(501)
 
 
@@ -535,18 +691,20 @@ def coverages_get(sample_id, coverage_id):
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def coverages_import_status(sample_id, coverage_id):
     """
-    Get coverage import status.
+    Get set of regions import status.
+
+    .. todo:: Documentation.
     """
     coverage = Coverage.query.get_or_404(coverage_id)
     percentage = None
 
     if coverage.import_task_uuid:
-        result = import_coverage.AsyncResult(coverage.import_task_uuid)
+        result = tasks.import_coverage.AsyncResult(coverage.import_task_uuid)
         try:
             # This re-raises a possible TaskError, handled by error_task_error
             # above.
             result.get(timeout=3)
-        except TimeoutError:
+        except celery.exceptions.TimeoutError:
             pass
         if result.state == 'PROGRESS':
             percentage = result.info['percentage']
@@ -561,10 +719,9 @@ def coverages_import_status(sample_id, coverage_id):
 @ensure(has_role('admin'), owns_sample, satisfy=any)
 def coverages_add(data, sample_id):
     """
+    Create a set of regions.
 
-    Example usage::
-
-        curl -i -d 'data_source=/data_sources/3' http://127.0.0.1:5000/samples/1/coverages
+    .. todo:: Documentation.
     """
     # Todo: Only if sample is not active.
     # Todo: Check for importer role.
@@ -573,7 +730,7 @@ def coverages_add(data, sample_id):
     db.session.add(coverage)
     db.session.commit()
     current_app.logger.info('Added coverage: %r', coverage)
-    result = import_coverage.delay(coverage.id)
+    result = tasks.import_coverage.delay(coverage.id)
     current_app.logger.info('Called task: import_coverage(%d) %s', coverage.id, result.task_id)
     uri = url_for('.coverages_import_status', sample_id=sample.id, coverage_id=coverage.id)
     response = jsonify(coverage_import_status=uri)
@@ -582,13 +739,56 @@ def coverages_add(data, sample_id):
 
 
 @api.route('/data_sources', methods=['GET'])
+@collection
+@data(user={'type': 'user'})
 @require_user
-@ensure(has_role('admin'))
-def data_sources_list():
+@ensure(has_role('admin'), data_is_user('user'))
+def data_sources_list(begin, count, data):
     """
-    List all data_sources.
+    Collection of data sources.
+
+    Requires the `admin` role or being the user specified in the `user`
+    argument.
+
+    :arg user: If set to the URI for a user, restrict the collection to
+        data sources owned by this user.
+    :type user: string
+    :statuscode 200: Respond with a list of :ref:`data source <api_data_sources>`
+        objects as `data_sources`.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        GET /data_sources?user=%2Fusers%2Ffred HTTP/1.1
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 200 OK
+        Content-Type: application/json
+
+        {
+          "data_sources":
+            [
+              {
+                "uri": "/data_sources/23",
+                "user": "/users/fred",
+                "annotations": "/data_sources/23/annotations",
+                "data": "/data_sources/23/data",
+                "name": "1KG chromosome 20 SNPs",
+                "filetype": "vcf",
+                "gzipped": true,
+                "added": "2012-11-23T10:55:12.776706"
+              }
+            ]
+        }
     """
-    return jsonify(data_sources=[serialize(d) for d in DataSource.query])
+    data_sources = DataSource.query.filter_by(**data)
+    return (data_sources.count(),
+            jsonify(data_sources=[serialize(d) for d in
+                                  data_sources.limit(count).offset(begin)]))
 
 
 @api.route('/data_sources/<int:data_source_id>', methods=['GET'])
@@ -596,9 +796,42 @@ def data_sources_list():
 @ensure(has_role('admin'), owns_data_source, satisfy=any)
 def data_sources_get(data_source_id):
     """
-    Get data source.
+    Details for data source.
+
+    Requires the `admin` role or being the owner of the requested data source.
+
+    :statuscode 200: Respond with a :ref:`data source <api_data_sources>`
+        object as `data_source`.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        GET /data_sources/23 HTTP/1.1
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 200 OK
+        Content-Type: application/json
+
+        {
+          "data_source":
+            {
+              "uri": "/data_sources/23",
+              "user": "/users/fred",
+              "annotations": "/data_sources/23/annotations",
+              "data": "/data_sources/23/data",
+              "name": "1KG chromosome 20 SNPs",
+              "filetype": "vcf",
+              "gzipped": true,
+              "added": "2012-11-23T10:55:12.776706"
+            }
+        }
     """
-    return jsonify(data_source=serialize(DataSource.query.get_or_404(data_source_id)))
+    return jsonify(data_source=serialize(DataSource.query.get_or_404(
+                data_source_id)))
 
 
 @api.route('/data_sources/<int:data_source_id>/data', methods=['GET'])
@@ -607,10 +840,30 @@ def data_sources_get(data_source_id):
 def data_sources_data(data_source_id):
     """
     Download data source data.
+
+    Requires the `admin` role or being the owner of the requested data source.
+
+    :statuscode 200: Respond with the data for the data source.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        GET /data_sources/23/data HTTP/1.1
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 200 OK
+        Content-Type: application/x-gzip
+
+        (gzipped data omitted...)
     """
     data_source = DataSource.query.get_or_404(data_source_id)
-    # Todo: Choose mimetype.
-    return send_from_directory(current_app.config['FILES_DIR'], data_source.filename, mimetype='application/x-gzip')
+    return send_from_directory(current_app.config['FILES_DIR'],
+                               data_source.filename,
+                               mimetype='application/x-gzip')
 
 
 @api.route('/data_sources', methods=['POST'])
@@ -622,14 +875,54 @@ def data_sources_data(data_source_id):
 @require_user
 def data_sources_add(data):
     """
-    Upload VCF or BED file.
+    Create a data source.
 
-    .. todo:: It might be better to use the mimetype for filetype here instead
-        of a separate field.
+    The data should be either attached as a HTTP file upload called `data` or
+    specified by the `local_path` argument.
+
+    :arg name: Human readable name.
+    :type name: string
+    :arg filetype: Data filetype.
+    :type filetype: string
+    :arg gzipped: Whether or not data is compressed (default: ``False``).
+    :type gzipped: boolean
+    :arg local_path: A path to the data on the local server file system
+        (optional).
+    :type local_path: string
+    :statuscode 201: Respond with a URI for the created data source as
+        `data_source`.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        POST /data_sources HTTP/1.1
+        Content-Type: application/json
+
+        {
+          "name": "1KG chromosome 20 SNPs",
+          "filetype": "vcf",
+          "gzipped": true,
+          "local_path": "/var/upload/users/fred/1kg_snp_chr20.vcf.gz"
+        }
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 201 CREATED
+        Location: https://example.com/data_sources/23
+        Content-Type: application/json
+
+        {
+          "data_source": "/data_sources/23"
+        }
     """
     # Todo: If files['data'] is missing (or non-existent file?), we crash with
     #     a data_source_not_cached error.
     # Todo: Sandbox local_path.
+    # Todo: Option to upload the actual data later at the /data_source/XX/data
+    #     endpoint, symmetrical to the GET request.
     data_source = DataSource(g.user,
                              data['name'],
                              data['filetype'],
@@ -646,21 +939,92 @@ def data_sources_add(data):
 
 
 @api.route('/data_sources/<int:data_source_id>/annotations', methods=['GET'])
+@collection
 @require_user
 @ensure(has_role('admin'), owns_data_source, satisfy=any)
-def annotations_list(data_source_id):
+def annotations_list(begin, count, data_source_id):
     """
-    Get annotated versions of a data source.
+    Collection of annotations for a data source.
+
+    Requires the `admin` role or being the owner of the data source.
+
+    :statuscode 200: Respond with a list of :ref:`annotation <api_annotations>`
+        objects as `annotations`.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        GET /data_sources/23/annotations HTTP/1.1
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 200 OK
+        Content-Type: application/json
+
+        {
+          "annotations":
+            [
+              {
+                "uri": "/data_sources/23/annotations/2",
+                "original_data_source": "/data_sources/23",
+                "annotated_data_source": "/data_sources/57"
+              },
+              {
+                "uri": "/data_sources/23/annotations/3",
+                "original_data_source": "/data_sources/23",
+                "annotated_data_source": "/data_sources/58"
+              },
+              {
+                "uri": "/data_sources/23/annotations/4",
+                "original_data_source": "/data_sources/23",
+                "annotated_data_source": "/data_sources/59"
+              }
+            ]
+        }
     """
-    return jsonify(annotations=[serialize(a) for a in DataSource.query.get_or_404(data_source_id).annotations])
+    annotations = DataSource.query.get_or_404(data_source_id).annotations
+    return (annotations.count(),
+            jsonify(annotations=[serialize(a) for a in
+                                 annotations.limit(count).offset(begin)]))
 
 
-@api.route('/data_sources/<int:data_source_id>/annotations/<int:annotation_id>', methods=['GET'])
+@api.route('/data_sources/<int:data_source_id>/annotations/<int:annotation_id>',
+           methods=['GET'])
 @require_user
 @ensure(has_role('admin'), owns_data_source, satisfy=any)
 def annotations_get(data_source_id, annotation_id):
     """
-    Get annotated version of a data source.
+    Details for annotation.
+
+    Requires the `admin` role or being the owner of the data source.
+
+    :statuscode 200: Respond with an :ref:`annotation <api_annotations>`
+        object as `annotation`.
+
+    Example request:
+
+    .. sourcecode:: http
+
+        GET /data_sources/23/annotations/2 HTTP/1.1
+
+    Example response:
+
+    .. sourcecode:: http
+
+        HTTP/1.1 200 OK
+        Content-Type: application/json
+
+        {
+          "annotation":
+            {
+              "uri": "/data_sources/23/annotations/2",
+              "original_data_source": "/data_sources/23",
+              "annotated_data_source": "/data_sources/57"
+            }
+        }
     """
     annotation = Annotation.query.get_or_404(annotation_id)
     if not annotation.written:
@@ -674,6 +1038,8 @@ def annotations_get(data_source_id, annotation_id):
 def annotations_write_status(data_source_id, annotation_id):
     """
     Get annotation write status.
+
+    .. todo: Documentation.
     """
     annotation = Annotation.query.get_or_404(annotation_id)
     percentage = None
@@ -682,12 +1048,12 @@ def annotations_write_status(data_source_id, annotation_id):
     #     no annotation.write_task_uuid?
 
     if annotation.write_task_uuid:
-        result = write_annotation.AsyncResult(annotation.write_task_uuid)
+        result = tasks.write_annotation.AsyncResult(annotation.write_task_uuid)
         try:
             # This re-raises a possible TaskError, handled by error_task_error
             # above.
             result.get(timeout=3)
-        except TimeoutError:
+        except celery.exceptions.TimeoutError:
             pass
         if result.state == 'PROGRESS':
             percentage = result.info['percentage']
@@ -711,9 +1077,9 @@ def annotations_add(data, data_source_id):
     """
     Annotate a data source.
 
-    .. todo:: Support other formats than VCF (and check that this is not e.g. a
-        BED data source, which of course cannot be annotated).
+    .. todo: Documentation.
     """
+    # Todo: Check if data source is a VCF file.
     # Todo: The `include_samples` might be better structured as a list of
     #     objects, e.g. ``[{label: GoNL, sample: ...}, {label: 1KG, sample: ...}]``.
     # The `satisfy` keyword argument used here in the `ensure` decorator means
@@ -762,10 +1128,10 @@ def annotations_add(data, data_source_id):
     current_app.logger.info('Added data source: %r', annotated_data_source)
     current_app.logger.info('Added annotation: %r', annotation)
 
-    result = write_annotation.delay(annotation.id,
-                                    global_frequencies=data.get('global_frequencies', False),
-                                    exclude_sample_ids=[sample.id for sample in exclude_samples],
-                                    include_sample_ids={label: sample.id for label, sample in include_samples.items()})
+    result = tasks.write_annotation.delay(annotation.id,
+                                          global_frequencies=data.get('global_frequencies', False),
+                                          exclude_sample_ids=[sample.id for sample in exclude_samples],
+                                          include_sample_ids={label: sample.id for label, sample in include_samples.items()})
     current_app.logger.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
     uri = url_for('.annotations_write_status', data_source_id=original_data_source.id, annotation_id=annotation.id)
     response = jsonify(annotation_write_status=uri)
@@ -777,24 +1143,19 @@ def annotations_add(data, data_source_id):
 @require_user
 @ensure(has_role('admin'), has_role('annotator'), satisfy=any)
 def check_variant():
-    """
-    Check a variant.
-
-    .. todo:: Make this a GET request?
-
-    We also want to check frequencies. For example::
-
-        SELECT COUNT(*) FROM Observation, Sample
-        WHERE Observation.sampleId = Sample.id
-        AND Observation.variantId = %i
-        AND Sample.id > 100
-        AND Sample.id NOT IN (%s)
-
-    will be something like::
-
-        Observation.query.join(Sample).filter(Observation.variant_id == 1).\\
-                                       filter(Sample.id == 1).count()
-    """
+# Todo: Make this a GET request?
+# We also want to check frequencies. For example::
+#
+#   SELECT COUNT(*) FROM Observation, Sample
+#     WHERE Observation.sampleId = Sample.id
+#     AND Observation.variantId = %i
+#     AND Sample.id > 100
+#     AND Sample.id NOT IN (%s)
+#
+# will be something like::
+#
+#   Observation.query.join(Sample).filter(Observation.variant_id == 1).
+#                                       filter(Sample.id == 1).count()
     data = request.json or request.form
     try:
         # Todo: use normalize_chromosome from tasks.py.

@@ -79,8 +79,8 @@ def serialize_data_source(instance):
     * **data** (`string`) - URI for the data.
     * **name** (`string`) - Human readable name.
     * **filetype** (`string`) - Data filetype.
-    * **gzipped** (`bool`) - Whether data is compressed.
-    * **added** (`string`) - Date this data source was added in ISO todo.
+    * **gzipped** (`boolean`) - Whether or not data is compressed.
+    * **added** (`string`) - Date this data source was added.
 
     Example representation:
 
@@ -184,7 +184,8 @@ def serialize_sample(instance):
     * **variations** (`string`) - URI for the :ref:`sets of observations <api_variations>`.
     * **coverages** (`string`) - URI for the :ref:`sets of regions <api_coverages>`.
     * **name** (`string`) - Human readable name.
-    * **pool_size** (`string`) - Number of individuals.
+    * **pool_size** (`integer`) - Number of individuals.
+    * **public** (`boolean`) - Whether or not this sample is public.
     * **added** (`string`) - Date and time this sample was added.
 
     Example representation:
@@ -198,6 +199,7 @@ def serialize_sample(instance):
           "coverages": "/samples/3/coverages",
           "name": "1KG phase 1 release",
           "pool_size": 1092,
+          "public": true,
           "added": "2012-11-23T10:55:12.776706"
         }
     """
@@ -207,6 +209,7 @@ def serialize_sample(instance):
             'coverages':          url_for('.coverages_list', sample_id=instance.id),
             'name':               instance.name,
             'pool_size':          instance.pool_size,
+            'public':             instance.public,
             'added':              str(instance.added.isoformat())}
 
 
