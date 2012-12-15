@@ -236,7 +236,8 @@ def read_observations(observations, filetype='vcf'):
             # Todo: This check can break if index > 9.
             try:
                 support = sum(1 for sample in record.samples
-                              if str(index + 1) in sample['GT'])
+                              if sample['GT'] is not None
+                              and str(index + 1) in sample['GT'])
             except AttributeError:
                 support = 1
 
