@@ -742,7 +742,7 @@ def coverages_add(data, sample_id):
 @collection
 @data(user={'type': 'user'})
 @require_user
-@ensure(has_role('admin'), data_is_user('user'))
+@ensure(has_role('admin'), data_is_user('user'), satisfy=any)
 def data_sources_list(begin, count, data):
     """
     Collection of data sources.
