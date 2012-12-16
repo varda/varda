@@ -97,19 +97,19 @@ class ApiValidator(Validator):
         if isinstance(value, basestring):
             self.document[field] = user_by_uri(current_app, value)
         if not isinstance(self.document[field], User):
-            self.error(ERROR_BAD_TYPE % (field, 'user'))
+            self._error(ERROR_BAD_TYPE % (field, 'user'))
 
     def _validate_type_sample(self, field, value):
         if isinstance(value, basestring):
             self.document[field] = sample_by_uri(current_app, value)
         if not isinstance(self.document[field], Sample):
-            self.error(ERROR_BAD_TYPE % (field, 'sample'))
+            self._error(ERROR_BAD_TYPE % (field, 'sample'))
 
     def _validate_type_data_source(self, field, value):
         if isinstance(value, basestring):
             self.document[field] = data_source_by_uri(current_app, value)
         if not isinstance(self.document[field], DataSource):
-            self.error(ERROR_BAD_TYPE % (field, 'data_source'))
+            self._error(ERROR_BAD_TYPE % (field, 'data_source'))
 
 
 def data(**schema):
