@@ -114,7 +114,10 @@ def serialize_variation(instance):
     fields:
 
     * **uri** (`string`) - URI for this set of observations.
+    * **sample** (`string`) - URI for the :ref:`sample <api_sample>`.
     * **data_source** (`string`) - URI for the :ref:`data source <api_data_sources>`.
+    * **imported** (`boolean`) - Whether or not this set of observations is
+        imported.
 
     Example representation:
 
@@ -122,11 +125,15 @@ def serialize_variation(instance):
 
         {
           "uri": "/samples/3/variations/17",
-          "data_source": "/data_sources/23"
+          "sample": "/samples/3",
+          "data_source": "/data_sources/23",
+          "imported": true
         }
     """
     return {'uri':         url_for('.variations_get', sample_id=instance.sample_id, variation_id=instance.id),
-            'data_source': url_for('.data_sources_get', data_source_id=instance.data_source_id)}
+            'sample':      url_for('.samples_get', sample_id=instance.sample_id),
+            'data_source': url_for('.data_sources_get', data_source_id=instance.data_source_id),
+            'imported':    instance.imported}
 
 
 @serializes(Coverage)

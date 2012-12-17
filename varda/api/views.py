@@ -581,9 +581,12 @@ def variations_list(begin, count, sample_id):
     """
     Collection of sets of observations in a sample.
 
-    .. warning:: Not implemented.
+    .. todo:: Documentation.
     """
-    abort(501)
+    variations = Sample.query.get_or_404(sample_id).variations
+    return (variations.count(),
+            jsonify(variations=[serialize(v) for v in
+                                variations.limit(count).offset(begin)]))
 
 
 @api.route('/samples/<int:sample_id>/variations/<int:variation_id>', methods=['GET'])
