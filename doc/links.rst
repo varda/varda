@@ -26,3 +26,4 @@ Some links to hopefully relevant resources on the web.
 * `Hypermedia APIs - Jon Moore <http://vimeo.com/20781278>`_
 * `Normalized variant representation <https://github.com/chapmanb/bcbio.variation/wiki/Normalized-variant-representation>`_
 * `Correctly use HTTP verbs <http://news.ycombinator.com/item?id=3514668>`_
+* `Thoughts on RESTful API Design <https://restful-api-design.readthedocs.org/en/latest/>`_
