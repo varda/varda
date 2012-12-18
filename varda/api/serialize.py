@@ -156,8 +156,14 @@ def serialize_coverage(instance, expand=None):
           "data_source_uri": "/data_sources/24"
         }
     """
-    return {'uri':             url_for('.coverages_get', sample_id=instance.sample_id, coverage_id=instance.id),
-            'data_source_uri': url_for('.data_sources_get', data_source_id=instance.data_source_id)}
+    expand = expand or []
+    serialization = {'uri':             url_for('.coverages_get', sample_id=instance.sample_id, coverage_id=instance.id),
+                     'sample_uri':      url_for('.samples_get', sample_id=instance.sample_id),
+                     'data_source_uri': url_for('.data_sources_get', data_source_id=instance.data_source_id),
+                     'imported':        instance.imported}
+    if 'data_source' in expand:
+        serialization.update(data_source=serialize(instance.data_source))
+    return serialization
 
 
 @serializes(Annotation)
@@ -267,7 +273,7 @@ def serialize(instance, expand=None):
     .. note:: I don't think this construction of creating serializations is
         especially elegant, but it gets the job done and I really don't want
         any functionality for representations in the models themselves.
-    .. todo:: Document `expand` keyword argument.
+    .. todo:: Document `expand` keyword argument (and move to this decorator).
     """
     for model, serializer in _serializers:
         if isinstance(instance, model):

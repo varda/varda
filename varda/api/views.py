@@ -673,9 +673,14 @@ def coverages_list(begin, count, sample_id):
     """
     Collection of sets of regions in a sample.
 
-    .. warning:: Not implemented.
+    .. todo:: Documentation.
     """
-    abort(501)
+    sample = Sample.query.get_or_404(sample_id)
+    coverages = sample.coverages
+    return (coverages.count(),
+            jsonify(sample=serialize(sample),
+                    coverages=[serialize(c, expand=['data_source']) for c in
+                               coverages.limit(count).offset(begin)]))
 
 
 @api.route('/samples/<int:sample_id>/coverages/<int:coverage_id>', methods=['GET'])
