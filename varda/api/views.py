@@ -583,9 +583,11 @@ def variations_list(begin, count, sample_id):
 
     .. todo:: Documentation.
     """
-    variations = Sample.query.get_or_404(sample_id).variations
+    sample = Sample.query.get_or_404(sample_id)
+    variations = sample.variations
     return (variations.count(),
-            jsonify(variations=[serialize(v) for v in
+            jsonify(sample=serialize(sample),
+                    variations=[serialize(v) for v in
                                 variations.limit(count).offset(begin)]))
 
 
