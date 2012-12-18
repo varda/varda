@@ -39,7 +39,7 @@ def serializes(model):
 
 
 @serializes(User)
-def serialize_user(instance):
+def serialize_user(instance, expand=None):
     """
     A user is represented as an object with the following fields:
 
@@ -69,7 +69,7 @@ def serialize_user(instance):
 
 
 @serializes(DataSource)
-def serialize_data_source(instance):
+def serialize_data_source(instance, expand=None):
     """
     A data source is represented as an object with the following fields:
 
@@ -108,7 +108,7 @@ def serialize_data_source(instance):
 
 
 @serializes(Variation)
-def serialize_variation(instance):
+def serialize_variation(instance, expand=None):
     """
     A set of observations is represented as an object with the following
     fields:
@@ -129,14 +129,18 @@ def serialize_variation(instance):
           "imported": true
         }
     """
-    return {'uri':             url_for('.variations_get', sample_id=instance.sample_id, variation_id=instance.id),
-            'sample_uri':      url_for('.samples_get', sample_id=instance.sample_id),
-            'data_source_uri': url_for('.data_sources_get', data_source_id=instance.data_source_id),
-            'imported':        instance.imported}
+    expand = expand or []
+    serialization = {'uri':             url_for('.variations_get', sample_id=instance.sample_id, variation_id=instance.id),
+                     'sample_uri':      url_for('.samples_get', sample_id=instance.sample_id),
+                     'data_source_uri': url_for('.data_sources_get', data_source_id=instance.data_source_id),
+                     'imported':        instance.imported}
+    if 'data_source' in expand:
+        serialization.update(data_source=serialize(instance.data_source))
+    return serialization
 
 
 @serializes(Coverage)
-def serialize_coverage(instance):
+def serialize_coverage(instance, expand=None):
     """
     A set of regions is represented as an object with the following fields:
 
@@ -157,7 +161,7 @@ def serialize_coverage(instance):
 
 
 @serializes(Annotation)
-def serialize_annotation(instance):
+def serialize_annotation(instance, expand=None):
     """
     An annotation is represented as an object with the following fields:
 
@@ -181,7 +185,7 @@ def serialize_annotation(instance):
 
 
 @serializes(Sample)
-def serialize_sample(instance):
+def serialize_sample(instance, expand=None):
     """
     A sample is represented as an object with the following fields:
 
@@ -222,7 +226,7 @@ def serialize_sample(instance):
 @serializes(ActivationFailure)
 @serializes(InvalidDataSource)
 @serializes(TaskError)
-def serialize_exception(instance):
+def serialize_exception(instance, expand=None):
     """
     An error is represented as an object with the following fields:
 
@@ -243,7 +247,7 @@ def serialize_exception(instance):
 
 
 @serializes(ValidationError)
-def serialize_validation_error(instance):
+def serialize_validation_error(instance, expand=None):
     """
     A validation error is represented like other exceptions, but with the
     error code fixed as ``bad_request``.
@@ -252,7 +256,7 @@ def serialize_validation_error(instance):
             'message': instance.message}
 
 
-def serialize(instance):
+def serialize(instance, expand=None):
     """
     Create a RESTfull representation of an object as dictionary.
 
@@ -263,7 +267,8 @@ def serialize(instance):
     .. note:: I don't think this construction of creating serializations is
         especially elegant, but it gets the job done and I really don't want
         any functionality for representations in the models themselves.
+    .. todo:: Document `expand` keyword argument.
     """
     for model, serializer in _serializers:
         if isinstance(instance, model):
-            return serializer(instance)
+            return serializer(instance, expand=expand)

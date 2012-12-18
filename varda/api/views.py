@@ -580,11 +580,13 @@ def variations_list(begin, count, sample_id):
 
     .. todo:: Documentation.
     """
+    # Todo: Perhaps we could add a query string parameter to specify the
+    #     fields that should be expanded: ?expand=data_source,sample
     sample = Sample.query.get_or_404(sample_id)
     variations = sample.variations
     return (variations.count(),
             jsonify(sample=serialize(sample),
-                    variations=[serialize(v) for v in
+                    variations=[serialize(v, expand=['data_source']) for v in
                                 variations.limit(count).offset(begin)]))
 
 
