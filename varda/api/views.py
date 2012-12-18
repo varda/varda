@@ -115,21 +115,18 @@ def apiroot():
       the API might add other values (e.g. ``maintanance``).
     * **version** (`integer`) - API version.
     * **genome** (`list of string`) - Reference genome chromosome names.
-    * **authentication** (`string`) - URI for the :ref:`authentication state <api_misc>`.
-    * **collections** (`object`) - Object with fields:
-
-      - **users** (`string`) - URI for the :ref:`registered users resource <api_users>`.
-      - **samples** (`string`) - URI for the :ref:`samples resource <api_samples>`.
-      - **data_sources** (`string`) - URI for the :ref:`data sources resource <api_data_sources>`.
+    * **authentication_uri** (`string`) - URI for the :ref:`authentication state <api_misc>`.
+    * **users_uri** (`string`) - URI for the :ref:`registered users resource <api_users>`.
+    * **samples_uri** (`string`) - URI for the :ref:`samples resource <api_samples>`.
+    * **data_sources_uri** (`string`) - URI for the :ref:`data sources resource <api_data_sources>`.
     """
-    api = {'status':         'ok',
-           'version':        API_VERSION,
-           'genome':         genome.keys(),
-           'authentication': url_for('.authentication'),
-           'collections': {
-               'users':        url_for('.users_list'),
-               'samples':      url_for('.samples_list'),
-               'data_sources': url_for('.data_sources_list')}}
+    api = {'status':             'ok',
+           'version':            API_VERSION,
+           'genome':             genome.keys(),
+           'authentication_uri': url_for('.authentication'),
+           'users_uri':          url_for('.users_list'),
+           'samples_uri':        url_for('.samples_list'),
+           'data_sources_uri':   url_for('.data_sources_list')}
     return jsonify(api=api)
 
 
@@ -314,7 +311,7 @@ def users_add(data):
         Content-Type: application/json
 
         {
-          "user": "/users/paul"
+          "user_uri": "/users/paul"
         }
     """
     if User.query.filter_by(login=data['login']).first() is not None:
@@ -327,7 +324,7 @@ def users_add(data):
     db.session.commit()
     current_app.logger.info('Added user: %r', user)
     uri = url_for('.users_get', login=user.login)
-    response = jsonify(user=uri)
+    response = jsonify(user_uri=uri)
     response.location = uri
     return response, 201
 
@@ -370,13 +367,13 @@ def samples_list(begin, count, data):
         Content-Type: application/json
 
         {
-          "users":
+          "samples":
             [
               {
                 "uri": "/samples/3",
-                "user": "/users/fred",
-                "variations": "/samples/3/variations",
-                "coverages": "/samples/3/coverages",
+                "user_uri": "/users/fred",
+                "variations_uri": "/samples/3/variations",
+                "coverages_uri": "/samples/3/coverages",
                 "name": "1KG phase 1 release",
                 "pool_size": 1092,
                 "public": true,
@@ -384,9 +381,9 @@ def samples_list(begin, count, data):
               },
               {
                 "uri": "/samples/4",
-                "user": "/users/fred",
-                "variations": "/samples/4/variations",
-                "coverages": "/samples/4/coverages",
+                "user_uri": "/users/fred",
+                "variations_uri": "/samples/4/variations",
+                "coverages_uri": "/samples/4/coverages",
                 "name": "GoNL SNP release 4",
                 "pool_size": 769,
                 "public": true,
@@ -430,9 +427,9 @@ def samples_get(sample_id):
           "sample":
             {
               "uri": "/samples/3",
-              "user": "/users/fred",
-              "variations": "/samples/3/variations",
-              "coverages": "/samples/3/coverages",
+              "user_uri": "/users/fred",
+              "variations_uri": "/samples/3/variations",
+              "coverages_uri": "/samples/3/coverages",
               "name": "1KG phase 1 release",
               "pool_size": 1092,
               "public": true,
@@ -490,7 +487,7 @@ def samples_add(data):
         Content-Type: application/json
 
         {
-          "user": "/samples/3"
+          "sample_uri": "/samples/3"
         }
     """
     sample = Sample(g.user,
@@ -502,7 +499,7 @@ def samples_add(data):
     db.session.commit()
     current_app.logger.info('Added sample: %r', sample)
     uri = url_for('.samples_get', sample_id=sample.id)
-    response = jsonify(sample=uri)
+    response = jsonify(sample_uri=uri)
     response.location = uri
     return response, 201
 
@@ -545,9 +542,9 @@ def samples_update(data, sample_id):
           "sample":
             {
               "uri": "/samples/3",
-              "user": "/users/fred",
-              "variations": "/samples/3/variations",
-              "coverages": "/samples/3/coverages",
+              "user_uri": "/users/fred",
+              "variations_uri": "/samples/3/variations",
+              "coverages_uri": "/samples/3/coverages",
               "name": "1KG phase 1 release",
               "pool_size": 1092,
               "public": true,
@@ -635,7 +632,7 @@ def variations_import_status(sample_id, variation_id):
             percentage = result.info['percentage']
 
     uri = url_for('.variations_get', sample_id=sample_id, variation_id=variation_id)
-    return jsonify(status={'variation': uri, 'ready': variation.imported, 'percentage': percentage})
+    return jsonify(status={'variation_uri': uri, 'ready': variation.imported, 'percentage': percentage})
 
 
 @api.route('/samples/<int:sample_id>/variations', methods=['POST'])
@@ -661,7 +658,7 @@ def variations_add(data, sample_id):
     result = tasks.import_variation.delay(variation.id)
     current_app.logger.info('Called task: import_variation(%d) %s', variation.id, result.task_id)
     uri = url_for('.variations_import_status', sample_id=sample.id, variation_id=variation.id)
-    response = jsonify(variation_import_status=uri)
+    response = jsonify(variation_import_status_uri=uri)
     response.location = uri
     return response, 202
 
@@ -715,7 +712,7 @@ def coverages_import_status(sample_id, coverage_id):
             percentage = result.info['percentage']
 
     uri = url_for('.coverages_get', sample_id=sample_id, coverage_id=coverage_id)
-    return jsonify(status={'coverage': uri, 'ready': coverage.imported, 'percentage': percentage})
+    return jsonify(status={'coverage_uri': uri, 'ready': coverage.imported, 'percentage': percentage})
 
 
 @api.route('/samples/<int:sample_id>/coverages', methods=['POST'])
@@ -738,7 +735,7 @@ def coverages_add(data, sample_id):
     result = tasks.import_coverage.delay(coverage.id)
     current_app.logger.info('Called task: import_coverage(%d) %s', coverage.id, result.task_id)
     uri = url_for('.coverages_import_status', sample_id=sample.id, coverage_id=coverage.id)
-    response = jsonify(coverage_import_status=uri)
+    response = jsonify(coverage_import_status_uri=uri)
     response.location = uri
     return response, 202
 
@@ -779,9 +776,9 @@ def data_sources_list(begin, count, data):
             [
               {
                 "uri": "/data_sources/23",
-                "user": "/users/fred",
-                "annotations": "/data_sources/23/annotations",
-                "data": "/data_sources/23/data",
+                "user_uri": "/users/fred",
+                "annotations_uri": "/data_sources/23/annotations",
+                "data_uri": "/data_sources/23/data",
                 "name": "1KG chromosome 20 SNPs",
                 "filetype": "vcf",
                 "gzipped": true,
@@ -825,9 +822,9 @@ def data_sources_get(data_source_id):
           "data_source":
             {
               "uri": "/data_sources/23",
-              "user": "/users/fred",
-              "annotations": "/data_sources/23/annotations",
-              "data": "/data_sources/23/data",
+              "user_uri": "/users/fred",
+              "annotations_uri": "/data_sources/23/annotations",
+              "data_uri": "/data_sources/23/data",
               "name": "1KG chromosome 20 SNPs",
               "filetype": "vcf",
               "gzipped": true,
@@ -920,7 +917,7 @@ def data_sources_add(data):
         Content-Type: application/json
 
         {
-          "data_source": "/data_sources/23"
+          "data_source_uri": "/data_sources/23"
         }
     """
     # Todo: If files['data'] is missing (or non-existent file?), we crash with
@@ -938,7 +935,7 @@ def data_sources_add(data):
     db.session.commit()
     current_app.logger.info('Added data source: %r', data_source)
     uri = url_for('.data_sources_get', data_source_id=data_source.id)
-    response = jsonify(data_source=uri)
+    response = jsonify(data_source_uri=uri)
     response.location = uri
     return response, 201
 
@@ -974,18 +971,18 @@ def annotations_list(begin, count, data_source_id):
             [
               {
                 "uri": "/data_sources/23/annotations/2",
-                "original_data_source": "/data_sources/23",
-                "annotated_data_source": "/data_sources/57"
+                "original_data_source_uri": "/data_sources/23",
+                "annotated_data_source_uri": "/data_sources/57"
               },
               {
                 "uri": "/data_sources/23/annotations/3",
-                "original_data_source": "/data_sources/23",
-                "annotated_data_source": "/data_sources/58"
+                "original_data_source_uri": "/data_sources/23",
+                "annotated_data_source_uri": "/data_sources/58"
               },
               {
                 "uri": "/data_sources/23/annotations/4",
-                "original_data_source": "/data_sources/23",
-                "annotated_data_source": "/data_sources/59"
+                "original_data_source_uri": "/data_sources/23",
+                "annotated_data_source_uri": "/data_sources/59"
               }
             ]
         }
@@ -1026,8 +1023,8 @@ def annotations_get(data_source_id, annotation_id):
           "annotation":
             {
               "uri": "/data_sources/23/annotations/2",
-              "original_data_source": "/data_sources/23",
-              "annotated_data_source": "/data_sources/57"
+              "original_data_source_uri": "/data_sources/23",
+              "annotated_data_source_uri": "/data_sources/57"
             }
         }
     """
@@ -1064,7 +1061,7 @@ def annotations_write_status(data_source_id, annotation_id):
             percentage = result.info['percentage']
 
     uri = url_for('.annotations_get', data_source_id=data_source_id, annotation_id=annotation_id)
-    return jsonify(status={'annotation': uri, 'ready': annotation.written, 'percentage': percentage})
+    return jsonify(status={'annotation_uri': uri, 'ready': annotation.written, 'percentage': percentage})
 
 
 @api.route('/data_sources/<int:data_source_id>/annotations', methods=['POST'])
@@ -1139,7 +1136,7 @@ def annotations_add(data, data_source_id):
                                           include_sample_ids={label: sample.id for label, sample in include_samples.items()})
     current_app.logger.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
     uri = url_for('.annotations_write_status', data_source_id=original_data_source.id, annotation_id=annotation.id)
-    response = jsonify(annotation_write_status=uri)
+    response = jsonify(annotation_write_status_uri=uri)
     response.location = uri
     return response, 202
 
