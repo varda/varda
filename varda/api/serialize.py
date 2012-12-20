@@ -274,6 +274,7 @@ def serialize(instance, expand=None):
         especially elegant, but it gets the job done and I really don't want
         any functionality for representations in the models themselves.
     .. todo:: Document `expand` keyword argument (and move to this decorator).
+    .. todo:: Perhaps use `embed` instead of `expand`.
     """
     for model, serializer in _serializers:
         if isinstance(instance, model):
