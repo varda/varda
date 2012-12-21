@@ -12,6 +12,13 @@ varda.api
    :members:
 
 
+varda.api.data
+^^^^^^^^^^^^^^
+
+.. automodule:: varda.api.data
+   :members:
+
+
 varda.api.errors
 ^^^^^^^^^^^^^^^^
 
@@ -19,10 +26,10 @@ varda.api.errors
    :members:
 
 
-varda.api.permissions
-^^^^^^^^^^^^^^^^^^^^^
+varda.api.security
+^^^^^^^^^^^^^^^^^^
 
-.. automodule:: varda.api.permissions
+.. automodule:: varda.api.security
    :members:
 
 
