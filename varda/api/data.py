@@ -29,6 +29,12 @@ from .utils import data_source_by_uri, sample_by_uri, user_by_uri
 #     longer need the ugly `current_app`. Unfortunately, that's not so easy
 #     since `Validator` methods instantiate new objects which would miss the
 #     argument.
+# Todo: Instead of the light-weight Cerberus, I'm tempted to use the
+#     `Colander <https://github.com/Pylons/colander>` library. My main problem
+#     with it is that schema definitions are very verbose, not suitable as
+#     arguments in our @data decorator. Some wrapper code generating Colander
+#     schemas would be possible though.
+#     See https://github.com/ccnmtl/mvsim/blob/master/main/models.py
 class ApiValidator(Validator):
     # Todo: Try to get this in upstream Cerberus.
     def _validate_allowed(self, allowed_values, field, value):
