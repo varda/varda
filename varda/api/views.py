@@ -20,10 +20,11 @@ from ..models import (Annotation, Coverage, DataSource, DATA_SOURCE_FILETYPES,
                       InvalidDataSource, Observation, Sample, User,
                       USER_ROLES, Variation)
 from .. import tasks
-from .data import data, data_is_true, data_is_user
+from .data import data
 from .errors import ActivationFailure, ValidationError
-from .security import (ensure, has_login, has_role, owns_data_source,
-                       owns_sample, require_user)
+from .security import (ensure, is_user, has_role, owns_annotation,
+                       owns_coverage, owns_data_source, owns_sample,
+                       owns_variation, true, require_user)
 from .serialize import serialize
 from .utils import collection, user_by_login
 
@@ -115,10 +116,12 @@ def apiroot():
       the API might add other values (e.g. ``maintanance``).
     * **version** (`integer`) - API version.
     * **genome** (`list of string`) - Reference genome chromosome names.
-    * **authentication_uri** (`string`) - URI for the :ref:`authentication state <api_misc>`.
+    * **authentication_uri** (`string`) - URI for the :ref:`authentication
+      state <api_misc>`.
     * **users_uri** (`string`) - URI for the :ref:`registered users resource <api_users>`.
     * **samples_uri** (`string`) - URI for the :ref:`samples resource <api_samples>`.
-    * **data_sources_uri** (`string`) - URI for the :ref:`data sources resource <api_data_sources>`.
+    * **data_sources_uri** (`string`) - URI for the :ref:`data sources
+      resource <api_data_sources>`.
     """
     api = {'status':             'ok',
            'version':            API_VERSION,
@@ -126,8 +129,11 @@ def apiroot():
            'authentication_uri': url_for('.authentication'),
            'users_uri':          url_for('.users_list'),
            'samples_uri':        url_for('.samples_list'),
-           'data_sources_uri':   url_for('.data_sources_list')}
-    return jsonify(api=api)
+           'variations_uri':     url_for('.variations_list'),
+           'coverages_uri':      url_for('.coverages_list'),
+           'data_sources_uri':   url_for('.data_sources_list'),
+           'annotations_uri':    url_for('.annotations_list')}
+    return jsonify(api)
 
 
 @api.route('/authentication')
@@ -155,7 +161,7 @@ def authentication():
           "authenticated": true,
           "user":
             {
-              "uri": "/users/fred",
+              "uri": "/users/1",
               "name": "Frederick Sanger",
               "login": "fred",
               "roles": ["admin"],
@@ -166,13 +172,13 @@ def authentication():
     authentication = {'authenticated': False}
     if g.user is not None:
         authentication.update(authenticated=True, user=serialize(g.user))
-    return jsonify(authentication=authentication)
+    return jsonify(authentication)
 
 
 @api.route('/users', methods=['GET'])
-@collection
 @require_user
 @ensure(has_role('admin'))
+@collection
 def users_list(begin, count):
     """
     Collection of registered users.
@@ -201,14 +207,14 @@ def users_list(begin, count):
           "users":
             [
               {
-                "uri": "/users/fred",
+                "uri": "/users/1",
                 "name": "Frederick Sanger",
                 "login": "fred",
                 "roles": ["admin"],
                 "added": "2012-11-23T10:55:12.776706"
               },
               {
-                "uri": "/users/walter",
+                "uri": "/users/2",
                 "name": "Walter Gilbert",
                 "login": "walter",
                 "roles": ["importer", "annotator"],
@@ -223,12 +229,13 @@ def users_list(begin, count):
                            users.limit(count).offset(begin)]))
 
 
-@api.route('/users/<login>', methods=['GET'])
+@api.route('/users/<int:user>', methods=['GET'])
+@data(user={'type': 'user'})
 @require_user
-@ensure(has_role('admin'), has_login, satisfy=any)
-def users_get(login):
+@ensure(has_role('admin'), is_user, satisfy=any)
+def users_get(user):
     """
-    Details for user identified by `login`.
+    Details for user.
 
     Requires the `admin` role or being the requested user.
 
@@ -250,7 +257,7 @@ def users_get(login):
         {
           "user":
             {
-              "uri": "/users/fred",
+              "uri": "/users/1",
               "name": "Frederick Sanger",
               "login": "fred",
               "roles": ["admin"],
@@ -258,9 +265,6 @@ def users_get(login):
             }
         }
     """
-    user = User.query.filter_by(login=login).first()
-    if user is None:
-        abort(404)
     return jsonify(user=serialize(user))
 
 
@@ -272,7 +276,7 @@ def users_get(login):
       roles={'type': 'list', 'allowed': USER_ROLES})
 @require_user
 @ensure(has_role('admin'))
-def users_add(data):
+def users_add(login, password, name=None, roles=None):
     """
     Create a user.
 
@@ -307,35 +311,33 @@ def users_add(data):
     .. sourcecode:: http
 
         HTTP/1.1 201 CREATED
-        Location: https://example.com/users/fred
+        Location: https://example.com/users/3
         Content-Type: application/json
 
         {
-          "user_uri": "/users/paul"
+          "user_uri": "/users/3"
         }
     """
-    if User.query.filter_by(login=data['login']).first() is not None:
+    name = name or login
+    roles = roles or []
+    if User.query.filter_by(login=login).first() is not None:
         raise ValidationError('User login is not unique')
-    user = User(data.get('name', data['login']),
-                data['login'],
-                data['password'],
-                data.get('roles', []))
+    user = User(name, login, password, roles)
     db.session.add(user)
     db.session.commit()
     current_app.logger.info('Added user: %r', user)
-    uri = url_for('.users_get', login=user.login)
+    uri = url_for('.users_get', user=user.id)
     response = jsonify(user_uri=uri)
     response.location = uri
     return response, 201
 
 
 @api.route('/samples', methods=['GET'])
-@collection
 @data(public={'type': 'boolean'},
       user={'type': 'user'})
-@ensure(has_role('admin'), data_is_true('public'), data_is_user('user'),
-        satisfy=any)
-def samples_list(begin, count, data):
+@ensure(has_role('admin'), is_user, true('public'), satisfy=any)
+@collection
+def samples_list(begin, count, **filter):
     """
     Collection of samples.
 
@@ -371,7 +373,7 @@ def samples_list(begin, count, data):
             [
               {
                 "uri": "/samples/3",
-                "user_uri": "/users/fred",
+                "user_uri": "/users/1",
                 "variations_uri": "/samples/3/variations",
                 "coverages_uri": "/samples/3/coverages",
                 "name": "1KG phase 1 release",
@@ -381,7 +383,7 @@ def samples_list(begin, count, data):
               },
               {
                 "uri": "/samples/4",
-                "user_uri": "/users/fred",
+                "user_uri": "/users/1",
                 "variations_uri": "/samples/4/variations",
                 "coverages_uri": "/samples/4/coverages",
                 "name": "GoNL SNP release 4",
@@ -392,16 +394,19 @@ def samples_list(begin, count, data):
             ]
         }
     """
-    samples = Sample.query.filter_by(**data)
+    samples = Sample.query
+    if filter:
+        samples = samples.filter_by(**filter)
     return (samples.count(),
             jsonify(samples=[serialize(s) for s in
                              samples.limit(count).offset(begin)]))
 
 
-@api.route('/samples/<int:sample_id>', methods=['GET'])
+@api.route('/samples/<int:sample>', methods=['GET'])
+@data(sample={'type': 'sample'})
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-def samples_get(sample_id):
+def samples_get(sample):
     """
     Details for sample.
 
@@ -427,7 +432,7 @@ def samples_get(sample_id):
           "sample":
             {
               "uri": "/samples/3",
-              "user_uri": "/users/fred",
+              "user_uri": "/users/1",
               "variations_uri": "/samples/3/variations",
               "coverages_uri": "/samples/3/coverages",
               "name": "1KG phase 1 release",
@@ -437,7 +442,7 @@ def samples_get(sample_id):
             }
         }
     """
-    return jsonify(sample=serialize(Sample.query.get_or_404(sample_id)))
+    return jsonify(sample=serialize(sample))
 
 
 @api.route('/samples', methods=['POST'])
@@ -447,7 +452,7 @@ def samples_get(sample_id):
       public={'type': 'boolean'})
 @require_user
 @ensure(has_role('admin'), has_role('importer'), satisfy=any)
-def samples_add(data):
+def samples_add(name, pool_size=1, coverage_profile=True, public=False):
     """
     Create a sample.
 
@@ -490,25 +495,23 @@ def samples_add(data):
           "sample_uri": "/samples/3"
         }
     """
-    sample = Sample(g.user,
-                    data['name'],
-                    pool_size=data.get('pool_size', 1),
-                    coverage_profile=data.get('coverage_profile', True),
-                    public=data.get('public', False))
+    sample = Sample(g.user, name, pool_size=pool_size,
+                    coverage_profile=coverage_profile, public=public)
     db.session.add(sample)
     db.session.commit()
     current_app.logger.info('Added sample: %r', sample)
-    uri = url_for('.samples_get', sample_id=sample.id)
+    uri = url_for('.samples_get', sample=sample.id)
     response = jsonify(sample_uri=uri)
     response.location = uri
     return response, 201
 
 
-@api.route('/samples/<int:sample_id>', methods=['PATCH'])
-@data(active={'type': 'boolean'})
+@api.route('/samples/<int:sample>', methods=['PATCH'])
+@data(sample={'type': 'sample'},
+      active={'type': 'boolean'})
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-def samples_update(data, sample_id):
+def samples_update(sample, **data):
     """
     Update a sample.
 
@@ -542,7 +545,7 @@ def samples_update(data, sample_id):
           "sample":
             {
               "uri": "/samples/3",
-              "user_uri": "/users/fred",
+              "user_uri": "/users/1",
               "variations_uri": "/samples/3/variations",
               "coverages_uri": "/samples/3/coverages",
               "name": "1KG phase 1 release",
@@ -555,7 +558,6 @@ def samples_update(data, sample_id):
     # Todo: I'm not sure if this is really the pattern we want the API to use
     #     for updating objects. But works for now. Not sure if the 200 status
     #     is the correct one.
-    sample = Sample.query.get_or_404(sample_id)
     for field, value in data.items():
         if field == 'active' and value:
             # Todo: Check if sample is ready to activate, e.g. if there are
@@ -570,11 +572,13 @@ def samples_update(data, sample_id):
     return jsonify(sample=serialize(sample))
 
 
-@api.route('/samples/<int:sample_id>/variations', methods=['GET'])
-@collection
+@api.route('/variations', methods=['GET'])
+@data(sample={'type': 'sample'},
+      embed={'type': 'list', 'allowed': ['data_source', 'sample']})
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-def variations_list(begin, count, sample_id):
+@collection
+def variations_list(begin, count, sample=None, embed=None):
     """
     Collection of sets of observations in a sample.
 
@@ -582,46 +586,36 @@ def variations_list(begin, count, sample_id):
     """
     # Todo: Perhaps we could add a query string parameter to specify the
     #     fields that should be expanded: ?expand=data_source,sample
-    sample = Sample.query.get_or_404(sample_id)
-    variations = sample.variations
+    embed = embed or []
+    variations = Variation.query
+    if sample is not None:
+        variations = variations.filter_by(sample=sample)
     return (variations.count(),
-            jsonify(sample=serialize(sample),
-                    variations=[serialize(v, expand=['data_source']) for v in
+            jsonify(variations=[serialize(v, embed=embed) for v in
                                 variations.limit(count).offset(begin)]))
 
 
-@api.route('/samples/<int:sample_id>/variations/<int:variation_id>', methods=['GET'])
+@api.route('/variations/<int:variation>', methods=['GET'])
+@data(variation={'type': 'variation'},
+      embed={'type': 'list', 'allowed': ['data_source', 'sample']})
 @require_user
-@ensure(has_role('admin'), owns_sample, satisfy=any)
-def variations_get(sample_id, variation_id):
+@ensure(has_role('admin'), owns_variation, satisfy=any)
+def variations_get(variation, embed=None):
     """
-    Set of observations details.
-
-    .. warning:: Not implemented.
-    """
-    abort(501)
-
-
-@api.route('/samples/<int:sample_id>/variations/<int:variation_id>/import_status', methods=['GET'])
-@require_user
-@ensure(has_role('admin'), owns_sample, satisfy=any)
-def variations_import_status(sample_id, variation_id):
-    """
-    Get set of observations import status.
+    Set of observations details and import status.
 
     .. todo:: Documentation.
     """
-    # Todo: Merge this with the `variations_get` endpoint.
     # Todo: We might want to handle the special (error) case where .imported
     #     is False but no .import_task_uuid is set, or the task with that uuid
     #     is not running. Instead of ready=True/False maybe this needs a
     #     status=pending/importing/ready and if it is pending a way to restart
     #     the import (it is now automatically imported when the Variation
     #     instance is created at .variations_add).
-    variation = Variation.query.get_or_404(variation_id)
-    percentage = None
+    embed = embed or []
+    progress = None
 
-    if variation.import_task_uuid:
+    if not variation.imported and variation.import_task_uuid:
         result = tasks.import_variation.AsyncResult(variation.import_task_uuid)
         try:
             # This re-raises a possible TaskError, handled by error_task_error
@@ -631,17 +625,17 @@ def variations_import_status(sample_id, variation_id):
         except celery.exceptions.TimeoutError:
             pass
         if result.state == 'PROGRESS':
-            percentage = result.info['percentage']
+            progress = result.info['percentage']
 
-    uri = url_for('.variations_get', sample_id=sample_id, variation_id=variation_id)
-    return jsonify(status={'variation_uri': uri, 'ready': variation.imported, 'percentage': percentage})
+    return jsonify(variation=serialize(variation, embed=embed), progress=progress)
 
 
-@api.route('/samples/<int:sample_id>/variations', methods=['POST'])
-@data(data_source={'type': 'data_source', 'required': True})
+@api.route('/variations', methods=['POST'])
+@data(sample={'type': 'sample', 'required': True},
+      data_source={'type': 'data_source', 'required': True})
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-def variations_add(data, sample_id):
+def variations_add(sample, data_source):
     """
     Create a set of observations.
 
@@ -652,62 +646,54 @@ def variations_add(data, sample_id):
     # Todo: If import fails, observations are removed by task cleanup, but we
     #     are still left with the variations instance. Not sure how to cleanup
     #     in that case.
-    sample = Sample.query.get_or_404(sample_id)
-    variation = Variation(sample, data['data_source'])
+    variation = Variation(sample, data_source)
     db.session.add(variation)
     db.session.commit()
     current_app.logger.info('Added variation: %r', variation)
     result = tasks.import_variation.delay(variation.id)
     current_app.logger.info('Called task: import_variation(%d) %s', variation.id, result.task_id)
-    uri = url_for('.variations_import_status', sample_id=sample.id, variation_id=variation.id)
-    response = jsonify(variation_import_status_uri=uri)
+    uri = url_for('.variations_get', variation=variation.id)
+    response = jsonify(variation_uri=uri)
     response.location = uri
     return response, 202
 
 
-@api.route('/samples/<int:sample_id>/coverages', methods=['GET'])
-@collection
+@api.route('/coverages', methods=['GET'])
+@data(sample={'type': 'sample'},
+      embed={'type': 'list', 'allowed': ['data_source', 'sample']})
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-def coverages_list(begin, count, sample_id):
+@collection
+def coverages_list(begin, count, sample=None, embed=None):
     """
     Collection of sets of regions in a sample.
 
     .. todo:: Documentation.
     """
-    sample = Sample.query.get_or_404(sample_id)
-    coverages = sample.coverages
+    embed = embed or []
+    coverages = Coverage.query
+    if sample is not None:
+        coverages = coverages.filter_by(sample=sample)
     return (coverages.count(),
-            jsonify(sample=serialize(sample),
-                    coverages=[serialize(c, expand=['data_source']) for c in
+            jsonify(coverages=[serialize(c, embed=embed) for c in
                                coverages.limit(count).offset(begin)]))
 
 
-@api.route('/samples/<int:sample_id>/coverages/<int:coverage_id>', methods=['GET'])
+@api.route('/coverages/<int:coverage>', methods=['GET'])
+@data(coverage={'type': 'coverage'},
+      embed={'type': 'list', 'allowed': ['data_source', 'sample']})
 @require_user
-@ensure(has_role('admin'), owns_sample, satisfy=any)
-def coverages_get(sample_id, coverage_id):
+@ensure(has_role('admin'), owns_coverage, satisfy=any)
+def coverages_get(coverage, embed=None):
     """
-    Set of regions details.
-
-    .. warning:: Not implemented.
-    """
-    abort(501)
-
-
-@api.route('/samples/<int:sample_id>/coverages/<int:coverage_id>/import_status', methods=['GET'])
-@require_user
-@ensure(has_role('admin'), owns_sample, satisfy=any)
-def coverages_import_status(sample_id, coverage_id):
-    """
-    Get set of regions import status.
+    Set of regions details and import status.
 
     .. todo:: Documentation.
     """
-    coverage = Coverage.query.get_or_404(coverage_id)
-    percentage = None
+    embed = embed or []
+    progress = None
 
-    if coverage.import_task_uuid:
+    if not coverage.imported and coverage.import_task_uuid:
         result = tasks.import_coverage.AsyncResult(coverage.import_task_uuid)
         try:
             # This re-raises a possible TaskError, handled by error_task_error
@@ -716,17 +702,17 @@ def coverages_import_status(sample_id, coverage_id):
         except celery.exceptions.TimeoutError:
             pass
         if result.state == 'PROGRESS':
-            percentage = result.info['percentage']
+            progress = result.info['percentage']
 
-    uri = url_for('.coverages_get', sample_id=sample_id, coverage_id=coverage_id)
-    return jsonify(status={'coverage_uri': uri, 'ready': coverage.imported, 'percentage': percentage})
+    return jsonify(coverage=serialize(coverage, embed=embed), progress=progress)
 
 
-@api.route('/samples/<int:sample_id>/coverages', methods=['POST'])
-@data(data_source={'type': 'data_source', 'required': True})
+@api.route('/coverages', methods=['POST'])
+@data(sample={'type': 'sample', 'required': True},
+      data_source={'type': 'data_source', 'required': True})
 @require_user
 @ensure(has_role('admin'), owns_sample, satisfy=any)
-def coverages_add(data, sample_id):
+def coverages_add(sample, data_source):
     """
     Create a set of regions.
 
@@ -734,25 +720,24 @@ def coverages_add(data, sample_id):
     """
     # Todo: Only if sample is not active.
     # Todo: Check for importer role.
-    sample = Sample.query.get_or_404(sample_id)
-    coverage = Coverage(sample, data['data_source'])
+    coverage = Coverage(sample, data_source)
     db.session.add(coverage)
     db.session.commit()
     current_app.logger.info('Added coverage: %r', coverage)
     result = tasks.import_coverage.delay(coverage.id)
     current_app.logger.info('Called task: import_coverage(%d) %s', coverage.id, result.task_id)
-    uri = url_for('.coverages_import_status', sample_id=sample.id, coverage_id=coverage.id)
-    response = jsonify(coverage_import_status_uri=uri)
+    uri = url_for('.coverages_get', coverage=coverage.id)
+    response = jsonify(coverage_uri=uri)
     response.location = uri
     return response, 202
 
 
 @api.route('/data_sources', methods=['GET'])
-@collection
 @data(user={'type': 'user'})
 @require_user
-@ensure(has_role('admin'), data_is_user('user'), satisfy=any)
-def data_sources_list(begin, count, data):
+@ensure(has_role('admin'), is_user, satisfy=any)
+@collection
+def data_sources_list(begin, count, user=None):
     """
     Collection of data sources.
 
@@ -783,7 +768,7 @@ def data_sources_list(begin, count, data):
             [
               {
                 "uri": "/data_sources/23",
-                "user_uri": "/users/fred",
+                "user_uri": "/users/1",
                 "annotations_uri": "/data_sources/23/annotations",
                 "data_uri": "/data_sources/23/data",
                 "name": "1KG chromosome 20 SNPs",
@@ -794,16 +779,19 @@ def data_sources_list(begin, count, data):
             ]
         }
     """
-    data_sources = DataSource.query.filter_by(**data)
+    data_sources = DataSource.query
+    if user is not None:
+        data_sources = data_sources.filter_by(user=user)
     return (data_sources.count(),
             jsonify(data_sources=[serialize(d) for d in
                                   data_sources.limit(count).offset(begin)]))
 
 
-@api.route('/data_sources/<int:data_source_id>', methods=['GET'])
+@api.route('/data_sources/<int:data_source>', methods=['GET'])
+@data(data_source={'type': 'data_source'})
 @require_user
 @ensure(has_role('admin'), owns_data_source, satisfy=any)
-def data_sources_get(data_source_id):
+def data_sources_get(data_source):
     """
     Details for data source.
 
@@ -829,7 +817,7 @@ def data_sources_get(data_source_id):
           "data_source":
             {
               "uri": "/data_sources/23",
-              "user_uri": "/users/fred",
+              "user_uri": "/users/1",
               "annotations_uri": "/data_sources/23/annotations",
               "data_uri": "/data_sources/23/data",
               "name": "1KG chromosome 20 SNPs",
@@ -839,14 +827,14 @@ def data_sources_get(data_source_id):
             }
         }
     """
-    return jsonify(data_source=serialize(DataSource.query.get_or_404(
-                data_source_id)))
+    return jsonify(data_source=serialize(data_source))
 
 
-@api.route('/data_sources/<int:data_source_id>/data', methods=['GET'])
+@api.route('/data_sources/<int:data_source>/data', methods=['GET'])
+@data(data_source={'type': 'data_source'})
 @require_user
 @ensure(has_role('admin'), owns_data_source, satisfy=any)
-def data_sources_data(data_source_id):
+def data_sources_data(data_source):
     """
     Download data source data.
 
@@ -869,7 +857,6 @@ def data_sources_data(data_source_id):
 
         (gzipped data omitted...)
     """
-    data_source = DataSource.query.get_or_404(data_source_id)
     return send_from_directory(current_app.config['FILES_DIR'],
                                data_source.filename,
                                mimetype='application/x-gzip')
@@ -882,7 +869,7 @@ def data_sources_data(data_source_id):
       gzipped={'type': 'boolean'},
       local_path={'type': 'string'})
 @require_user
-def data_sources_add(data):
+def data_sources_add(name, filetype, gzipped=False, local_path=None):
     """
     Create a data source.
 
@@ -912,7 +899,7 @@ def data_sources_add(data):
           "name": "1KG chromosome 20 SNPs",
           "filetype": "vcf",
           "gzipped": true,
-          "local_path": "/var/upload/users/fred/1kg_snp_chr20.vcf.gz"
+          "local_path": "/var/upload/users/1/1kg_snp_chr20.vcf.gz"
         }
 
     Example response:
@@ -933,27 +920,28 @@ def data_sources_add(data):
     # Todo: Option to upload the actual data later at the /data_source/XX/data
     #     endpoint, symmetrical to the GET request.
     data_source = DataSource(g.user,
-                             data['name'],
-                             data['filetype'],
+                             name,
+                             filetype,
                              upload=request.files.get('data'),
-                             local_path=data.get('local_path'),
-                             gzipped=data.get('gzipped', False))
+                             local_path=local_path,
+                             gzipped=gzipped)
     db.session.add(data_source)
     db.session.commit()
     current_app.logger.info('Added data source: %r', data_source)
-    uri = url_for('.data_sources_get', data_source_id=data_source.id)
+    uri = url_for('.data_sources_get', data_source=data_source.id)
     response = jsonify(data_source_uri=uri)
     response.location = uri
     return response, 201
 
 
-@api.route('/data_sources/<int:data_source_id>/annotations', methods=['GET'])
-@collection
+@api.route('/annotations', methods=['GET'])
+@data(data_source={'type': 'data_source'})
 @require_user
 @ensure(has_role('admin'), owns_data_source, satisfy=any)
-def annotations_list(begin, count, data_source_id):
+@collection
+def annotations_list(begin, count, data_source=None):
     """
-    Collection of annotations for a data source.
+    Collection of annotations.
 
     Requires the `admin` role or being the owner of the data source.
 
@@ -994,17 +982,19 @@ def annotations_list(begin, count, data_source_id):
             ]
         }
     """
-    annotations = DataSource.query.get_or_404(data_source_id).annotations
+    annotations = Annotation.query
+    if data_source is not None:
+        annotations = annotations.filter_by(data_source=data_source)
     return (annotations.count(),
             jsonify(annotations=[serialize(a) for a in
                                  annotations.limit(count).offset(begin)]))
 
 
-@api.route('/data_sources/<int:data_source_id>/annotations/<int:annotation_id>',
-           methods=['GET'])
+@api.route('/annotations/<int:annotation>', methods=['GET'])
+@data(annotation={'type': 'annotation'})
 @require_user
-@ensure(has_role('admin'), owns_data_source, satisfy=any)
-def annotations_get(data_source_id, annotation_id):
+@ensure(has_role('admin'), owns_annotation, satisfy=any)
+def annotations_get(annotation):
     """
     Details for annotation.
 
@@ -1035,23 +1025,7 @@ def annotations_get(data_source_id, annotation_id):
             }
         }
     """
-    annotation = Annotation.query.get_or_404(annotation_id)
-    if not annotation.written:
-        abort(404)
-    return jsonify(annotation=serialize(annotation))
-
-
-@api.route('/data_sources/<int:data_source_id>/annotations/<int:annotation_id>/write_status', methods=['GET'])
-@require_user
-@ensure(has_role('admin'), owns_data_source, satisfy=any)
-def annotations_write_status(data_source_id, annotation_id):
-    """
-    Get annotation write status.
-
-    .. todo: Documentation.
-    """
-    annotation = Annotation.query.get_or_404(annotation_id)
-    percentage = None
+    progress = None
 
     # Todo: If annotation.written, return immediately. What to do if there's
     #     no annotation.write_task_uuid?
@@ -1065,14 +1039,14 @@ def annotations_write_status(data_source_id, annotation_id):
         except celery.exceptions.TimeoutError:
             pass
         if result.state == 'PROGRESS':
-            percentage = result.info['percentage']
+            progress = result.info['percentage']
 
-    uri = url_for('.annotations_get', data_source_id=data_source_id, annotation_id=annotation_id)
-    return jsonify(status={'annotation_uri': uri, 'ready': annotation.written, 'percentage': percentage})
+    return jsonify(annotation=serialize(annotation), progress=progress)
 
 
-@api.route('/data_sources/<int:data_source_id>/annotations', methods=['POST'])
-@data(global_frequencies={'type': 'boolean'},
+@api.route('/annotations', methods=['POST'])
+@data(data_source={'type': 'data_source', 'required': True},
+      global_frequencies={'type': 'boolean'},
       exclude_samples={'type': 'list', 'schema': {'type': 'sample'}},
       include_samples={'type': 'list',
                        'schema': {'type': 'list',
@@ -1082,7 +1056,8 @@ def annotations_write_status(data_source_id, annotation_id):
 @ensure(has_role('admin'), owns_data_source, has_role('annotator'),
         has_role('trader'),
         satisfy=lambda conditions: next(conditions) or (next(conditions) and any(conditions)))
-def annotations_add(data, data_source_id):
+def annotations_add(data_source, global_frequencies=False,
+                    exclude_samples=None, include_samples=None):
     """
     Annotate a data source.
 
@@ -1096,12 +1071,12 @@ def annotations_add(data, data_source_id):
     # - admin
     # - owns_data_source AND annotator
     # - owns_data_source AND trader
-    exclude_samples = data.get('exclude_samples', [])
+    exclude_samples = exclude_samples or []
 
     # Todo: Perhaps a better name would be `local_frequencies` instead of
     #     `include_sample_ids`, to contrast with the `global_frequencies`
     #     flag.
-    include_samples = dict(data.get('include_samples', []))
+    include_samples = dict(include_samples or [])
 
     if not all(re.match('[0-9A-Z]+', label) for label in include_samples):
         raise ValidationError('Labels for inluded samples must contain only'
@@ -1114,36 +1089,32 @@ def annotations_add(data, data_source_id):
             # Todo: Meaningful error message.
             abort(400)
 
-    original_data_source = DataSource.query.get(data_source_id)
-    if original_data_source is None:
-        abort(400)
-
     if 'admin' not in g.user.roles and 'annotator' not in g.user.roles:
         # This is a trader, so check if the data source has been imported in
         # an active sample.
         # Todo: Anyone should be able to annotate against the public samples.
-        if not original_data_source.variations.join(Sample).filter_by(active=True).count():
+        if not data_source.variations.join(Sample).filter_by(active=True).count():
             raise InvalidDataSource('inactive_data_source', 'Data source '
                 'cannot be annotated unless it is imported in an active sample')
 
     annotated_data_source = DataSource(g.user,
-                                       '%s (annotated)' % original_data_source.name,
-                                       original_data_source.filetype,
+                                       '%s (annotated)' % data_source.name,
+                                       data_source.filetype,
                                        empty=True, gzipped=True)
     db.session.add(annotated_data_source)
-    annotation = Annotation(original_data_source, annotated_data_source)
+    annotation = Annotation(data_source, annotated_data_source)
     db.session.add(annotation)
     db.session.commit()
     current_app.logger.info('Added data source: %r', annotated_data_source)
     current_app.logger.info('Added annotation: %r', annotation)
 
     result = tasks.write_annotation.delay(annotation.id,
-                                          global_frequencies=data.get('global_frequencies', False),
+                                          global_frequencies=global_frequencies,
                                           exclude_sample_ids=[sample.id for sample in exclude_samples],
                                           include_sample_ids={label: sample.id for label, sample in include_samples.items()})
     current_app.logger.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
-    uri = url_for('.annotations_write_status', data_source_id=original_data_source.id, annotation_id=annotation.id)
-    response = jsonify(annotation_write_status_uri=uri)
+    uri = url_for('.annotations_get', annotation=annotation.id)
+    response = jsonify(annotation_uri=uri)
     response.location = uri
     return response, 202
 

@@ -12,7 +12,7 @@ from functools import wraps
 
 from flask import abort, g
 
-from ..models import DataSource, Sample
+from ..models import Coverage, DataSource, Sample, Variation
 
 
 def require_user(rule):
@@ -175,27 +175,79 @@ def has_role(role):
     return condition
 
 
-def owns_sample(sample_id, **_):
+def owns_sample(sample, **_):
     """
-    Condition that is satisfied if the view argument `sample_id` refers to a
-    sample owned by the currently authenticated user.
+    Condition that is satisfied if the view argument `sample` is owned by the
+    currently authenticated user.
     """
-    sample = Sample.query.get(sample_id)
     return sample is not None and sample.user is g.user
 
 
-def owns_data_source(data_source_id, **_):
+def owns_variation(variation, **_):
     """
-    Condition that is satisfied if the view argument `data_source_id` refers
-    to a data source owned by the currently authenticated user.
+    Condition that is satisfied if the view argument `variation_id` is in a
+    sample owned by the currently authenticated user.
     """
-    data_source = DataSource.query.get(data_source_id)
+    try:
+        return variation.sample.user is g.user
+    except AttributeError:
+        return False
+
+
+def owns_coverage(coverage, **_):
+    """
+    Condition that is satisfied if the view argument `coverage` is in a sample
+    owned by the currently authenticated user.
+    """
+    try:
+        return coverage.sample.user is g.user
+    except AttributeError:
+        return False
+
+
+def owns_annotation(annotation, **_):
+    """
+    Condition that is satisfied if the view argument `annotation` is in a
+    data_source owned by the currently authenticated user.
+    """
+    try:
+        return annotation.data_source.user is g.user
+    except AttributeError:
+        return False
+
+
+def owns_data_source(data_source, **_):
+    """
+    Condition that is satisfied if the view argument `data_source` is owned by
+    the currently authenticated user.
+    """
     return data_source is not None and data_source.user is g.user
 
 
-def has_login(login, **_):
+def is_user(user, **_):
     """
-    Condition that is satisfied if the view argument `login` is equal to the
-    login of the currently authenticated user.
+    Condition that is satisfied if the view argument `user` is equal to the
+    currently authenticated user.
     """
-    return g.user is not None and g.user.login == login
+    return g.user is not None and g.user is user
+
+
+def true(field):
+    """
+    Given a data field name, return a function that can be used as a condition
+    argument to the `ensure` decorator.
+
+    Example::
+
+        >>> @app.route('/sample', methods=['GET'])
+        >>> @data(public={'type': 'boolean'})
+        >>> @ensure(true('public'))
+        >>> def samples_list(public=None):
+        ...     assert data.get('public') == True
+
+    The resulting condition returns ``True`` if the specified data field has a
+    true value, ``False`` otherwise.
+    """
+    def condition(**data):
+        return data.get(field)
+    return condition

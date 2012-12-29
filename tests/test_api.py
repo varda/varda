@@ -77,17 +77,32 @@ class TestApi():
     @property
     def uri_users(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['api']['users_uri']
+        return json.loads(r.data)['users_uri']
 
     @property
     def uri_samples(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['api']['samples_uri']
+        return json.loads(r.data)['samples_uri']
+
+    @property
+    def uri_variations(self):
+        r = self.client.get(self.uri_root)
+        return json.loads(r.data)['variations_uri']
+
+    @property
+    def uri_coverages(self):
+        r = self.client.get(self.uri_root)
+        return json.loads(r.data)['coverages_uri']
 
     @property
     def uri_data_sources(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['api']['data_sources_uri']
+        return json.loads(r.data)['data_sources_uri']
+
+    @property
+    def uri_annotations(self):
+        r = self.client.get(self.uri_root)
+        return json.loads(r.data)['annotations_uri']
 
     def test_root(self):
         """
@@ -95,7 +110,7 @@ class TestApi():
         """
         r = self.client.get(self.uri_root)
         assert_equal(r.status_code, 200)
-        assert_equal(json.loads(r.data)['api']['status'], 'ok')
+        assert_equal(json.loads(r.data)['status'], 'ok')
 
     def test_parameter_type(self):
         """
@@ -246,6 +261,44 @@ class TestApi():
         else:
             assert False
 
+    def test_embed(self):
+        """
+        Serialized variation can have data source embedded.
+        """
+        # Create sample
+        data = {'name': 'Test sample',
+                'pool_size': 1}
+        r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
+        assert_equal(r.status_code, 201)
+        sample = json.loads(r.data)['sample_uri']
+
+        # Upload VCF
+        data = {'name': 'Test observations',
+                'filetype': 'vcf',
+                'data': open('tests/data/exome-samtools.vcf')}
+        r = self.client.post(self.uri_data_sources, data=data, headers=[auth_header(login='trader', password='test')])
+        assert_equal(r.status_code, 201)
+        # Todo: Something better than the replace.
+        vcf_data_source = r.headers['Location'].replace('http://localhost', '')
+
+        # Import observations
+        data = {'sample': sample,
+                'data_source': vcf_data_source}
+        r = self.client.post(self.uri_variations, data=data, headers=[auth_header(login='trader', password='test')])
+        assert_equal(r.status_code, 202)
+        variation = json.loads(r.data)['variation_uri']
+
+        # Get variation without data source embedded
+        r = self.client.get(variation, headers=[auth_header(login='trader', password='test')])
+        assert_equal(r.status_code, 200)
+        assert 'data_source' not in json.loads(r.data)['variation']
+
+        # Get variation with data source embedded
+        # Todo: http://stackoverflow.com/questions/4293460/how-to-add-custom-parameters-to-an-url-query-string-with-python
+        r = self.client.get(variation + '?embed=data_source', headers=[auth_header(login='trader', password='test')])
+        assert_equal(r.status_code, 200)
+        assert_equal(json.loads(r.data)['variation']['data_source']['name'], 'Test observations')
+
     def test_trader(self):
         """
         A trader can only annotate after importing and activating.
@@ -266,42 +319,35 @@ class TestApi():
         # Todo: Something better than the replace.
         vcf_data_source = r.headers['Location'].replace('http://localhost', '')
 
-        # Get annotations URI for the observations data source
-        r = self.client.get(vcf_data_source, headers=[auth_header(login='trader', password='test')])
-        assert_equal(r.status_code, 200)
-        annotations = json.loads(r.data)['data_source']['annotations_uri']
-
         # Annotate observations
-        data = {'exclude_samples': [sample]}
-        r = self.client.post(annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
+        data = {'data_source': vcf_data_source,
+                'exclude_samples': [sample]}
+        r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 400)
 
-        # Get variations URI for this sample
-        r = self.client.get(sample, headers=[auth_header(login='trader', password='test')])
-        assert_equal(r.status_code, 200)
-        variations = json.loads(r.data)['sample']['variations_uri']
-
         # Import observations
-        data = {'data_source': vcf_data_source}
-        r = self.client.post(variations, data=data, headers=[auth_header(login='trader', password='test')])
+        data = {'sample': sample,
+                'data_source': vcf_data_source}
+        r = self.client.post(self.uri_variations, data=data, headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 202)
-        variation_import_status = json.loads(r.data)['variation_import_status_uri']
+        variation = json.loads(r.data)['variation_uri']
 
         # Wait for importing
         # Note: Bogus since during testing tasks return synchronously
         for _ in range(5):
-            r = self.client.get(variation_import_status, headers=[auth_header(login='trader', password='test')])
+            r = self.client.get(variation, headers=[auth_header(login='trader', password='test')])
             assert_equal(r.status_code, 200)
-            status = json.loads(r.data)['status']
-            if status['ready']:
+            imported = json.loads(r.data)['variation']['imported']
+            if imported:
                 break
             time.sleep(1)
         else:
             assert False
 
         # Annotate observations
-        data = {'exclude_samples': [sample]}
-        r = self.client.post(annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
+        data = {'data_source': vcf_data_source,
+                'exclude_samples': [sample]}
+        r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 400)
 
         # Activate sample
@@ -310,8 +356,9 @@ class TestApi():
         assert_equal(r.status_code, 200)
 
         # Annotate observations
-        data = {'exclude_samples': [sample]}
-        r = self.client.post(annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
+        data = {'data_source': vcf_data_source,
+                'exclude_samples': [sample]}
+        r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 202)
 
     def _annotate(self, vcf_data_source, exclude=None, include=None):
@@ -321,27 +368,21 @@ class TestApi():
         exclude = exclude or []
         include = include or []
 
-        # Get annotations URI for the observations data source
-        r = self.client.get(vcf_data_source, headers=[auth_header()])
-        assert_equal(r.status_code, 200)
-        annotations = json.loads(r.data)['data_source']['annotations_uri']
-
         # Annotate observations
-        data = {'exclude_samples': exclude,
+        data = {'data_source': vcf_data_source,
+                'exclude_samples': exclude,
                 'include_samples': include}
-        r = self.client.post(annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
+        r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 202)
-        annotation_write_status = json.loads(r.data)['annotation_write_status_uri']
+        annotation = json.loads(r.data)['annotation_uri']
 
         # Wait for writing
         # Note: Bogus since during testing tasks return synchronously
-        annotation = None
         for _ in range(5):
-            r = self.client.get(annotation_write_status, headers=[auth_header()])
+            r = self.client.get(annotation, headers=[auth_header()])
             assert_equal(r.status_code, 200)
-            status = json.loads(r.data)['status']
-            if status['ready']:
-                annotation = status['annotation_uri']
+            written = json.loads(r.data)['annotation']['written']
+            if written:
                 break
             time.sleep(1)
         else:
@@ -386,27 +427,20 @@ class TestApi():
         else:
             bed_data_source = None
 
-        # Get variation and coverage URIs for this sample
-        r = self.client.get(sample, headers=[auth_header()])
-        assert_equal(r.status_code, 200)
-        variations = json.loads(r.data)['sample']['variations_uri']
-        coverages = json.loads(r.data)['sample']['coverages_uri']
-
         # Import observations
-        data = {'data_source': vcf_data_source}
-        r = self.client.post(variations, data=data, headers=[auth_header()])
+        data = {'sample': sample,
+                'data_source': vcf_data_source}
+        r = self.client.post(self.uri_variations, data=data, headers=[auth_header()])
         assert_equal(r.status_code, 202)
-        variation_import_status = json.loads(r.data)['variation_import_status_uri']
+        variation = json.loads(r.data)['variation_uri']
 
         # Wait for importing
         # Note: Bogus since during testing tasks return synchronously
-        variation = None
         for _ in range(5):
-            r = self.client.get(variation_import_status, headers=[auth_header()])
+            r = self.client.get(variation, headers=[auth_header()])
             assert_equal(r.status_code, 200)
-            status = json.loads(r.data)['status']
-            if status['ready']:
-                variation = status['variation_uri']
+            imported = json.loads(r.data)['variation']['imported']
+            if imported:
                 break
             time.sleep(1)
         else:
@@ -414,20 +448,19 @@ class TestApi():
 
         # Import regions
         if bed_data_source:
-            data = {'data_source': bed_data_source}
-            r = self.client.post(coverages, data=data, headers=[auth_header()])
+            data = {'sample': sample,
+                    'data_source': bed_data_source}
+            r = self.client.post(self.uri_coverages, data=data, headers=[auth_header()])
             assert_equal(r.status_code, 202)
-            coverage_import_status = json.loads(r.data)['coverage_import_status_uri']
+            coverage = json.loads(r.data)['coverage_uri']
 
             # Wait for importing
             # Note: Bogus since during testing tasks return synchronously
-            coverate = None
             for _ in range(5):
-                r = self.client.get(coverage_import_status, headers=[auth_header()])
+                r = self.client.get(coverage, headers=[auth_header()])
                 assert_equal(r.status_code, 200)
-                status = json.loads(r.data)['status']
-                if status['ready']:
-                    coverage = status['coverage_uri']
+                imported = json.loads(r.data)['coverage']['imported']
+                if imported:
                     break
                 time.sleep(1)
             else:
@@ -453,11 +486,6 @@ class TestApi():
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample_uri']
 
-        # Get observations URI for this sample
-        r = self.client.get(sample, headers=[auth_header()])
-        assert_equal(r.status_code, 200)
-        observations = json.loads(r.data)['sample']['observations_uri']
-
         # Upload VCF
         data = {'name': 'Some variants',
                 'filetype': 'vcf',
@@ -468,8 +496,9 @@ class TestApi():
         data_source = r.headers['Location'].replace('http://localhost', '')
 
         # Import VCF
-        data = {'data_source': data_source}
-        r = self.client.post(observations, data=data, headers=[auth_header()])
+        data = {'sample': sample,
+                'data_source': data_source}
+        r = self.client.post(self.uri_variations, data=data, headers=[auth_header()])
         assert_equal(r.status_code, 202)
         wait = json.loads(r.data)['wait']
 
