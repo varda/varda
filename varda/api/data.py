@@ -15,9 +15,10 @@ from cerberus import ValidationError as CerberusValidationError, Validator
 from cerberus.errors import ERROR_BAD_TYPE
 from flask import current_app, g, request
 
-from ..models import DataSource, Sample, User
+from ..models import Annotation, Coverage, DataSource, Sample, User, Variation
 from .errors import ValidationError
-from .utils import data_source_by_uri, sample_by_uri, user_by_uri
+from .utils import (annotation_by_uri, coverage_by_uri, data_source_by_uri,
+                    sample_by_uri, user_by_uri, variation_by_uri)
 
 
 # Todo: We currently hacked the Validator class a bit such that some type
@@ -60,7 +61,7 @@ class ApiValidator(Validator):
                     self._error(validator.errors)
                 self.document[field].append(validator.document[field])
         else:
-            super(V, self)._validate_schema(schema, field, value)
+            super(ApiValidator, self)._validate_schema(schema, field, value)
 
     def _validate_items_list(self, schemas, field, values):
         if len(schemas) != len(values):
@@ -81,6 +82,15 @@ class ApiValidator(Validator):
             self._error("value for field '%s' must match the expression '%s'"
                         % (field, expression))
 
+    def _validate_type_list(self, field, value):
+        if isinstance(value, basestring):
+            if value:
+                self.document[field] = value.split(',')
+            else:
+                self.document[field] = []
+        super(ApiValidator, self)._validate_type_list(field,
+                                                      self.document[field])
+
     def _validate_type_integer(self, field, value):
         if isinstance(value, basestring):
             try:
@@ -100,22 +110,52 @@ class ApiValidator(Validator):
                                                          self.document[field])
 
     def _validate_type_user(self, field, value):
-        if isinstance(value, basestring):
+        if isinstance(value, int):
+            self.document[field] = User.query.get(value)
+        elif isinstance(value, basestring):
             self.document[field] = user_by_uri(current_app, value)
         if not isinstance(self.document[field], User):
             self._error(ERROR_BAD_TYPE % (field, 'user'))
 
     def _validate_type_sample(self, field, value):
-        if isinstance(value, basestring):
+        if isinstance(value, int):
+            self.document[field] = Sample.query.get(value)
+        elif isinstance(value, basestring):
             self.document[field] = sample_by_uri(current_app, value)
         if not isinstance(self.document[field], Sample):
             self._error(ERROR_BAD_TYPE % (field, 'sample'))
 
+    def _validate_type_variation(self, field, value):
+        if isinstance(value, int):
+            self.document[field] = Variation.query.get(value)
+        elif isinstance(value, basestring):
+            self.document[field] = variation_by_uri(current_app, value)
+        if not isinstance(self.document[field], Variation):
+            self._error(ERROR_BAD_TYPE % (field, 'variation'))
+
+    def _validate_type_coverage(self, field, value):
+        if isinstance(value, int):
+            self.document[field] = Coverage.query.get(value)
+        elif isinstance(value, basestring):
+            self.document[field] = coverage_by_uri(current_app, value)
+        if not isinstance(self.document[field], Coverage):
+            self._error(ERROR_BAD_TYPE % (field, 'coverage'))
+
     def _validate_type_data_source(self, field, value):
-        if isinstance(value, basestring):
+        if isinstance(value, int):
+            self.document[field] = DataSource.query.get(value)
+        elif isinstance(value, basestring):
             self.document[field] = data_source_by_uri(current_app, value)
         if not isinstance(self.document[field], DataSource):
             self._error(ERROR_BAD_TYPE % (field, 'data_source'))
+
+    def _validate_type_annotation(self, field, value):
+        if isinstance(value, int):
+            self.document[field] = Annotation.query.get(value)
+        elif isinstance(value, basestring):
+            self.document[field] = annotation_by_uri(current_app, value)
+        if not isinstance(self.document[field], Annotation):
+            self._error(ERROR_BAD_TYPE % (field, 'annotation'))
 
 
 def data(**schema):
@@ -146,48 +186,13 @@ def data(**schema):
         def data_rule(*args, **kwargs):
             # Todo: Look into Flask's `request.on_json_loading_failed`.
             data = deepcopy(request.json) or request.values.to_dict()
+            data.update(**kwargs)
             try:
                 if not validator.validate(data):
                     raise ValidationError('Invalid request content: %s'
                                           % '; '.join(validator.errors))
             except CerberusValidationError as e:
                 raise ValidationError('Invalid request content: %s' % str(e))
-            kwargs.update(data=validator.document)
-            return rule(*args, **kwargs)
+            return rule(*args, **validator.document)
         return data_rule
     return data_with_validator
-
-
-def data_is_true(field):
-    """
-    Given a data field name, return a function that can be used as a condition
-    argument to the `ensure` decorator.
-
-    Example::
-
-        >>> @app.route('/sample', methods=['GET'])
-        >>> @data(public={'type': 'boolean'})
-        >>> @ensure(data_is_true('public'))
-        >>> def samples_list(data):
-        ...     assert data.get('public') == True
-
-    The resulting condition returns ``True`` if the specified data field has a
-    true value, ``False`` otherwise.
-    """
-    def condition(data, **_):
-        return data.get(field)
-    return condition
-
-
-def data_is_user(field):
-    """
-    Given a data field name, return a function that can be used as a condition
-    argument to the `ensure` decorator.
-
-    The resulting condition returns ``True`` if the specified data field has
-    as value a user equal to the currently authenticated user, ``False``
-    otherwise.
-    """
-    def condition(data, **_):
-        return g.user is not None and g.user is data.get(field)
-    return condition

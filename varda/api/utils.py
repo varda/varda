@@ -15,7 +15,7 @@ from werkzeug.datastructures import Range
 from werkzeug.exceptions import HTTPException
 from werkzeug.http import parse_range_header
 
-from ..models import DataSource, Sample, User
+from ..models import Annotation, Coverage, DataSource, Sample, User, Variation
 from .errors import ValidationError
 
 
@@ -40,6 +40,7 @@ def collection(rule):
                         jsonify(samples=[serialize(s) for s in
                                          samples.limit(count).offset(begin)]))
     """
+    # Todo: Should we return with status 206?
     @wraps(rule)
     def collection_rule(*args, **kwargs):
         r = parse_range_header(request.headers.get('Range')) \
@@ -76,15 +77,15 @@ def parse_args(app, endpoint, uri):
     return args
 
 
-def data_source_by_uri(app, uri):
+def user_by_uri(app, uri):
     """
-    Get a data source from its URI.
+    Get a user from its URI.
     """
     try:
-        args = parse_args(app, 'api.data_sources_get', uri)
+        args = parse_args(app, 'api.users_get', uri)
     except ValueError:
         return None
-    return DataSource.query.get(args['data_source_id'])
+    return User.query.get(args['user'])
 
 
 def sample_by_uri(app, uri):
@@ -95,18 +96,51 @@ def sample_by_uri(app, uri):
         args = parse_args(app, 'api.samples_get', uri)
     except ValueError:
         return None
-    return Sample.query.get(args['sample_id'])
+    return Sample.query.get(args['sample'])
 
 
-def user_by_uri(app, uri):
+def variation_by_uri(app, uri):
     """
-    Get a user from its URI.
+    Get a variation from its URI.
     """
     try:
-        args = parse_args(app, 'api.users_get', uri)
+        args = parse_args(app, 'api.variations_get', uri)
     except ValueError:
         return None
-    return User.query.filter_by(login=args['login']).first()
+    return Variation.query.get(args['variation'])
+
+
+def coverage_by_uri(app, uri):
+    """
+    Get a coverage from its URI.
+    """
+    try:
+        args = parse_args(app, 'api.coverages_get', uri)
+    except ValueError:
+        return None
+    return Coverage.query.get(args['coverage'])
+
+
+def data_source_by_uri(app, uri):
+    """
+    Get a data source from its URI.
+    """
+    try:
+        args = parse_args(app, 'api.data_sources_get', uri)
+    except ValueError:
+        return None
+    return DataSource.query.get(args['data_source'])
+
+
+def annotation_by_uri(app, uri):
+    """
+    Get an annotation from its URI.
+    """
+    try:
+        args = parse_args(app, 'api.annotation_get', uri)
+    except ValueError:
+        return None
+    return Annotation.query.get(args['annotation'])
 
 
 def user_by_login(login, password):

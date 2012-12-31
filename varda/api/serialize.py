@@ -39,7 +39,7 @@ def serializes(model):
 
 
 @serializes(User)
-def serialize_user(instance, expand=None):
+def serialize_user(instance):
     """
     A user is represented as an object with the following fields:
 
@@ -54,14 +54,14 @@ def serialize_user(instance, expand=None):
     .. sourcecode:: json
 
         {
-          "uri": "/users/fred",
+          "uri": "/users/1",
           "name": "Frederick Sanger",
           "login": "fred",
           "roles": ["admin"],
           "added": "2012-11-23T10:55:12.776706"
         }
     """
-    return {'uri':   url_for('.users_get', login=instance.login),
+    return {'uri':   url_for('.users_get', user=instance.id),
             'name':  instance.name,
             'login': instance.login,
             'roles': list(instance.roles),
@@ -69,14 +69,13 @@ def serialize_user(instance, expand=None):
 
 
 @serializes(DataSource)
-def serialize_data_source(instance, expand=None):
+def serialize_data_source(instance):
     """
     A data source is represented as an object with the following fields:
 
     * **uri** (`string`) - URI for this data source.
-    * **user_uri** (`string`) - URI for the data source :ref:`owner <api_users>`.
-    * **annotations_uri** (`string`) - URI for the data source :ref:`annotations <api_annotations>`.
-    * **data_uri** (`string`) - URI for the data.
+    * **user** (:ref:`user <api_users>`) - Data source owner.
+    * **data** (`object`) - Object with one field: **uri** (`string`) - URI for the data.
     * **name** (`string`) - Human readable name.
     * **filetype** (`string`) - Data filetype.
     * **gzipped** (`boolean`) - Whether or not data is compressed.
@@ -88,8 +87,7 @@ def serialize_data_source(instance, expand=None):
 
         {
           "uri": "/data_sources/23",
-          "user_uri": "/users/fred",
-          "annotations_uri": "/data_sources/23/annotations",
+          "user_uri": "/users/1",
           "data_uri": "/data_sources/23/data",
           "name": "1KG chromosome 20 SNPs",
           "filetype": "vcf",
@@ -97,10 +95,9 @@ def serialize_data_source(instance, expand=None):
           "added": "2012-11-23T10:55:12.776706"
         }
     """
-    return {'uri':             url_for('.data_sources_get', data_source_id=instance.id),
-            'user_uri':        url_for('.users_get', login=instance.user.login),
-            'annotations_uri': url_for('.annotations_list', data_source_id=instance.id),
-            'data_uri':        url_for('.data_sources_data', data_source_id=instance.id),
+    return {'uri':             url_for('.data_sources_get', data_source=instance.id),
+            'user_uri':        url_for('.users_get', user=instance.user.id),
+            'data_uri':        url_for('.data_sources_data', data_source=instance.id),
             'name':            instance.name,
             'filetype':        instance.filetype,
             'gzipped':         instance.gzipped,
@@ -108,7 +105,7 @@ def serialize_data_source(instance, expand=None):
 
 
 @serializes(Variation)
-def serialize_variation(instance, expand=None):
+def serialize_variation(instance):
     """
     A set of observations is represented as an object with the following
     fields:
@@ -129,18 +126,14 @@ def serialize_variation(instance, expand=None):
           "imported": true
         }
     """
-    expand = expand or []
-    serialization = {'uri':             url_for('.variations_get', sample_id=instance.sample_id, variation_id=instance.id),
-                     'sample_uri':      url_for('.samples_get', sample_id=instance.sample_id),
-                     'data_source_uri': url_for('.data_sources_get', data_source_id=instance.data_source_id),
-                     'imported':        instance.imported}
-    if 'data_source' in expand:
-        serialization.update(data_source=serialize(instance.data_source))
-    return serialization
+    return {'uri':             url_for('.variations_get', variation=instance.id),
+            'sample_uri':      url_for('.samples_get', sample=instance.sample_id),
+            'data_source_uri': url_for('.data_sources_get', data_source=instance.data_source_id),
+            'imported':        instance.imported}
 
 
 @serializes(Coverage)
-def serialize_coverage(instance, expand=None):
+def serialize_coverage(instance):
     """
     A set of regions is represented as an object with the following fields:
 
@@ -156,18 +149,14 @@ def serialize_coverage(instance, expand=None):
           "data_source_uri": "/data_sources/24"
         }
     """
-    expand = expand or []
-    serialization = {'uri':             url_for('.coverages_get', sample_id=instance.sample_id, coverage_id=instance.id),
-                     'sample_uri':      url_for('.samples_get', sample_id=instance.sample_id),
-                     'data_source_uri': url_for('.data_sources_get', data_source_id=instance.data_source_id),
-                     'imported':        instance.imported}
-    if 'data_source' in expand:
-        serialization.update(data_source=serialize(instance.data_source))
-    return serialization
+    return {'uri':             url_for('.coverages_get', coverage=instance.id),
+            'sample_uri':      url_for('.samples_get', sample=instance.sample_id),
+            'data_source_uri': url_for('.data_sources_get', data_source=instance.data_source_id),
+            'imported':        instance.imported}
 
 
 @serializes(Annotation)
-def serialize_annotation(instance, expand=None):
+def serialize_annotation(instance):
     """
     An annotation is represented as an object with the following fields:
 
@@ -185,20 +174,19 @@ def serialize_annotation(instance, expand=None):
           "annotated_data_source_uri": "/data_sources/57"
         }
     """
-    return {'uri':                       url_for('.annotations_get', data_source_id=instance.original_data_source_id, annotation_id=instance.id),
-            'original_data_source_uri':  url_for('.data_sources_get', data_source_id=instance.original_data_source_id),
-            'annotated_data_source_uri': url_for('.data_sources_get', data_source_id=instance.annotated_data_source_id)}
+    return {'uri':                       url_for('.annotations_get', annotation=instance.id),
+            'original_data_source_uri':  url_for('.data_sources_get', data_source=instance.original_data_source_id),
+            'annotated_data_source_uri': url_for('.data_sources_get', data_source=instance.annotated_data_source_id),
+            'written':                   instance.written}
 
 
 @serializes(Sample)
-def serialize_sample(instance, expand=None):
+def serialize_sample(instance):
     """
     A sample is represented as an object with the following fields:
 
     * **uri** (`string`) - URI for this sample.
     * **user_uri** (`string`) - URI for the sample :ref:`owner <api_users>`.
-    * **variations_uri** (`string`) - URI for the :ref:`sets of observations <api_variations>`.
-    * **coverages_uri** (`string`) - URI for the :ref:`sets of regions <api_coverages>`.
     * **name** (`string`) - Human readable name.
     * **pool_size** (`integer`) - Number of individuals.
     * **public** (`boolean`) - Whether or not this sample is public.
@@ -210,19 +198,15 @@ def serialize_sample(instance, expand=None):
 
         {
           "uri": "/samples/3",
-          "user_uri": "/users/fred",
-          "variations_uri": "/samples/3/variations",
-          "coverages_uri": "/samples/3/coverages",
+          "user_uri": "/users/1",
           "name": "1KG phase 1 release",
           "pool_size": 1092,
           "public": true,
           "added": "2012-11-23T10:55:12.776706"
         }
     """
-    return {'uri':                    url_for('.samples_get', sample_id=instance.id),
-            'user_uri':               url_for('.users_get', login=instance.user.login),
-            'variations_uri':         url_for('.variations_list', sample_id=instance.id),
-            'coverages_uri':          url_for('.coverages_list', sample_id=instance.id),
+    return {'uri':                    url_for('.samples_get', sample=instance.id),
+            'user_uri':               url_for('.users_get', user=instance.user.id),
             'name':                   instance.name,
             'pool_size':              instance.pool_size,
             'public':                 instance.public,
@@ -232,7 +216,7 @@ def serialize_sample(instance, expand=None):
 @serializes(ActivationFailure)
 @serializes(InvalidDataSource)
 @serializes(TaskError)
-def serialize_exception(instance, expand=None):
+def serialize_exception(instance):
     """
     An error is represented as an object with the following fields:
 
@@ -253,7 +237,7 @@ def serialize_exception(instance, expand=None):
 
 
 @serializes(ValidationError)
-def serialize_validation_error(instance, expand=None):
+def serialize_validation_error(instance):
     """
     A validation error is represented like other exceptions, but with the
     error code fixed as ``bad_request``.
@@ -262,7 +246,7 @@ def serialize_validation_error(instance, expand=None):
             'message': instance.message}
 
 
-def serialize(instance, expand=None):
+def serialize(instance, embed=None):
     """
     Create a RESTfull representation of an object as dictionary.
 
@@ -276,6 +260,10 @@ def serialize(instance, expand=None):
     .. todo:: Document `expand` keyword argument (and move to this decorator).
     .. todo:: Perhaps use `embed` instead of `expand`.
     """
+    embed = embed or []
     for model, serializer in _serializers:
         if isinstance(instance, model):
-            return serializer(instance, expand=expand)
+            serialization = serializer(instance)
+            serialization.update({field: serialize(getattr(instance, field))
+                                  for field in embed})
+            return serialization

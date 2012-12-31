@@ -71,7 +71,7 @@ Sets of observations
 .. autodocstring:: varda.api.serialize.serialize_variation
 
 .. autoflask:: varda:create_app()
-   :endpoints: api.variations_list, api.variations_get, api.variations_import_status, api.samples_add
+   :endpoints: api.variations_list, api.variations_get, api.samples_add
 
 
 .. _api_coverages:
@@ -82,7 +82,7 @@ Sets of regions
 .. autodocstring:: varda.api.serialize.serialize_coverage
 
 .. autoflask:: varda:create_app()
-   :endpoints: api.coverages_list, api.coverages_get, api.coverages_import_status, api.coverages_add
+   :endpoints: api.coverages_list, api.coverages_get, api.coverages_add
 
 
 .. _api_data_sources:
@@ -106,7 +106,7 @@ Annotations
 .. autodocstring:: varda.api.serialize.serialize_annotation
 
 .. autoflask:: varda:create_app()
-   :endpoints: api.annotations_list, api.annotations_get, api.annotations_write_status, api.annotations_add
+   :endpoints: api.annotations_list, api.annotations_get, api.annotations_add
 
 
 .. _api_exceptions:

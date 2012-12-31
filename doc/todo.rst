@@ -1,7 +1,6 @@
 Todo list
 =========
 
-* Import data source directly from URL without uploading.
 * Everything must be in UTF8.
 * Use Alembic for database migrations.
 * Other types of authentication (OAuth).
@@ -11,6 +10,7 @@ Todo list
 * Less granular API, e.g. way to import and annotate sample with fewer requests.
 * Use accept HTTP headers in the API.
 * More comprehensive test suite.
+* Refactor API views to Blueprint resources for each model.
 
 
 Document use cases
