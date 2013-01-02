@@ -335,6 +335,7 @@ def users_add(login, password, name=None, roles=None):
 @api.route('/samples', methods=['GET'])
 @data(public={'type': 'boolean'},
       user={'type': 'user'})
+@require_user
 @ensure(has_role('admin'), is_user, true('public'), satisfy=any)
 @collection
 def samples_list(begin, count, **filter):
