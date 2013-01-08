@@ -356,7 +356,7 @@ class Annotation(db.Model):
     annotated_data_source = db.relationship(
         DataSource,
         primaryjoin='DataSource.id==Annotation.annotated_data_source_id',
-        backref=db.backref('annotation', uselist=False, lazy='dynamic'))
+        backref=db.backref('annotation', uselist=False, lazy='select'))
 
     def __init__(self, original_data_source, annotated_data_source):
         self.original_data_source = original_data_source
