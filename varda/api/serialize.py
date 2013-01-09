@@ -61,7 +61,7 @@ def serialize_user(instance):
           "added": "2012-11-23T10:55:12.776706"
         }
     """
-    return {'uri':   url_for('.users_get', user=instance.id),
+    return {'uri':   url_for('.user_get', user=instance.id),
             'name':  instance.name,
             'login': instance.login,
             'roles': list(instance.roles),
