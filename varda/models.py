@@ -80,7 +80,8 @@ class User(db.Model):
     roles_bitstring = db.Column(db.Integer)
     added = db.Column(db.DateTime)
 
-    def __init__(self, name, login, password, roles=[]):
+    def __init__(self, name, login, password, roles=None):
+        roles = roles or []
         self.name = name
         self.login = login
         self.password_hash = bcrypt.hashpw(password, bcrypt.gensalt())
