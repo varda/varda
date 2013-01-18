@@ -111,7 +111,7 @@ class Resource(object):
         return jsonify({self.instance_name: serialize(resource, embed=embed)})
 
     def add_view(self, *args, **kwargs):
-        # Todo: Way to provide default values.
+        # Todo: Way to provide default values?
         resource = self.model(**kwargs)
         db.session.add(resource)
         db.session.commit()
@@ -136,8 +136,8 @@ class TaskResource(Resource):
     def get_view(self, embed=None, **kwargs):
         resource = kwargs.get(self.instance_name)
         progress = None
-        if not resource.imported and resource.import_task_uuid:   # Todo: .imported???, .import_task_uuid???
-            result = self.task.AsyncResult(resource.import_task_uuid)
+        if not resource.task_done and resource.task_uuid:
+            result = self.task.AsyncResult(resource.task_uuid)
             try:
                 # This re-raises a possible TaskError, handled by error_task_error
                 # above.

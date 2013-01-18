@@ -286,10 +286,10 @@ def import_variation(variation_id):
     if variation is None:
         raise TaskError('variation_not_found', 'Variation not found')
 
-    if variation.imported:
+    if variation.task_done:
         raise TaskError('variation_imported', 'Variation already imported')
 
-    if variation.import_task_uuid:
+    if variation.task_uuid:
         # Note: This check if the importing task is still running is perhaps
         #     not waterproof (I think PENDING is also reported for unknown
         #     tasks, and they might be unknown after a while).
@@ -297,7 +297,7 @@ def import_variation(variation_id):
         #     uuid is still set (needed to retrieve the error state), but a
         #     new import task can be started.
         #     See also: http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
-        result = import_variation.AsyncResult(variation.import_task_uuid)
+        result = import_variation.AsyncResult(variation.task_uuid)
         if result.state in ('PENDING', 'STARTED', 'PROGRESS'):
             raise TaskError('variation_importing',
                             'Variation is being imported')
@@ -305,7 +305,7 @@ def import_variation(variation_id):
     # Todo: This has a possible race condition, but I'm not bothered to fix it
     #     at the moment. Reading and setting import_task_uuid should be an
     #     atomic action.
-    variation.import_task_uuid = current_task.request.id
+    variation.task_uuid = current_task.request.id
     db.session.commit()
 
     data_source = variation.data_source
@@ -320,7 +320,7 @@ def import_variation(variation_id):
 
     # Check if checksum is not in imported data sources.
     if DataSource.query.filter_by(checksum=data_source.checksum
-                                  ).join(Variation).filter_by(imported=True
+                                  ).join(Variation).filter_by(task_done=True
                                                               ).count() > 0:
         raise TaskError('duplicate_data_source',
                         'Identical data source already imported')
@@ -379,7 +379,7 @@ def import_variation(variation_id):
         raise TaskError('invalid_observations', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})
-    variation.imported = True
+    variation.task_done = True
     db.session.commit()
 
     logger.info('Finished task: import_variation(%d)', variation_id)
@@ -396,16 +396,16 @@ def import_coverage(coverage_id):
     if coverage is None:
         raise TaskError('coverage_not_found', 'Coverage not found')
 
-    if coverage.imported:
+    if coverage.task_done:
         raise TaskError('coverage_imported', 'Coverage already imported')
 
-    if coverage.import_task_uuid:
-        result = import_coverage.AsyncResult(coverage.import_task_uuid)
+    if coverage.task_uuid:
+        result = import_coverage.AsyncResult(coverage.task_uuid)
         if result.state in ('PENDING', 'STARTED', 'PROGRESS'):
             raise TaskError('coverage_importing',
                             'Coverage is being imported')
 
-    coverage.import_task_uuid = current_task.request.id
+    coverage.task_uuid = current_task.request.id
     db.session.commit()
 
     data_source = coverage.data_source
@@ -418,7 +418,7 @@ def import_coverage(coverage_id):
 
     # Check if checksum is not in imported data sources.
     if DataSource.query.filter_by(checksum=data_source.checksum
-                                  ).join(Coverage).filter_by(imported=True
+                                  ).join(Coverage).filter_by(task_done=True
                                                              ).count() > 0:
         raise TaskError('duplicate_data_source',
                         'Identical data source already imported')
@@ -451,7 +451,7 @@ def import_coverage(coverage_id):
         raise TaskError('invalid_regions', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})
-    coverage.imported = True
+    coverage.task_done = True
     db.session.commit()
 
     logger.info('Finished task: import_coverage(%d)', coverage_id)
@@ -472,16 +472,16 @@ def write_annotation(annotation_id, global_frequencies=False,
     if annotation is None:
         raise TaskError('annotation_not_found', 'Annotation not found')
 
-    if annotation.written:
+    if annotation.task_done:
         raise TaskError('annotation_written', 'Annotation already written')
 
-    if annotation.write_task_uuid:
-        result = write_annotation.AsyncResult(annotation.write_task_uuid)
+    if annotation.task_uuid:
+        result = write_annotation.AsyncResult(annotation.task_uuid)
         if result.state in ('PENDING', 'STARTED', 'PROGRESS'):
             raise TaskError('annotation_writing',
                             'Annotation is being written')
 
-    annotation.write_task_uuid = current_task.request.id
+    annotation.task_uuid = current_task.request.id
     db.session.commit()
 
     original_data_source = annotation.original_data_source
@@ -515,7 +515,7 @@ def write_annotation(annotation_id, global_frequencies=False,
         raise TaskError('invalid_observations', str(e))
 
     current_task.update_state(state='PROGRESS', meta={'percentage': 100})
-    annotation.written = True
+    annotation.task_done = True
     db.session.commit()
 
     logger.info('Finished task: write_annotation(%d)', annotation_id)

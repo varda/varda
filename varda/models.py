@@ -290,8 +290,8 @@ class Variation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
     data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
-    imported = db.Column(db.Boolean, default=False)
-    import_task_uuid = db.Column(db.String(36))
+    task_done = db.Column(db.Boolean, default=False)
+    task_uuid = db.Column(db.String(36))
 
     sample = db.relationship(Sample,
                              backref=db.backref('variations', lazy='dynamic'))
@@ -305,7 +305,7 @@ class Variation(db.Model):
 
     def __repr__(self):
         return '<Variation "%d", %simported>' % (
-            self.id, '' if self.imported else 'not ')
+            self.id, '' if self.task_done else 'not ')
 
 
 class Coverage(db.Model):
@@ -317,8 +317,8 @@ class Coverage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
     data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
-    imported = db.Column(db.Boolean, default=False)
-    import_task_uuid = db.Column(db.String(36))
+    task_done = db.Column(db.Boolean, default=False)
+    task_uuid = db.Column(db.String(36))
 
     sample = db.relationship(Sample,
                              backref=db.backref('coverages', lazy='dynamic'))
@@ -332,7 +332,7 @@ class Coverage(db.Model):
 
     def __repr__(self):
         return '<Coverage "%d", %simported>' % (
-            self.id, '' if self.imported else 'not ')
+            self.id, '' if self.task_done else 'not ')
 
 
 class Annotation(db.Model):
@@ -346,8 +346,8 @@ class Annotation(db.Model):
                                         db.ForeignKey('data_source.id'))
     annotated_data_source_id = db.Column(db.Integer,
                                          db.ForeignKey('data_source.id'))
-    written = db.Column(db.Boolean, default=False)
-    write_task_uuid = db.Column(db.String(36))
+    task_done = db.Column(db.Boolean, default=False)
+    task_uuid = db.Column(db.String(36))
 
     original_data_source = db.relationship(
         DataSource,
@@ -364,7 +364,7 @@ class Annotation(db.Model):
 
     def __repr__(self):
         return '<Variation "%d", %swritten>' % (
-            self.id, '' if self.written else 'not ')
+            self.id, '' if self.task_done else 'not ')
 
 
 class Observation(db.Model):
