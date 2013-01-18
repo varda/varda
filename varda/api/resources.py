@@ -7,11 +7,15 @@ REST API resources.
 """
 
 
-from flask import abort, jsonify, redirect, url_for
+import re
+
+from flask import (abort, current_app, g, jsonify, redirect, request,
+                   send_from_directory, url_for)
 
 from .. import db
 from ..models import (Annotation, Coverage, DataSource, DATA_SOURCE_FILETYPES,
-                      Observation, Sample, User, USER_ROLES, Variation)
+                      InvalidDataSource, Observation, Sample, User,
+                      USER_ROLES, Variation)
 from .. import tasks
 from .data import data
 from .errors import ActivationFailure, ValidationError
@@ -66,8 +70,8 @@ class Resource(object):
             cls.list_schema.update(filter_schema)
         return object.__new__(cls, *args, **kwargs)
 
-    def __init__(self, app, url_prefix=None):
-        self.app = app
+    def __init__(self, blueprint, url_prefix=None):
+        self.blueprint = blueprint
         self.url_prefix = url_prefix
         self.register_views()
 
@@ -93,10 +97,10 @@ class Resource(object):
         def view_func(*args, **kwargs):
             return getattr(self, '%s_view' % endpoint)(*args, **kwargs)
 
-        self.app.add_url_rule('%s%s' % (self.url_prefix or '/', getattr(self, '%s_rule' % endpoint)),
-                              '%s_%s' % (self.instance_type, endpoint),
-                              view_func,
-                              **kwargs)
+        self.blueprint.add_url_rule('%s%s' % (self.url_prefix or '/', getattr(self, '%s_rule' % endpoint)),
+                                    '%s_%s' % (self.instance_type, endpoint),
+                                    view_func,
+                                    **kwargs)
 
     def list_view(self, begin, count, embed=None, **filter):
         resources = self.model.query
@@ -115,7 +119,7 @@ class Resource(object):
         resource = self.model(**kwargs)
         db.session.add(resource)
         db.session.commit()
-        self.app.logger.info('Added %s: %r', (self.instance_name, resource))
+        current_app.logger.info('Added %s: %r', self.instance_name, resource)
         uri = url_for('.%s_get' % self.instance_type, **{self.instance_name: resource.id})
         response = jsonify({'%s_uri' % self.instance_name: uri})
         response.location = uri
@@ -126,7 +130,7 @@ class Resource(object):
         for field, value in kwargs.items():
             setattr(resource, field, value)
         db.session.commit()
-        self.app.logger.info('Updated %s: %r', (self.instance_name, resource))
+        current_app.logger.info('Updated %s: %r', self.instance_name, resource)
         return jsonify({self.instance_name: serialize(resource)})
 
 
@@ -153,9 +157,9 @@ class TaskedResource(Resource):
         resource = self.model(**kwargs)
         db.session.add(resource)
         db.session.commit()
-        self.app.logger.info('Added %s: %r', (self.instance_name, resource))
+        current_app.logger.info('Added %s: %r', self.instance_name, resource)
         result = self.task.delay(resource.id)
-        current_app.logger.info('Called task: %s(%d) %s', self.task.__name__, variation.id, result.task_id)
+        current_app.logger.info('Called task: %s(%d) %s', self.task.__name__, resource.id, result.task_id)
         uri = url_for('.%s_get' % self.instance_type, **{self.instance_name: resource.id})
         response = jsonify({'%s_uri' % self.instance_name: uri})
         response.location = uri
@@ -209,8 +213,10 @@ class SamplesResource(Resource):
                   'coverage_profile': {'type': 'boolean'},
                   'public': {'type': 'boolean'}}
 
+    edit_ensure_conditions = [has_role('admin'), owns_sample]
+    edit_ensure_options = {'satisfy': any}
     edit_schema = {'active': {'type': 'boolean'},
-                   'name': {'type': 'string', 'required': True},
+                   'name': {'type': 'string'},
                    'pool_size': {'type': 'integer'},
                    'coverage_profile': {'type': 'boolean'},
                    'public': {'type': 'boolean'}}
@@ -302,7 +308,7 @@ class DataSourcesResource(Resource):
                   'gzipped': {'type': 'boolean'},
                   'local_path': {'type': 'string'}}
 
-    edit_schema = {'name': {'type': 'string', 'required': True}}
+    edit_schema = {'name': {'type': 'string'}}
 
     data_rule = '/<int:data_source>/data'
     data_ensure_conditions = [has_role('admin'), owns_data_source]

@@ -118,7 +118,12 @@ def apiroot():
            'version':            API_VERSION,
            'genome':             genome.keys(),
            'authentication_uri': url_for('.authentication'),
-           'users_uri':          url_for('.user_list')}
+           'users_uri':          url_for('.user_list'),
+           'samples_uri':        url_for('.sample_list'),
+           'variations_uri':     url_for('.variation_list'),
+           'coverages_uri':      url_for('.coverage_list'),
+           'data_sources_uri':   url_for('.data_source_list'),
+           'annotations_uri':    url_for('.annotation_list')}
     return jsonify(api)
 
 

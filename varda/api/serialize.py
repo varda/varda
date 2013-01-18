@@ -95,9 +95,9 @@ def serialize_data_source(instance):
           "added": "2012-11-23T10:55:12.776706"
         }
     """
-    return {'uri':             url_for('.data_sources_get', data_source=instance.id),
-            'user_uri':        url_for('.users_get', user=instance.user.id),
-            'data_uri':        url_for('.data_sources_data', data_source=instance.id),
+    return {'uri':             url_for('.data_source_get', data_source=instance.id),
+            'user_uri':        url_for('.user_get', user=instance.user.id),
+            'data_uri':        url_for('.data_source_data', data_source=instance.id),
             'name':            instance.name,
             'filetype':        instance.filetype,
             'gzipped':         instance.gzipped,
@@ -126,9 +126,9 @@ def serialize_variation(instance):
           "imported": true
         }
     """
-    return {'uri':             url_for('.variations_get', variation=instance.id),
-            'sample_uri':      url_for('.samples_get', sample=instance.sample_id),
-            'data_source_uri': url_for('.data_sources_get', data_source=instance.data_source_id),
+    return {'uri':             url_for('.variation_get', variation=instance.id),
+            'sample_uri':      url_for('.sample_get', sample=instance.sample_id),
+            'data_source_uri': url_for('.data_source_get', data_source=instance.data_source_id),
             'imported':        instance.task_done}
 
 
@@ -149,9 +149,9 @@ def serialize_coverage(instance):
           "data_source_uri": "/data_sources/24"
         }
     """
-    return {'uri':             url_for('.coverages_get', coverage=instance.id),
-            'sample_uri':      url_for('.samples_get', sample=instance.sample_id),
-            'data_source_uri': url_for('.data_sources_get', data_source=instance.data_source_id),
+    return {'uri':             url_for('.coverage_get', coverage=instance.id),
+            'sample_uri':      url_for('.sample_get', sample=instance.sample_id),
+            'data_source_uri': url_for('.data_source_get', data_source=instance.data_source_id),
             'imported':        instance.task_done}
 
 
@@ -174,9 +174,9 @@ def serialize_annotation(instance):
           "annotated_data_source_uri": "/data_sources/57"
         }
     """
-    return {'uri':                       url_for('.annotations_get', annotation=instance.id),
-            'original_data_source_uri':  url_for('.data_sources_get', data_source=instance.original_data_source_id),
-            'annotated_data_source_uri': url_for('.data_sources_get', data_source=instance.annotated_data_source_id),
+    return {'uri':                       url_for('.annotation_get', annotation=instance.id),
+            'original_data_source_uri':  url_for('.data_source_get', data_source=instance.original_data_source_id),
+            'annotated_data_source_uri': url_for('.data_source_get', data_source=instance.annotated_data_source_id),
             'written':                   instance.task_done}
 
 
@@ -205,8 +205,8 @@ def serialize_sample(instance):
           "added": "2012-11-23T10:55:12.776706"
         }
     """
-    return {'uri':                    url_for('.samples_get', sample=instance.id),
-            'user_uri':               url_for('.users_get', user=instance.user.id),
+    return {'uri':                    url_for('.sample_get', sample=instance.id),
+            'user_uri':               url_for('.user_get', user=instance.user.id),
             'name':                   instance.name,
             'pool_size':              instance.pool_size,
             'public':                 instance.public,

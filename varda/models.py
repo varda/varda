@@ -304,8 +304,9 @@ class Variation(db.Model):
         self.data_source = data_source
 
     def __repr__(self):
-        return '<Variation "%d", %simported>' % (
-            self.id, '' if self.task_done else 'not ')
+        return '<Variation>'
+        #return '<Variation "%d", %simported>' % (
+        #    self.id, '' if self.task_done else 'not ')
 
 
 class Coverage(db.Model):
