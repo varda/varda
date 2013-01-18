@@ -130,7 +130,7 @@ class Resource(object):
         return jsonify({self.instance_name: serialize(resource)})
 
 
-class TaskResource(Resource):
+class TaskedResource(Resource):
     task = None
 
     def get_view(self, embed=None, **kwargs):
@@ -219,14 +219,20 @@ class SamplesResource(Resource):
         kwargs['user'] = g.user
         return super(SamplesResource, self).add_view(**kwargs)
 
-    # Todo: Override `edit_view` to set active=False or check
-    #     prerequisites for active=True.
-    #     E.g. if there are expected imported data sources and no imports
-    #     running at the moment. Also, number of coverage tracks should be 0
-    #     or equal to pool size. Raise ActivationFailure(reason, message).
+    def edit_view(self, *args, **kwargs):
+        if kwargs.get('active'):
+            # Todo: Checks, e.g. if there are expected imported data sources
+            # and no imports running at the moment. Also, number of coverage
+            # tracks should be 0 or equal to pool size.
+            #raise ActivationFailure('reason', 'This is the reason')
+            pass
+        else:
+            # Todo: Always, even on name change?
+            kwargs['active'] = False
+        return super(SamplesResource, self).edit_view(**kwargs)
 
 
-class VariationResource(TaskResource):
+class VariationsResource(TaskedResource):
     model = Variation
     instance_name = 'variation'
     instance_type = 'variation'
@@ -250,7 +256,7 @@ class VariationResource(TaskResource):
                   'data_source': {'type': 'data_source', 'required': True}}
 
 
-class CoverageResource(TaskResource):
+class CoveragesResource(TaskedResource):
     model = Coverage
     instance_name = 'coverage'
     instance_type = 'coverage'
@@ -279,6 +285,8 @@ class DataSourcesResource(Resource):
     instance_name = 'data_source'
     instance_type = 'data_source'
 
+    views = ['list', 'get', 'add', 'edit', 'data']
+
     filterable = {'user': 'user'}
 
     list_ensure_conditions = [has_role('admin'), is_user]
@@ -296,6 +304,16 @@ class DataSourcesResource(Resource):
 
     edit_schema = {'name': {'type': 'string', 'required': True}}
 
+    data_rule = '/<int:data_source>/data'
+    data_ensure_conditions = [has_role('admin'), owns_data_source]
+    data_ensure_options = {'satisfy': any}
+    data_schema = {'data_source': {'type': 'data_source'}}
+
+    def register_views(self):
+        super(DataSourcesResource, self).register_views()
+        if 'data' in self.views:
+            self.register_view('data')
+
     def add_view(self, **kwargs):
         # Todo: If files['data'] is missing (or non-existent file?), we crash with
         #     a data_source_not_cached error.
@@ -305,8 +323,13 @@ class DataSourcesResource(Resource):
         kwargs.update(user=g.user, upload=request.files.get('data'))
         return super(DataSourcesResource, self).add_view(**kwargs)
 
+    def data_view(self, data_source):
+        return send_from_directory(current_app.config['FILES_DIR'],
+                                   data_source.filename,
+                                   mimetype='application/x-gzip')
 
-class AnnotationsResource(TaskResource):
+
+class AnnotationsResource(TaskedResource):
     model = Annotation
     instance_name = 'annotation'
     instance_type = 'annotation'
@@ -334,5 +357,59 @@ class AnnotationsResource(TaskResource):
                                                  'items': [{'type': 'string'},
                                                            {'type': 'sample'}]}}}
 
-    def add_view(self, **kwargs):
-        pass  # Todo
+    def add_view(self, data_source, global_frequencies=False,
+                 exclude_samples=None, include_samples=None):
+        # Todo: Check if data source is a VCF file.
+        # Todo: The `include_samples` might be better structured as a list of
+        #     objects, e.g. ``[{label: GoNL, sample: ...}, {label: 1KG, sample: ...}]``.
+        # The `satisfy` keyword argument used here in the `ensure` decorator means
+        # that we ensure at least one of:
+        # - admin
+        # - owns_data_source AND annotator
+        # - owns_data_source AND trader
+        exclude_samples = exclude_samples or []
+
+        # Todo: Perhaps a better name would be `local_frequencies` instead of
+        #     `include_sample_ids`, to contrast with the `global_frequencies`
+        #     flag.
+        include_samples = dict(include_samples or [])
+
+        if not all(re.match('[0-9A-Z]+', label) for label in include_samples):
+            raise ValidationError('Labels for inluded samples must contain only'
+                                  ' uppercase alphanumeric characters')
+
+        for sample in include_samples.values():
+            if not (sample.public or
+                    sample.user is g.user or
+                    'admin' in g.user.roles):
+                # Todo: Meaningful error message.
+                abort(400)
+
+        if 'admin' not in g.user.roles and 'annotator' not in g.user.roles:
+            # This is a trader, so check if the data source has been imported in
+            # an active sample.
+            # Todo: Anyone should be able to annotate against the public samples.
+            if not data_source.variations.join(Sample).filter_by(active=True).count():
+                raise InvalidDataSource('inactive_data_source', 'Data source '
+                    'cannot be annotated unless it is imported in an active sample')
+
+        annotated_data_source = DataSource(g.user,
+                                           '%s (annotated)' % data_source.name,
+                                           data_source.filetype,
+                                           empty=True, gzipped=True)
+        db.session.add(annotated_data_source)
+        annotation = Annotation(data_source, annotated_data_source)
+        db.session.add(annotation)
+        db.session.commit()
+        current_app.logger.info('Added data source: %r', annotated_data_source)
+        current_app.logger.info('Added annotation: %r', annotation)
+
+        result = tasks.write_annotation.delay(annotation.id,
+                                              global_frequencies=global_frequencies,
+                                              exclude_sample_ids=[sample.id for sample in exclude_samples],
+                                              include_sample_ids={label: sample.id for label, sample in include_samples.items()})
+        current_app.logger.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
+        uri = url_for('.annotation_get', annotation=annotation.id)
+        response = jsonify(annotation_uri=uri)
+        response.location = uri
+        return response, 202

@@ -13,7 +13,9 @@ from .. import genome
 from .. import tasks
 from ..models import InvalidDataSource
 from .errors import ActivationFailure, ValidationError
-from .resources import UsersResource
+from .resources import (UsersResource, SamplesResource, VariationsResource,
+                        CoveragesResource, DataSourcesResource,
+                        AnnotationsResource)
 from .serialize import serialize
 from .utils import user_by_login
 
@@ -160,3 +162,8 @@ def authentication():
 
 
 users_resource = UsersResource(api, url_prefix='/users')
+samples_resource = SamplesResource(api, url_prefix='/samples')
+variations_resource = VariationsResource(api, url_prefix='/variations')
+coverages_resource = CoveragesResource(api, url_prefix='/coverages')
+data_sources_resource = DataSourcesResource(api, url_prefix='/data_sources')
+annotations_resource = AnnotationsResource(api, url_prefix='/annotations')
