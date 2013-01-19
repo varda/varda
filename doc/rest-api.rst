@@ -49,7 +49,7 @@ Users
 .. autodocstring:: varda.api.serialize.serialize_user
 
 .. autoflask:: varda:create_app()
-   :endpoints: api.users_list, api.users_get, api.users_add
+   :endpoints: api.user_list, api.user_get, api.user_add
 
 
 .. _api_samples:
@@ -60,7 +60,7 @@ Samples
 .. autodocstring:: varda.api.serialize.serialize_sample
 
 .. autoflask:: varda:create_app()
-   :endpoints: api.samples_list, api.samples_get, api.samples_add, api.samples_update
+   :endpoints: api.sample_list, api.sample_get, api.sample_add, api.sample_edit
 
 
 .. _api_variations:
@@ -71,7 +71,7 @@ Sets of observations
 .. autodocstring:: varda.api.serialize.serialize_variation
 
 .. autoflask:: varda:create_app()
-   :endpoints: api.variations_list, api.variations_get, api.samples_add
+   :endpoints: api.variation_list, api.variation_get, api.sample_add
 
 
 .. _api_coverages:
@@ -82,7 +82,7 @@ Sets of regions
 .. autodocstring:: varda.api.serialize.serialize_coverage
 
 .. autoflask:: varda:create_app()
-   :endpoints: api.coverages_list, api.coverages_get, api.coverages_add
+   :endpoints: api.coverage_list, api.coverage_get, api.coverage_add
 
 
 .. _api_data_sources:
@@ -93,7 +93,7 @@ Data sources
 .. autodocstring:: varda.api.serialize.serialize_data_source
 
 .. autoflask:: varda:create_app()
-   :endpoints: api.data_sources_list, api.data_sources_get, api.data_sources_data, api.data_sources_add
+   :endpoints: api.data_source_list, api.data_source_get, api.data_source_data, api.data_source_add
 
 .. Todo: Note that the data_sources_data response content is not JSON.
 
@@ -106,7 +106,7 @@ Annotations
 .. autodocstring:: varda.api.serialize.serialize_annotation
 
 .. autoflask:: varda:create_app()
-   :endpoints: api.annotations_list, api.annotations_get, api.annotations_add
+   :endpoints: api.annotation_list, api.annotation_get, api.annotation_add
 
 
 .. _api_exceptions:

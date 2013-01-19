@@ -97,6 +97,9 @@ class Resource(object):
         def view_func(*args, **kwargs):
             return getattr(self, '%s_view' % endpoint)(*args, **kwargs)
 
+        # Todo: Work out API docs.
+        view_func.__doc__ = 'Documentation for view: %s' % endpoint
+
         self.blueprint.add_url_rule('%s%s' % (self.url_prefix or '/', getattr(self, '%s_rule' % endpoint)),
                                     '%s_%s' % (self.instance_type, endpoint),
                                     view_func,
