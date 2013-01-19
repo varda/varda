@@ -10,6 +10,7 @@ Todo list
 * Less granular API, e.g. way to import and annotate sample with fewer requests.
 * Use accept HTTP headers in the API.
 * More comprehensive test suite.
+* Optionally only import variants from VCF file with PASS.
 * Refactor API views to Blueprint resources for each model.
 
 
