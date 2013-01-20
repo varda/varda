@@ -7,6 +7,8 @@ REST API resources.
 """
 
 
+import json
+from functools import wraps
 import re
 
 from flask import (abort, current_app, g, jsonify, redirect, request,
@@ -26,14 +28,67 @@ from .serialize import serialize
 from .utils import collection, user_by_login
 
 
+# http://code.activestate.com/recipes/576862/
+class DocAppend(object):
+    """
+    Docstring inheriting method descriptor
+
+    The class itself is also used as a decorator
+    """
+    def __init__(self, mthd):
+        self.mthd = mthd
+        self.name = mthd.__name__
+
+    def __get__(self, obj, cls):
+        if obj:
+            return self.get_with_inst(obj, cls)
+        else:
+            return self.get_no_inst(cls)
+
+    def get_with_inst(self, obj, cls):
+        overridden = getattr(super(cls, obj), self.name, None)
+        @wraps(self.mthd, assigned=('__name__','__module__'))
+        def f(*args, **kwargs):
+            return self.mthd(obj, *args, **kwargs)
+        return self.prepend_parent_doc(f, overridden)
+
+    def get_no_inst(self, cls):
+        for parent in cls.__mro__[1:]:
+            overridden = getattr(parent, self.name, None)
+            if overridden: break
+        @wraps(self.mthd, assigned=('__name__','__module__'))
+        def f(*args, **kwargs):
+            return self.mthd(*args, **kwargs)
+        return self.prepend_parent_doc(f, overridden)
+
+    def prepend_parent_doc(self, func, source):
+        if source is None:
+            raise NameError, ("Can't find '%s' in parents"%self.name)
+        func.__doc__ = source.__doc__ + self.mthd.__doc__
+        return func
+
+doc_append = DocAppend
+
+
 class Resource(object):
+    """
+    A resource of type {instance_name} is represented as an object with the
+    following fields:
+
+    {serialization}
+
+    .. autoflask:: varda:create_app()
+       :endpoints: {endpoints}
+
+    {doc}
+    """
     model = None
     instance_name = None
     instance_type = None
 
     views = ['list', 'get', 'add', 'edit']
 
-    embeddable = []
+    embeddable = {}
     filterable = {}
 
     list_ensure_conditions = [has_role('admin')]
@@ -52,6 +107,8 @@ class Resource(object):
     edit_ensure_options = {}
     edit_schema = {}
 
+    example = None
+
     def __new__(cls, *args, **kwargs):
         cls.list_rule = '/'
         cls.get_rule = '/<int:%s>' % cls.instance_name
@@ -62,7 +119,7 @@ class Resource(object):
         cls.get_schema.update(id_schema)
         cls.edit_schema.update(id_schema)
         if cls.embeddable:
-            embed_schema = {'embed': {'type': 'list', 'allowed': cls.embeddable}}
+            embed_schema = {'embed': {'type': 'list', 'allowed': cls.embeddable.keys()}}
             cls.list_schema.update(embed_schema)
             cls.get_schema.update(embed_schema)
         if cls.filterable:
@@ -71,6 +128,10 @@ class Resource(object):
         return object.__new__(cls, *args, **kwargs)
 
     def __init__(self, blueprint, url_prefix=None):
+        self.__doc__ = Resource.__doc__.format(endpoints=', '.join('api.%s_%s' % (self.instance_type, view) for view in self.views),
+                                               instance_name=self.instance_name,
+                                               serialization=self.serialize.__doc__.format(instance_name=self.instance_name),
+                                               doc=self.__doc__ or '')
         self.blueprint = blueprint
         self.url_prefix = url_prefix
         self.register_views()
@@ -98,7 +159,7 @@ class Resource(object):
             return getattr(self, '%s_view' % endpoint)(*args, **kwargs)
 
         # Todo: Work out API docs.
-        view_func.__doc__ = 'Documentation for view: %s' % endpoint
+        view_func.__doc__ = 'Some docstring for %s' % endpoint
 
         self.blueprint.add_url_rule('%s%s' % (self.url_prefix or '/', getattr(self, '%s_rule' % endpoint)),
                                     '%s_%s' % (self.instance_type, endpoint),
@@ -110,12 +171,12 @@ class Resource(object):
         if filter:
             resources = resources.filter_by(**filter)
         return (resources.count(),
-                jsonify(resources=[serialize(r, embed=embed) for r in
+                jsonify(resources=[self.serialize(r, embed=embed) for r in
                                    resources.limit(count).offset(begin)]))
 
     def get_view(self, embed=None, **kwargs):
         resource = kwargs.get(self.instance_name)
-        return jsonify({self.instance_name: serialize(resource, embed=embed)})
+        return jsonify({self.instance_name: self.serialize(resource, embed=embed)})
 
     def add_view(self, *args, **kwargs):
         # Todo: Way to provide default values?
@@ -134,7 +195,18 @@ class Resource(object):
             setattr(resource, field, value)
         db.session.commit()
         current_app.logger.info('Updated %s: %r', self.instance_name, resource)
-        return jsonify({self.instance_name: serialize(resource)})
+        return jsonify({self.instance_name: self.serialize(resource)})
+
+    def serialize(self, resource, embed=None):
+        """
+        * **uri** (`string`) - URI for this {instance_name}.
+        """
+        embed = embed or []
+        uri = url_for('.%s_get' % self.instance_type, **{self.instance_name: resource.id})
+        serialization = {'uri': uri}
+        serialization.update({field: self.embeddable[field].serialize(getattr(resource, field))
+                              for field in embed})
+        return serialization
 
 
 class TaskedResource(Resource):
@@ -154,7 +226,7 @@ class TaskedResource(Resource):
                 pass
             if result.state == 'PROGRESS':
                 progress = result.info['percentage']
-        return jsonify({self.instance_name: serialize(resource, embed=embed), 'progress': progress})
+        return jsonify({self.instance_name: self.serialize(resource, embed=embed), 'progress': progress})
 
     def add_view(self, *args, **kwargs):
         resource = self.model(**kwargs)
@@ -170,6 +242,9 @@ class TaskedResource(Resource):
 
 
 class UsersResource(Resource):
+    """
+    Some extra documentation.
+    """
     model = User
     instance_name = 'user'
     instance_type = 'user'
@@ -193,6 +268,21 @@ class UsersResource(Resource):
         if User.query.filter_by(login=login).first() is not None:
             raise ValidationError('User login is not unique')
         return super(UsersResource, self).add_view(**kwargs)
+
+    @doc_append
+    def serialize(self, resource, embed=None):
+        """
+        * **name** (`string`) - Human readable name.
+        * **login** (`string`) - User login used for identification.
+        * **roles** (`list of string`) - Roles this user has.
+        * **added** (`string`) - Date and time this user was added.
+        """
+        serialization = super(UsersResource, self).serialize(resource, embed=embed)
+        serialization.update(name=resource.name,
+                             login=resource.login,
+                             roles=list(resource.roles),
+                             added=str(resource.added.isoformat()))
+        return serialization
 
 
 class SamplesResource(Resource):
@@ -240,53 +330,22 @@ class SamplesResource(Resource):
             kwargs['active'] = False
         return super(SamplesResource, self).edit_view(**kwargs)
 
-
-class VariationsResource(TaskedResource):
-    model = Variation
-    instance_name = 'variation'
-    instance_type = 'variation'
-
-    task = tasks.import_variation
-
-    views = ['list', 'get', 'add']
-
-    embeddable = ['data_source', 'sample']
-    filterable = {'sample': 'sample'}
-
-    list_ensure_conditions = [has_role('admin'), owns_sample]
-    list_ensure_options = {'satisfy': any}
-
-    get_ensure_conditions = [has_role('admin'), owns_variation]
-    get_ensure_options = {'satisfy': any}
-
-    add_ensure_conditions = [has_role('admin'), owns_sample]
-    add_ensure_options = {'satisfy': any}
-    add_schema = {'sample': {'type': 'sample', 'required': True},
-                  'data_source': {'type': 'data_source', 'required': True}}
-
-
-class CoveragesResource(TaskedResource):
-    model = Coverage
-    instance_name = 'coverage'
-    instance_type = 'coverage'
-
-    task = tasks.import_coverage
-
-    views = ['list', 'get', 'add']
-
-    embeddable = ['data_source', 'sample']
-    filterable = {'sample': 'sample'}
-
-    list_ensure_conditions = [has_role('admin'), owns_sample]
-    list_ensure_options = {'satisfy': any}
-
-    get_ensure_conditions = [has_role('admin'), owns_coverage]
-    get_ensure_options = {'satisfy': any}
-
-    add_ensure_conditions = [has_role('admin'), owns_sample]
-    add_ensure_options = {'satisfy': any}
-    add_schema = {'sample': {'type': 'sample', 'required': True},
-                  'data_source': {'type': 'data_source', 'required': True}}
+    @doc_append
+    def serialize(self, resource, embed=None):
+        """
+        * **user_uri** (`string`) - URI for the sample :ref:`owner <api_users>`.
+        * **name** (`string`) - Human readable name.
+        * **pool_size** (`integer`) - Number of individuals.
+        * **public** (`boolean`) - Whether or not this sample is public.
+        * **added** (`string`) - Date and time this sample was added.
+        """
+        serialization = super(SamplesResource, self).serialize(resource, embed=embed)
+        serialization.update(user_uri=url_for('.user_get', user=resource.user.id),
+                             name=resource.name,
+                             pool_size=resource.pool_size,
+                             public=resource.public,
+                             added=str(resource.added.isoformat()))
+        return serialization
 
 
 class DataSourcesResource(Resource):
@@ -336,6 +395,99 @@ class DataSourcesResource(Resource):
         return send_from_directory(current_app.config['FILES_DIR'],
                                    data_source.filename,
                                    mimetype='application/x-gzip')
+
+    @doc_append
+    def serialize(self, resource, embed=None):
+        """
+        * **user** (:ref:`user <api_users>`) - Data source owner.
+        * **data** (`object`) - Object with one field: **uri** (`string`) - URI for the data.
+        * **name** (`string`) - Human readable name.
+        * **filetype** (`string`) - Data filetype.
+        * **gzipped** (`boolean`) - Whether or not data is compressed.
+        * **added** (`string`) - Date this data source was added.
+        """
+        serialization = super(DataSourcesResource, self).serialize(resource, embed=embed)
+        serialization.update(user_uri=url_for('.user_get', user=resource.user.id),
+                             data_uri=url_for('.data_source_data', data_source=resource.id),
+                             name=resource.name,
+                             filetype=resource.filetype,
+                             gzipped=resource.gzipped,
+                             added=str(resource.added.isoformat()))
+        return serialization
+
+
+class VariationsResource(TaskedResource):
+    model = Variation
+    instance_name = 'variation'
+    instance_type = 'variation'
+
+    task = tasks.import_variation
+
+    views = ['list', 'get', 'add']
+
+    embeddable = {'data_source': DataSourcesResource, 'sample': SamplesResource}
+    filterable = {'sample': 'sample'}
+
+    list_ensure_conditions = [has_role('admin'), owns_sample]
+    list_ensure_options = {'satisfy': any}
+
+    get_ensure_conditions = [has_role('admin'), owns_variation]
+    get_ensure_options = {'satisfy': any}
+
+    add_ensure_conditions = [has_role('admin'), owns_sample]
+    add_ensure_options = {'satisfy': any}
+    add_schema = {'sample': {'type': 'sample', 'required': True},
+                  'data_source': {'type': 'data_source', 'required': True}}
+
+    @doc_append
+    def serialize(self, resource, embed=None):
+        """
+        * **sample_uri** (`string`) - URI for the :ref:`sample <api_samples>`.
+        * **data_source_uri** (`string`) - URI for the :ref:`data source <api_data_sources>`.
+        * **imported** (`boolean`) - Whether or not this set of observations is imported.
+        """
+        serialization = super(VariationsResource, self).serialize(resource, embed=embed)
+        serialization.update(sample_uri=url_for('.sample_get', sample=resource.sample_id),
+                             data_source_uri=url_for('.data_source_get', data_source=resource.data_source_id),
+                             imported=resource.task_done)
+        return serialization
+
+
+class CoveragesResource(TaskedResource):
+    model = Coverage
+    instance_name = 'coverage'
+    instance_type = 'coverage'
+
+    task = tasks.import_coverage
+
+    views = ['list', 'get', 'add']
+
+    embeddable = {'data_source': DataSourcesResource, 'sample': SamplesResource}
+    filterable = {'sample': 'sample'}
+
+    list_ensure_conditions = [has_role('admin'), owns_sample]
+    list_ensure_options = {'satisfy': any}
+
+    get_ensure_conditions = [has_role('admin'), owns_coverage]
+    get_ensure_options = {'satisfy': any}
+
+    add_ensure_conditions = [has_role('admin'), owns_sample]
+    add_ensure_options = {'satisfy': any}
+    add_schema = {'sample': {'type': 'sample', 'required': True},
+                  'data_source': {'type': 'data_source', 'required': True}}
+
+    @doc_append
+    def serialize(self, resource, embed=None):
+        """
+        * **sample_uri** (`string`) - URI for the :ref:`sample <api_samples>`.
+        * **data_source_uri** (`string`) - URI for the :ref:`data source <api_data_sources>`.
+        * **imported** (`boolean`) - Whether or not this set of regions is imported.
+        """
+        serialization = super(CoveragesResource, self).serialize(resource, embed=embed)
+        serialization.update(sample_uri=url_for('.sample_get', sample=resource.sample_id),
+                             data_source_uri=url_for('.data_source_get', data_source=resource.data_source_id),
+                             imported=resource.task_done)
+        return serialization
 
 
 class AnnotationsResource(TaskedResource):
@@ -422,3 +574,15 @@ class AnnotationsResource(TaskedResource):
         response = jsonify(annotation_uri=uri)
         response.location = uri
         return response, 202
+
+    @doc_append
+    def serialize(self, resource, embed=None):
+        """
+        * **original_data_source_uri** (`string`) - URI for the original :ref:`data source <api_data_sources>`.
+        * **annotated_data_source_uri** (`string`) - URI for the annotated :ref:`data source <api_data_sources>`.
+        """
+        serialization = super(AnnotationsResource, self).serialize(resource, embed=embed)
+        serialization.update(original_data_source_uri=url_for('.data_source_get', data_source=resource.original_data_source_id),
+                             annotated_data_source_uri=url_for('.data_source_get', data_source=resource.annotated_data_source_id),
+                             written=resource.task_done)
+        return serialization

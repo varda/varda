@@ -46,10 +46,7 @@ Authentication state can be checked on the :http:get:`authentication endpoint </
 Users
 -----
 
-.. autodocstring:: varda.api.serialize.serialize_user
-
-.. autoflask:: varda:create_app()
-   :endpoints: api.user_list, api.user_get, api.user_add
+.. autodatadoc:: varda.api.views.users_resource
 
 
 .. _api_samples:
@@ -57,10 +54,7 @@ Users
 Samples
 -------
 
-.. autodocstring:: varda.api.serialize.serialize_sample
-
-.. autoflask:: varda:create_app()
-   :endpoints: api.sample_list, api.sample_get, api.sample_add, api.sample_edit
+.. autodatadoc:: varda.api.views.samples_resource
 
 
 .. _api_variations:
@@ -68,10 +62,7 @@ Samples
 Sets of observations
 --------------------
 
-.. autodocstring:: varda.api.serialize.serialize_variation
-
-.. autoflask:: varda:create_app()
-   :endpoints: api.variation_list, api.variation_get, api.sample_add
+.. autodatadoc:: varda.api.views.variations_resource
 
 
 .. _api_coverages:
@@ -79,10 +70,7 @@ Sets of observations
 Sets of regions
 ---------------
 
-.. autodocstring:: varda.api.serialize.serialize_coverage
-
-.. autoflask:: varda:create_app()
-   :endpoints: api.coverage_list, api.coverage_get, api.coverage_add
+.. autodatadoc:: varda.api.views.coverages_resource
 
 
 .. _api_data_sources:
@@ -90,10 +78,7 @@ Sets of regions
 Data sources
 ------------
 
-.. autodocstring:: varda.api.serialize.serialize_data_source
-
-.. autoflask:: varda:create_app()
-   :endpoints: api.data_source_list, api.data_source_get, api.data_source_data, api.data_source_add
+.. autodatadoc:: varda.api.views.data_sources_resource
 
 .. Todo: Note that the data_sources_data response content is not JSON.
 
@@ -103,10 +88,7 @@ Data sources
 Annotations
 -----------
 
-.. autodocstring:: varda.api.serialize.serialize_annotation
-
-.. autoflask:: varda:create_app()
-   :endpoints: api.annotation_list, api.annotation_get, api.annotation_add
+.. autodatadoc:: varda.api.views.annotations_resource
 
 
 .. _api_exceptions:
@@ -114,7 +96,7 @@ Annotations
 Errors
 ------
 
-.. autodocstring:: varda.api.serialize.serialize_exception
+.. automethoddoc:: varda.api.serialize.serialize_exception
 
 
 .. _api_misc:
