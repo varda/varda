@@ -59,22 +59,25 @@ class DataSourcesResource(Resource):
         if 'data' in self.views:
             self.register_view('data')
 
-    def add_view(self, **kwargs):
+    @classmethod
+    def add_view(cls, **kwargs):
         # Todo: If files['data'] is missing (or non-existent file?), we crash with
         #     a data_source_not_cached error.
         # Todo: Sandbox local_path (per user).
         # Todo: Option to upload the actual data later at the /data_source/XX/data
         #     endpoint, symmetrical to the GET request.
         kwargs.update(user=g.user, upload=request.files.get('data'))
-        return super(DataSourcesResource, self).add_view(**kwargs)
+        return super(DataSourcesResource, cls).add_view(**kwargs)
 
-    def data_view(self, data_source):
+    @classmethod
+    def data_view(cls, data_source):
         return send_from_directory(current_app.config['FILES_DIR'],
                                    data_source.filename,
                                    mimetype='application/x-gzip')
 
-    def serialize(self, resource, embed=None):
-        serialization = super(DataSourcesResource, self).serialize(resource, embed=embed)
+    @classmethod
+    def serialize(cls, resource, embed=None):
+        serialization = super(DataSourcesResource, cls).serialize(resource, embed=embed)
         serialization.update(user_uri=url_for('.user_get', user=resource.user.id),
                              data_uri=url_for('.data_source_data', data_source=resource.id),
                              name=resource.name,

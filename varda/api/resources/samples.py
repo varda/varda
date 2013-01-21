@@ -53,12 +53,14 @@ class SamplesResource(Resource):
                    'coverage_profile': {'type': 'boolean'},
                    'public': {'type': 'boolean'}}
 
-    def add_view(self, **kwargs):
+    @classmethod
+    def add_view(cls, **kwargs):
         kwargs['user'] = g.user
-        return super(SamplesResource, self).add_view(**kwargs)
+        return super(SamplesResource, cls).add_view(**kwargs)
 
     # Todo: Document that active will be set to False.
-    def edit_view(self, *args, **kwargs):
+    @classmethod
+    def edit_view(cls, *args, **kwargs):
         if kwargs.get('active'):
             # Todo: Checks, e.g. if there are expected imported data sources
             # and no imports running at the moment. Also, number of coverage
@@ -68,10 +70,11 @@ class SamplesResource(Resource):
         else:
             # Todo: Always, even on name change?
             kwargs['active'] = False
-        return super(SamplesResource, self).edit_view(**kwargs)
+        return super(SamplesResource, cls).edit_view(**kwargs)
 
-    def serialize(self, resource, embed=None):
-        serialization = super(SamplesResource, self).serialize(resource, embed=embed)
+    @classmethod
+    def serialize(cls, resource, embed=None):
+        serialization = super(SamplesResource, cls).serialize(resource, embed=embed)
         serialization.update(user_uri=url_for('.user_get', user=resource.user.id),
                              name=resource.name,
                              pool_size=resource.pool_size,

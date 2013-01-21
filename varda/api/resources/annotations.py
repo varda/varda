@@ -12,7 +12,7 @@ import re
 from flask import abort, current_app, g, jsonify, url_for
 
 from ... import db
-from ...models import Annotation
+from ...models import Annotation, DataSource, InvalidDataSource, Sample
 from ... import tasks
 from ..errors import ValidationError
 from ..security import has_role, owns_annotation, owns_data_source
@@ -55,7 +55,8 @@ class AnnotationsResource(TaskedResource):
                                                  'items': [{'type': 'string'},
                                                            {'type': 'sample'}]}}}
 
-    def add_view(self, data_source, global_frequencies=False,
+    @classmethod
+    def add_view(cls, data_source, global_frequencies=False,
                  exclude_samples=None, include_samples=None):
         # Todo: Check if data source is a VCF file.
         # Todo: The `include_samples` might be better structured as a list of
@@ -112,8 +113,9 @@ class AnnotationsResource(TaskedResource):
         response.location = uri
         return response, 202
 
-    def serialize(self, resource, embed=None):
-        serialization = super(AnnotationsResource, self).serialize(resource, embed=embed)
+    @classmethod
+    def serialize(cls, resource, embed=None):
+        serialization = super(AnnotationsResource, cls).serialize(resource, embed=embed)
         serialization.update(original_data_source_uri=url_for('.data_source_get', data_source=resource.original_data_source_id),
                              annotated_data_source_uri=url_for('.data_source_get', data_source=resource.annotated_data_source_id),
                              written=resource.task_done)

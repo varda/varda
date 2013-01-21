@@ -40,7 +40,8 @@ class UsersResource(Resource):
                    'password': {'type': 'string'},
                    'roles': {'type': 'list', 'allowed': USER_ROLES}}
 
-    def list_view(self, *args, **kwargs):
+    @classmethod
+    def list_view(cls, *args, **kwargs):
         """
         Collection of registered users.
 
@@ -84,9 +85,10 @@ class UsersResource(Resource):
                 ]
             }
         """
-        return super(UsersResource, self).list_view(*args, **kwargs)
+        return super(UsersResource, cls).list_view(*args, **kwargs)
 
-    def get_view(self, *args, **kwargs):
+    @classmethod
+    def get_view(cls, *args, **kwargs):
         """
         Details for user.
 
@@ -118,9 +120,10 @@ class UsersResource(Resource):
                 }
             }
         """
-        return super(UsersResource, self).get_view(*args, **kwargs)
+        return super(UsersResource, cls).get_view(*args, **kwargs)
 
-    def add_view(self, **kwargs):
+    @classmethod
+    def add_view(cls, **kwargs):
         """
         Create a user.
 
@@ -166,10 +169,11 @@ class UsersResource(Resource):
         kwargs['name'] = kwargs.get('name', login)
         if User.query.filter_by(login=login).first() is not None:
             raise ValidationError('User login is not unique')
-        return super(UsersResource, self).add_view(**kwargs)
+        return super(UsersResource, cls).add_view(**kwargs)
 
     # Todo: Document that all fields are optional.
-    def edit_view(self, *args, **kwargs):
+    @classmethod
+    def edit_view(cls, *args, **kwargs):
         """
         Update a user.
 
@@ -215,10 +219,11 @@ class UsersResource(Resource):
             }
 
         """
-        return super(UsersResource, self).edit_view(*args, **kwargs)
+        return super(UsersResource, cls).edit_view(*args, **kwargs)
 
-    def serialize(self, resource, embed=None):
-        serialization = super(UsersResource, self).serialize(resource, embed=embed)
+    @classmethod
+    def serialize(cls, resource, embed=None):
+        serialization = super(UsersResource, cls).serialize(resource, embed=embed)
         serialization.update(name=resource.name,
                              login=resource.login,
                              roles=list(resource.roles),

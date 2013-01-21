@@ -48,8 +48,9 @@ class CoveragesResource(TaskedResource):
     add_schema = {'sample': {'type': 'sample', 'required': True},
                   'data_source': {'type': 'data_source', 'required': True}}
 
-    def serialize(self, resource, embed=None):
-        serialization = super(CoveragesResource, self).serialize(resource, embed=embed)
+    @classmethod
+    def serialize(cls, resource, embed=None):
+        serialization = super(CoveragesResource, cls).serialize(resource, embed=embed)
         serialization.update(sample_uri=url_for('.sample_get', sample=resource.sample_id),
                              data_source_uri=url_for('.data_source_get', data_source=resource.data_source_id),
                              imported=resource.task_done)
