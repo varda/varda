@@ -43,7 +43,7 @@ class UsersResource(Resource):
     @classmethod
     def list_view(cls, *args, **kwargs):
         """
-        Collection of registered users.
+        Get a collection of users.
 
         .. todo:: Document what it means to be a collection of resources.
 
@@ -90,7 +90,7 @@ class UsersResource(Resource):
     @classmethod
     def get_view(cls, *args, **kwargs):
         """
-        Details for user.
+        Get details for a user.
 
         Requires the `admin` role or being the requested user.
 

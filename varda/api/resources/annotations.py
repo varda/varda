@@ -56,8 +56,97 @@ class AnnotationsResource(TaskedResource):
                                                            {'type': 'sample'}]}}}
 
     @classmethod
+    def list_view(cls, *args, **kwargs):
+        """
+        Get a collection of annotations.
+
+        Requires the `admin` role or being the owner of the data source.
+
+        :statuscode 200: Respond with a list of :ref:`annotation <api_annotations>`
+            objects as `annotations`.
+
+        Example request:
+
+        .. sourcecode:: http
+
+            GET /annotations HTTP/1.1
+
+        Example response:
+
+        .. sourcecode:: http
+
+            HTTP/1.1 200 OK
+            Content-Type: application/json
+
+            {
+              "annotations":
+                [
+                  {
+                    "uri": "/annotations/2",
+                    "original_data_source_uri": "/data_sources/23",
+                    "annotated_data_source_uri": "/data_sources/57",
+                    "written": true
+                  },
+                  {
+                    "uri": "/annotations/3",
+                    "original_data_source_uri": "/data_sources/23",
+                    "annotated_data_source_uri": "/data_sources/58",
+                    "written": true
+                  },
+                  {
+                    "uri": "/annotations/4",
+                    "original_data_source_uri": "/data_sources/23",
+                    "annotated_data_source_uri": "/data_sources/59",
+                    "written": false
+                  }
+                ]
+            }
+        """
+        return super(AnnotationsResource, cls).list_view(*args, **kwargs)
+
+    @classmethod
+    def get_view(cls, *args, **kwargs):
+        """
+        Get details for an annotation.
+
+        Requires the `admin` role or being the owner of the annotation.
+
+        :statuscode 200: Respond with an :ref:`annotation <api_annotations>`
+            object as `annotation`.
+
+            Example request:
+
+            .. sourcecode:: http
+
+                GET /annotations/2 HTTP/1.1
+
+            Example response:
+
+            .. sourcecode:: http
+
+                HTTP/1.1 200 OK
+                Content-Type: application/json
+
+                {
+                  "annotation":
+                    {
+                      "uri": "/annotations/2",
+                      "original_data_source_uri": "/data_sources/23",
+                      "annotated_data_source_uri": "/data_sources/57",
+                      "written": true
+                    }
+                }
+        """
+        return super(AnnotationsResource, cls).get_view(*args, **kwargs)
+
+    @classmethod
     def add_view(cls, data_source, global_frequencies=False,
                  exclude_samples=None, include_samples=None):
+        """
+        Create an annotation.
+
+        .. todo:: Documentation.
+        """
         # Todo: Check if data source is a VCF file.
         # Todo: The `include_samples` might be better structured as a list of
         #     objects, e.g. ``[{label: GoNL, sample: ...}, {label: 1KG, sample: ...}]``.
