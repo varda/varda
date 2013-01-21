@@ -49,9 +49,9 @@ class VariationsResource(TaskedResource):
                   'data_source': {'type': 'data_source', 'required': True}}
 
     @classmethod
-    def serialize(cls, resource, embed=None):
-        serialization = super(VariationsResource, cls).serialize(resource, embed=embed)
-        serialization.update(sample_uri=url_for('.sample_get', sample=resource.sample_id),
-                             data_source_uri=url_for('.data_source_get', data_source=resource.data_source_id),
-                             imported=resource.task_done)
+    def serialize(cls, instance, embed=None):
+        serialization = super(VariationsResource, cls).serialize(instance, embed=embed)
+        serialization.update(sample_uri=url_for('.sample_get', sample=instance.sample_id),
+                             data_source_uri=url_for('.data_source_get', data_source=instance.data_source_id),
+                             imported=instance.task_done)
         return serialization

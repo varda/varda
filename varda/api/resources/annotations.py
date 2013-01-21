@@ -114,9 +114,9 @@ class AnnotationsResource(TaskedResource):
         return response, 202
 
     @classmethod
-    def serialize(cls, resource, embed=None):
-        serialization = super(AnnotationsResource, cls).serialize(resource, embed=embed)
-        serialization.update(original_data_source_uri=url_for('.data_source_get', data_source=resource.original_data_source_id),
-                             annotated_data_source_uri=url_for('.data_source_get', data_source=resource.annotated_data_source_id),
-                             written=resource.task_done)
+    def serialize(cls, instance, embed=None):
+        serialization = super(AnnotationsResource, cls).serialize(instance, embed=embed)
+        serialization.update(original_data_source_uri=url_for('.data_source_get', data_source=instance.original_data_source_id),
+                             annotated_data_source_uri=url_for('.data_source_get', data_source=instance.annotated_data_source_id),
+                             written=instance.task_done)
         return serialization

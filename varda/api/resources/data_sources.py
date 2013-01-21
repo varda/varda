@@ -76,12 +76,12 @@ class DataSourcesResource(Resource):
                                    mimetype='application/x-gzip')
 
     @classmethod
-    def serialize(cls, resource, embed=None):
-        serialization = super(DataSourcesResource, cls).serialize(resource, embed=embed)
-        serialization.update(user_uri=url_for('.user_get', user=resource.user.id),
-                             data_uri=url_for('.data_source_data', data_source=resource.id),
-                             name=resource.name,
-                             filetype=resource.filetype,
-                             gzipped=resource.gzipped,
-                             added=str(resource.added.isoformat()))
+    def serialize(cls, instance, embed=None):
+        serialization = super(DataSourcesResource, cls).serialize(instance, embed=embed)
+        serialization.update(user_uri=url_for('.user_get', user=instance.user.id),
+                             data_uri=url_for('.data_source_data', data_source=instance.id),
+                             name=instance.name,
+                             filetype=instance.filetype,
+                             gzipped=instance.gzipped,
+                             added=str(instance.added.isoformat()))
         return serialization

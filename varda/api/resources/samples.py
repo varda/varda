@@ -73,11 +73,11 @@ class SamplesResource(Resource):
         return super(SamplesResource, cls).edit_view(**kwargs)
 
     @classmethod
-    def serialize(cls, resource, embed=None):
-        serialization = super(SamplesResource, cls).serialize(resource, embed=embed)
-        serialization.update(user_uri=url_for('.user_get', user=resource.user.id),
-                             name=resource.name,
-                             pool_size=resource.pool_size,
-                             public=resource.public,
-                             added=str(resource.added.isoformat()))
+    def serialize(cls, instance, embed=None):
+        serialization = super(SamplesResource, cls).serialize(instance, embed=embed)
+        serialization.update(user_uri=url_for('.user_get', user=instance.user.id),
+                             name=instance.name,
+                             pool_size=instance.pool_size,
+                             public=instance.public,
+                             added=str(instance.added.isoformat()))
         return serialization

@@ -101,48 +101,48 @@ class Resource(object):
     def list_view(cls, begin, count, embed=None, **filter):
         # Todo: Just appending 's' to the result key to get plural here is
         #     very ugly.
-        resources = cls.model.query
+        instances = cls.model.query
         if filter:
-            resources = resources.filter_by(**filter)
-        return (resources.count(),
+            instances = instances.filter_by(**filter)
+        return (instances.count(),
                 jsonify({cls.instance_name + 's': [cls.serialize(r, embed=embed) for r in
-                                                   resources.limit(count).offset(begin)]}))
+                                                   instances.limit(count).offset(begin)]}))
 
     @classmethod
     def get_view(cls, embed=None, **kwargs):
-        resource = kwargs.get(cls.instance_name)
-        return jsonify({cls.instance_name: cls.serialize(resource, embed=embed)})
+        instance = kwargs.get(cls.instance_name)
+        return jsonify({cls.instance_name: cls.serialize(instance, embed=embed)})
 
     @classmethod
     def add_view(cls, *args, **kwargs):
         # Todo: Way to provide default values?
-        resource = cls.model(**kwargs)
-        db.session.add(resource)
+        instance = cls.model(**kwargs)
+        db.session.add(instance)
         db.session.commit()
-        current_app.logger.info('Added %s: %r', cls.instance_name, resource)
-        uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: resource.id})
+        current_app.logger.info('Added %s: %r', cls.instance_name, instance)
+        uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: instance.id})
         response = jsonify({'%s_uri' % cls.instance_name: uri})
         response.location = uri
         return response, 201
 
     @classmethod
     def edit_view(cls, *args, **kwargs):
-        resource = kwargs.pop(cls.instance_name)
+        instance = kwargs.pop(cls.instance_name)
         for field, value in kwargs.items():
-            setattr(resource, field, value)
+            setattr(instance, field, value)
         db.session.commit()
-        current_app.logger.info('Updated %s: %r', cls.instance_name, resource)
-        return jsonify({cls.instance_name: cls.serialize(resource)})
+        current_app.logger.info('Updated %s: %r', cls.instance_name, instance)
+        return jsonify({cls.instance_name: cls.serialize(instance)})
 
     @classmethod
-    def serialize(cls, resource, embed=None):
+    def serialize(cls, instance, embed=None):
         """
         * **uri** (`string`) - URI for this resource.
         """
         embed = embed or []
-        uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: resource.id})
+        uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: instance.id})
         serialization = {'uri': uri}
-        serialization.update({field: cls.embeddable[field].serialize(getattr(resource, field))
+        serialization.update({field: cls.embeddable[field].serialize(getattr(instance, field))
                               for field in embed})
         return serialization
 
@@ -152,10 +152,10 @@ class TaskedResource(Resource):
 
     @classmethod
     def get_view(cls, embed=None, **kwargs):
-        resource = kwargs.get(cls.instance_name)
+        instance = kwargs.get(cls.instance_name)
         progress = None
-        if not resource.task_done and resource.task_uuid:
-            result = cls.task.AsyncResult(resource.task_uuid)
+        if not instance.task_done and instance.task_uuid:
+            result = cls.task.AsyncResult(instance.task_uuid)
             try:
                 # This re-raises a possible TaskError, handled by error_task_error
                 # above.
@@ -165,17 +165,17 @@ class TaskedResource(Resource):
                 pass
             if result.state == 'PROGRESS':
                 progress = result.info['percentage']
-        return jsonify({cls.instance_name: cls.serialize(resource, embed=embed), 'progress': progress})
+        return jsonify({cls.instance_name: cls.serialize(instance, embed=embed), 'progress': progress})
 
     @classmethod
     def add_view(cls, *args, **kwargs):
-        resource = cls.model(**kwargs)
-        db.session.add(resource)
+        instance = cls.model(**kwargs)
+        db.session.add(instance)
         db.session.commit()
-        current_app.logger.info('Added %s: %r', cls.instance_name, resource)
-        result = cls.task.delay(resource.id)
-        current_app.logger.info('Called task: %s(%d) %s', cls.task.__name__, resource.id, result.task_id)
-        uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: resource.id})
+        current_app.logger.info('Added %s: %r', cls.instance_name, instance)
+        result = cls.task.delay(instance.id)
+        current_app.logger.info('Called task: %s(%d) %s', cls.task.__name__, instance.id, result.task_id)
+        uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: instance.id})
         response = jsonify({'%s_uri' % cls.instance_name: uri})
         response.location = uri
         return response, 202

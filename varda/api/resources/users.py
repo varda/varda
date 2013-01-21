@@ -222,10 +222,10 @@ class UsersResource(Resource):
         return super(UsersResource, cls).edit_view(*args, **kwargs)
 
     @classmethod
-    def serialize(cls, resource, embed=None):
-        serialization = super(UsersResource, cls).serialize(resource, embed=embed)
-        serialization.update(name=resource.name,
-                             login=resource.login,
-                             roles=list(resource.roles),
-                             added=str(resource.added.isoformat()))
+    def serialize(cls, instance, embed=None):
+        serialization = super(UsersResource, cls).serialize(instance, embed=embed)
+        serialization.update(name=instance.name,
+                             login=instance.login,
+                             roles=list(instance.roles),
+                             added=str(instance.added.isoformat()))
         return serialization
