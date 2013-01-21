@@ -61,13 +61,6 @@ varda.genome
    :members:
 
 
-varda.log
----------
-
-.. automodule:: varda.log
-   :members:
-
-
 varda.models
 ------------
 
