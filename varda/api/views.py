@@ -16,7 +16,6 @@ from .errors import ActivationFailure, ValidationError
 from .resources import (AnnotationsResource, CoveragesResource,
                         DataSourcesResource, SamplesResource, UsersResource,
                         VariationsResource)
-from .serialize import serialize
 from .utils import user_by_login
 
 
@@ -61,7 +60,7 @@ def error_forbidden(error):
 
 
 @api.errorhandler(404)
-@api.app_errorhandler(404)  # Todo: is this like in the master branch?
+@api.app_errorhandler(404)
 def error_not_found(error):
     return jsonify(error={
         'code': 'not_found',
@@ -84,14 +83,29 @@ def error_not_implemented(error):
 
 @api.errorhandler(tasks.TaskError)
 def error_task_error(error):
-    return jsonify(error=serialize(error)), 500
+    return jsonify(error={'code': error.code,
+                          'message': error.message}), 500
 
 
 @api.errorhandler(ActivationFailure)
 @api.errorhandler(InvalidDataSource)
+def error_(error):
+    return jsonify(error={'code': error.code,
+                          'message': error.message}), 400
+
+
 @api.errorhandler(ValidationError)
 def error_(error):
-    return jsonify(error=serialize(error)), 400
+    return jsonify(error={'code': 'bad_request',
+                          'message': error.message}), 400
+
+
+users_resource = UsersResource(api, url_prefix='/users')
+samples_resource = SamplesResource(api, url_prefix='/samples')
+variations_resource = VariationsResource(api, url_prefix='/variations')
+coverages_resource = CoveragesResource(api, url_prefix='/coverages')
+data_sources_resource = DataSourcesResource(api, url_prefix='/data_sources')
+annotations_resource = AnnotationsResource(api, url_prefix='/annotations')
 
 
 @api.route('/')
@@ -162,13 +176,6 @@ def authentication():
     """
     authentication = {'authenticated': False}
     if g.user is not None:
-        authentication.update(authenticated=True, user=serialize(g.user))
+        authentication.update(authenticated=True,
+                              user=users_resource.serialize(g.user))
     return jsonify(authentication)
-
-
-users_resource = UsersResource(api, url_prefix='/users')
-samples_resource = SamplesResource(api, url_prefix='/samples')
-variations_resource = VariationsResource(api, url_prefix='/variations')
-coverages_resource = CoveragesResource(api, url_prefix='/coverages')
-data_sources_resource = DataSourcesResource(api, url_prefix='/data_sources')
-annotations_resource = AnnotationsResource(api, url_prefix='/annotations')

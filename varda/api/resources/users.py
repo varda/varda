@@ -217,7 +217,6 @@ class UsersResource(Resource):
                   "added": "2012-11-23T10:55:12.776706"
                 }
             }
-
         """
         return super(UsersResource, cls).edit_view(*args, **kwargs)
 

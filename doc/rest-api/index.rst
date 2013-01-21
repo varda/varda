@@ -74,4 +74,36 @@ Special endpoints
 Errors
 ------
 
-.. automethoddoc:: varda.api.serialize.serialize_exception
+Errors are represented as objects with the following fields:
+
+* **code** (`string`) - Error code (todo: document error codes).
+* **message** (`string`) - Human readable error message.
+
+If an error occurs, the server responds with an error object as `error` and an
+appropriate status code.
+
+Example request:
+
+.. sourcecode:: http
+
+    PATCH /samples/3 HTTP/1.1
+    Content-Type: application/json
+
+    {
+      "active": true
+    }
+
+Example response:
+
+.. sourcecode:: http
+
+    HTTP/1.1 400 Bad Request
+    Content-Type: application/json
+
+    {
+      "error":
+        {
+          "code": "activation_failure",
+          "message": "Sample could not be activated for some reason"
+        }
+    }
