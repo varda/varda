@@ -13,9 +13,9 @@ from .. import genome
 from .. import tasks
 from ..models import InvalidDataSource
 from .errors import ActivationFailure, ValidationError
-from .resources import (UsersResource, SamplesResource, VariationsResource,
-                        CoveragesResource, DataSourcesResource,
-                        AnnotationsResource)
+from .resources import (AnnotationsResource, CoveragesResource,
+                        DataSourcesResource, SamplesResource, UsersResource,
+                        VariationsResource)
 from .serialize import serialize
 from .utils import user_by_login
 
