@@ -11,7 +11,8 @@ VARDA_WEB_LOCAL_PATH = None
 VARDA_WEB_URL_PREFIX = '/varda-web'
 
 # Directory to store uploaded files
-FILES_DIR = '/tmp'
+import tempfile
+FILES_DIR = tempfile.mkdtemp()
 
 # Maximum size for uploaded files
 MAX_CONTENT_LENGTH = 1024 * 1024 * 1024  # 1 gigabyte
@@ -45,3 +46,6 @@ BROKER_URL = 'redis://'
 #CELERY_RESULT_DBURI = 'mysql://user:password@localhost/vardaresults'
 #CELERY_RESULT_DBURI = 'postgresql://user:password@localhost/vardaresults'
 CELERY_RESULT_BACKEND = 'redis://'
+
+# We are running the unit tests
+TESTING = False

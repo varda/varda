@@ -64,10 +64,24 @@ class DocAppend(object):
     def prepend_parent_doc(self, func, source):
         if source is None:
             raise NameError, ("Can't find '%s' in parents"%self.name)
-        func.__doc__ = source.__doc__ + self.mthd.__doc__
+        func.__doc__ = source.__doc__.rstrip(' ') + self.mthd.__doc__.lstrip('\n')
         return func
 
 doc_append = DocAppend
+
+
+def indent(s, spaces=4):
+    return '\n'.join(spaces * ' ' + l for l in s.split('\n'))
+
+def unindent(s, spaces=4):
+    # Todo: Automagically guess number of spaces for docstrings (length
+    #     of last line).
+    lines = []
+    for line in s.split('\n')[1:-1]:
+        if line.startswith(spaces * ' '):
+            line = line[spaces:]
+        lines.append(line)
+    return '\n'.join(lines)
 
 
 class Resource(object):
@@ -76,6 +90,12 @@ class Resource(object):
     following fields:
 
     {serialization}
+
+    Example:
+
+    .. sourcecode:: json
+
+    {example}
 
     .. autoflask:: varda:create_app()
        :endpoints: {endpoints}
@@ -107,7 +127,7 @@ class Resource(object):
     edit_ensure_options = {}
     edit_schema = {}
 
-    example = None
+    examples = [{'uri': '/resources/5'}, {'uri': '/resources/7'}]
 
     def __new__(cls, *args, **kwargs):
         cls.list_rule = '/'
@@ -129,10 +149,11 @@ class Resource(object):
 
     def __init__(self, blueprint, url_prefix=None):
         # Todo: Normalize docstring indentations.
-        self.__doc__ = Resource.__doc__.format(endpoints=', '.join('api.%s_%s' % (self.instance_type, view) for view in self.views),
-                                               instance_name=self.instance_name,
-                                               serialization=self.serialize.__doc__.format(instance_name=self.instance_name),
-                                               doc=self.__doc__ or '')
+        self.__doc__ = unindent(Resource.__doc__).format(endpoints=', '.join('api.%s_%s' % (self.instance_type, view) for view in self.views),
+                                                         instance_name=self.instance_name,
+                                                         serialization=unindent(self.serialize.__doc__, 8).format(instance_name=self.instance_name),
+                                                         example=indent(json.dumps(self.examples[0], indent=2)),
+                                                         doc=unindent(self.__doc__ or ''))
         self.blueprint = blueprint
         self.url_prefix = url_prefix
         self.register_views()
@@ -262,6 +283,17 @@ class UsersResource(Resource):
     edit_schema = {'name': {'type': 'string'},
                    'password': {'type': 'string'},
                    'roles': {'type': 'list', 'allowed': USER_ROLES}}
+
+    examples = [{'uri': '/users/7',
+                 'name': 'Frederick Sanger',
+                 'login': 'fred',
+                 'roles': ['admin'],
+                 'added': '2012-11-23T10:55:12.776706'},
+                {'uri': '/users/9',
+                 'name': 'Walter Gilbert',
+                 'login': 'walter',
+                 'roles': ['importer', 'annotator'],
+                 'added': '2012-11-23T10:55:12.776706'}]
 
     def add_view(self, **kwargs):
         login = kwargs.get('login')
