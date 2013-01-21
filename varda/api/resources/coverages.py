@@ -25,9 +25,6 @@ class CoveragesResource(TaskedResource):
     * **sample_uri** (`string`) - URI for the :ref:`sample <api_samples>`.
     * **data_source_uri** (`string`) - URI for the :ref:`data source <api_data_sources>`.
     * **imported** (`boolean`) - Whether or not this set of regions is imported.
-
-    .. autoflask:: varda:create_app()
-       :endpoints: api.coverage_list, api.coverage_get, api.coverage_add
     """
     model = Coverage
     instance_name = 'coverage'

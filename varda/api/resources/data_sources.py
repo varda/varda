@@ -25,9 +25,6 @@ class DataSourcesResource(Resource):
     * **filetype** (`string`) - Data filetype.
     * **gzipped** (`boolean`) - Whether or not data is compressed.
     * **added** (`string`) - Date this data source was added.
-
-    .. autoflask:: varda:create_app()
-       :endpoints: api.data_source_list, api.data_source_get, api.data_source_add, api.data_source_edit, api.data_source_data
     """
     model = DataSource
     instance_name = 'data_source'

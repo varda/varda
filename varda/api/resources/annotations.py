@@ -27,9 +27,6 @@ class AnnotationsResource(TaskedResource):
     * **original_data_source_uri** (`string`) - URI for the original :ref:`data source <api_data_sources>`.
     * **annotated_data_source_uri** (`string`) - URI for the annotated :ref:`data source <api_data_sources>`.
     * **written** (`boolean`) - Whether or not this annotation has been written.
-
-    .. autoflask:: varda:create_app()
-       :endpoints: api.annotation_list, api.annotation_get, api.annotation_add
     """
     model = Annotation
     instance_name = 'annotation'

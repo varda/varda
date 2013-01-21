@@ -41,54 +41,32 @@ If a request requires user authentication, it should be performed using
 Authentication state can be checked on the :http:get:`authentication endpoint </authentication>`.
 
 
-.. _api_users:
+.. _api_resources:
 
-Users
------
+Resources
+---------
 
-.. autodatadoc:: varda.api.views.users_resource
+Several resources are exposes through the API. They are documented on the
+following pages.
 
+.. toctree::
+   :maxdepth: 1
 
-.. _api_samples:
-
-Samples
--------
-
-.. autodatadoc:: varda.api.views.samples_resource
-
-
-.. _api_variations:
-
-Sets of observations
---------------------
-
-.. autodatadoc:: varda.api.views.variations_resource
+   users
+   samples
+   data_sources
+   variations
+   coverages
+   annotations
 
 
-.. _api_coverages:
+.. _api_misc:
 
-Sets of regions
----------------
+Special endpoints
+-----------------
 
-.. autodatadoc:: varda.api.views.coverages_resource
-
-
-.. _api_data_sources:
-
-Data sources
-------------
-
-.. autodatadoc:: varda.api.views.data_sources_resource
-
-.. Todo: Note that the data_sources_data response content is not JSON.
-
-
-.. _api_annotations:
-
-Annotations
------------
-
-.. autodatadoc:: varda.api.views.annotations_resource
+.. autoflask:: varda:create_app()
+   :endpoints: api.apiroot, api.authentication
 
 
 .. _api_exceptions:
@@ -97,12 +75,3 @@ Errors
 ------
 
 .. automethoddoc:: varda.api.serialize.serialize_exception
-
-
-.. _api_misc:
-
-Miscellaneous
--------------
-
-.. autoflask:: varda:create_app()
-   :endpoints: api.apiroot, api.authentication

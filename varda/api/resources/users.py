@@ -22,9 +22,6 @@ class UsersResource(Resource):
     * **login** (`string`) - User login used for identification.
     * **roles** (`list of string`) - Roles this user has.
     * **added** (`string`) - Date and time this user was added.
-
-    .. autoflask:: varda:create_app()
-       :endpoints: api.user_list, api.user_get, api.user_add, api.user_edit
     """
     model = User
     instance_name = 'user'

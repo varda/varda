@@ -24,9 +24,6 @@ class SamplesResource(Resource):
     * **pool_size** (`integer`) - Number of individuals.
     * **public** (`boolean`) - Whether or not this sample is public.
     * **added** (`string`) - Date and time this sample was added.
-
-    .. autoflask:: varda:create_app()
-       :endpoints: api.sample_list, api.sample_get, api.sample_add, api.sample_edit
     """
     model = Sample
     instance_name = 'sample'
