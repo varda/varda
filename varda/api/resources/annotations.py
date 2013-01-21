@@ -114,28 +114,28 @@ class AnnotationsResource(TaskedResource):
         :statuscode 200: Respond with an :ref:`annotation <api_annotations>`
             object as `annotation`.
 
-            Example request:
+        Example request:
 
-            .. sourcecode:: http
+        .. sourcecode:: http
 
-                GET /annotations/2 HTTP/1.1
+            GET /annotations/2 HTTP/1.1
 
-            Example response:
+        Example response:
 
-            .. sourcecode:: http
+        .. sourcecode:: http
 
-                HTTP/1.1 200 OK
-                Content-Type: application/json
+            HTTP/1.1 200 OK
+            Content-Type: application/json
 
+            {
+              "annotation":
                 {
-                  "annotation":
-                    {
-                      "uri": "/annotations/2",
-                      "original_data_source_uri": "/data_sources/23",
-                      "annotated_data_source_uri": "/data_sources/57",
-                      "written": true
-                    }
+                  "uri": "/annotations/2",
+                  "original_data_source_uri": "/data_sources/23",
+                  "annotated_data_source_uri": "/data_sources/57",
+                  "written": true
                 }
+            }
         """
         return super(AnnotationsResource, cls).get_view(*args, **kwargs)
 
