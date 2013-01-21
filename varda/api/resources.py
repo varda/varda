@@ -128,6 +128,7 @@ class Resource(object):
         return object.__new__(cls, *args, **kwargs)
 
     def __init__(self, blueprint, url_prefix=None):
+        # Todo: Normalize docstring indentations.
         self.__doc__ = Resource.__doc__.format(endpoints=', '.join('api.%s_%s' % (self.instance_type, view) for view in self.views),
                                                instance_name=self.instance_name,
                                                serialization=self.serialize.__doc__.format(instance_name=self.instance_name),
