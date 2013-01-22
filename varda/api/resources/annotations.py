@@ -112,7 +112,8 @@ class AnnotationsResource(TaskedResource):
         Requires the `admin` role or being the owner of the annotation.
 
         :statuscode 200: Respond with an :ref:`annotation <api_annotations>`
-            object as `annotation`.
+            object as `annotation` and if writing is ongoing its progress in
+            percentages as `progress`.
 
         Example request:
 
@@ -133,8 +134,9 @@ class AnnotationsResource(TaskedResource):
                   "uri": "/annotations/2",
                   "original_data_source_uri": "/data_sources/23",
                   "annotated_data_source_uri": "/data_sources/57",
-                  "written": true
-                }
+                  "written": false
+                },
+              "progress": 98
             }
         """
         return super(AnnotationsResource, cls).get_view(*args, **kwargs)

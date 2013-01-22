@@ -137,7 +137,7 @@ class UsersResource(Resource):
         :type password: string
         :arg roles: Roles to assign.
         :type roles: list of string
-        :statuscode 201: Respond with a URI for the created user as `user`.
+        :statuscode 201: Respond with a URI for the created user as `user_uri`.
 
         Example request:
 
@@ -157,7 +157,7 @@ class UsersResource(Resource):
 
         .. sourcecode:: http
 
-            HTTP/1.1 201 CREATED
+            HTTP/1.1 201 Created
             Location: https://example.com/users/3
             Content-Type: application/json
 

@@ -49,6 +49,127 @@ class VariationsResource(TaskedResource):
                   'data_source': {'type': 'data_source', 'required': True}}
 
     @classmethod
+    def list_view(cls, *args, **kwargs):
+        """
+        Get a collection of sets of observations.
+
+        Requires the `admin` role or being the owner of the sample.
+
+        :statuscode 200: Respond with a list of :ref:`set of observations <api_variations>`
+            objects as `variations`.
+
+        Example request:
+
+        .. sourcecode:: http
+
+            GET /variations HTTP/1.1
+
+        Example response:
+
+        .. sourcecode:: http
+
+            HTTP/1.1 200 OK
+            Content-Type: application/json
+
+            {
+              "variations":
+                [
+                  {
+                    "uri": "/variations/11",
+                    "sample_uri": "/samples/3",
+                    "data_source_uri": "/data_sources/26"
+                    "imported": true
+                  },
+                  {
+                    "uri": "/variations/12",
+                    "sample_uri": "/samples/4",
+                    "data_source_uri": "/data_sources/27"
+                    "imported": true
+                  }
+                ]
+            }
+        """
+        return super(VariationsResource, cls).list_view(*args, **kwargs)
+
+    @classmethod
+    def get_view(cls, *args, **kwargs):
+        """
+        Get details for a set of observations.
+
+        Requires the `admin` role or being the owner of the set of
+        observations.
+
+        :statuscode 200: Respond with a :ref:`set of observations <api_variations>`
+            object as `variation` and if importing is ongoing its progress in
+            percentages as `progress`.
+
+        Example request:
+
+        .. sourcecode:: http
+
+            GET /variations/12 HTTP/1.1
+
+        Example response:
+
+        .. sourcecode:: http
+
+            HTTP/1.1 200 OK
+            Content-Type: application/json
+
+            {
+              "variation":
+                {
+                  "uri": "/variations/12",
+                  "sample_uri": "/samples/4",
+                  "data_source_uri": "/data_sources/27"
+                  "imported": false
+                },
+              "progress": 78
+            }
+        """
+        return super(VariationsResource, cls).get_view(*args, **kwargs)
+
+    @classmethod
+    def add_view(cls, *args, **kwargs):
+        """
+        Create a set of observations.
+
+        Requires the `admin` role or being the owner of the sample.
+
+        :arg sample: URI for the sample to import the set of observations to.
+        :type sample: string
+        :arg data_source: URI for the data source to read the set of observations from.
+        :type data_source: string
+        :statuscode 202: Respond with a URI for the created set of
+            observations as `variation_uri`.
+
+        Example request:
+
+        .. sourcecode:: http
+
+            POST /variations HTTP/1.1
+            Content-Type: application/json
+
+            {
+              "sample": "/samples/14",
+              "data_source": "/data_sources/18"
+            }
+
+        Example response:
+
+        .. sourcecode:: http
+
+            HTTP/1.1 202 Accepted
+            Location: https://example.com/variations/3
+            Content-Type: application/json
+
+            {
+              "variation_uri": "/variations/3"
+            }
+        """
+        return super(VariationsResource, cls).add_view(*args, **kwargs)
+
+    @classmethod
     def serialize(cls, instance, embed=None):
         serialization = super(VariationsResource, cls).serialize(instance, embed=embed)
         serialization.update(sample_uri=url_for('.sample_get', sample=instance.sample_id),
