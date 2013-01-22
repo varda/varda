@@ -33,13 +33,6 @@ varda.api.security
    :members:
 
 
-varda.api.serialize
-^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: varda.api.serialize
-   :members:
-
-
 varda.api.utils
 ^^^^^^^^^^^^^^^
 
