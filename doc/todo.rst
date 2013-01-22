@@ -12,6 +12,7 @@ Todo list
 * More comprehensive test suite.
 * Optionally only import variants from VCF file with PASS.
 * Refactor API views to Blueprint resources for each model.
+* Store number of alleles a variant was observed on, if it is known (from genotype).
 
 
 Document use cases
