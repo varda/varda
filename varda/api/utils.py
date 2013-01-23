@@ -82,7 +82,7 @@ def user_by_uri(app, uri):
     Get a user from its URI.
     """
     try:
-        args = parse_args(app, 'api.users_get', uri)
+        args = parse_args(app, 'api.user_get', uri)
     except ValueError:
         return None
     return User.query.get(args['user'])
@@ -93,7 +93,7 @@ def sample_by_uri(app, uri):
     Get a sample from its URI.
     """
     try:
-        args = parse_args(app, 'api.samples_get', uri)
+        args = parse_args(app, 'api.sample_get', uri)
     except ValueError:
         return None
     return Sample.query.get(args['sample'])
@@ -104,7 +104,7 @@ def variation_by_uri(app, uri):
     Get a variation from its URI.
     """
     try:
-        args = parse_args(app, 'api.variations_get', uri)
+        args = parse_args(app, 'api.variation_get', uri)
     except ValueError:
         return None
     return Variation.query.get(args['variation'])
@@ -115,7 +115,7 @@ def coverage_by_uri(app, uri):
     Get a coverage from its URI.
     """
     try:
-        args = parse_args(app, 'api.coverages_get', uri)
+        args = parse_args(app, 'api.coverage_get', uri)
     except ValueError:
         return None
     return Coverage.query.get(args['coverage'])
@@ -126,7 +126,7 @@ def data_source_by_uri(app, uri):
     Get a data source from its URI.
     """
     try:
-        args = parse_args(app, 'api.data_sources_get', uri)
+        args = parse_args(app, 'api.data_source_get', uri)
     except ValueError:
         return None
     return DataSource.query.get(args['data_source'])

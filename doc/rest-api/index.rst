@@ -41,72 +41,32 @@ If a request requires user authentication, it should be performed using
 Authentication state can be checked on the :http:get:`authentication endpoint </authentication>`.
 
 
-.. _api_users:
+.. _api_resources:
 
-Users
------
+Resources
+---------
 
-.. autodocstring:: varda.api.serialize.serialize_user
+Several resources are exposes through the API. They are documented on the
+following pages.
 
-.. autoflask:: varda:create_app()
-   :endpoints: api.users_list, api.users_get, api.users_add
+.. toctree::
+   :maxdepth: 1
 
-
-.. _api_samples:
-
-Samples
--------
-
-.. autodocstring:: varda.api.serialize.serialize_sample
-
-.. autoflask:: varda:create_app()
-   :endpoints: api.samples_list, api.samples_get, api.samples_add, api.samples_update
+   users
+   samples
+   data_sources
+   variations
+   coverages
+   annotations
 
 
-.. _api_variations:
+.. _api_misc:
 
-Sets of observations
---------------------
-
-.. autodocstring:: varda.api.serialize.serialize_variation
+Special endpoints
+-----------------
 
 .. autoflask:: varda:create_app()
-   :endpoints: api.variations_list, api.variations_get, api.samples_add
-
-
-.. _api_coverages:
-
-Sets of regions
----------------
-
-.. autodocstring:: varda.api.serialize.serialize_coverage
-
-.. autoflask:: varda:create_app()
-   :endpoints: api.coverages_list, api.coverages_get, api.coverages_add
-
-
-.. _api_data_sources:
-
-Data sources
-------------
-
-.. autodocstring:: varda.api.serialize.serialize_data_source
-
-.. autoflask:: varda:create_app()
-   :endpoints: api.data_sources_list, api.data_sources_get, api.data_sources_data, api.data_sources_add
-
-.. Todo: Note that the data_sources_data response content is not JSON.
-
-
-.. _api_annotations:
-
-Annotations
------------
-
-.. autodocstring:: varda.api.serialize.serialize_annotation
-
-.. autoflask:: varda:create_app()
-   :endpoints: api.annotations_list, api.annotations_get, api.annotations_add
+   :endpoints: api.apiroot, api.authentication
 
 
 .. _api_exceptions:
@@ -114,13 +74,36 @@ Annotations
 Errors
 ------
 
-.. autodocstring:: varda.api.serialize.serialize_exception
+Errors are represented as objects with the following fields:
 
+* **code** (`string`) - Error code (todo: document error codes).
+* **message** (`string`) - Human readable error message.
 
-.. _api_misc:
+If an error occurs, the server responds with an error object as `error` and an
+appropriate status code.
 
-Miscellaneous
--------------
+Example request:
 
-.. autoflask:: varda:create_app()
-   :endpoints: api.apiroot, api.authentication
+.. sourcecode:: http
+
+    PATCH /samples/3 HTTP/1.1
+    Content-Type: application/json
+
+    {
+      "active": true
+    }
+
+Example response:
+
+.. sourcecode:: http
+
+    HTTP/1.1 400 Bad Request
+    Content-Type: application/json
+
+    {
+      "error":
+        {
+          "code": "activation_failure",
+          "message": "Sample could not be activated for some reason"
+        }
+    }

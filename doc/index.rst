@@ -34,7 +34,7 @@ Documentation for users of Varda server:
    intro
    copyright
    install
-   rest-api
+   rest-api/index
 
 For developers working on Varda server:
 
@@ -42,7 +42,7 @@ For developers working on Varda server:
    :maxdepth: 1
 
    design
-   api
+   api/index
    todo
    links
 

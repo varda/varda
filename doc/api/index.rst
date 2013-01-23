@@ -26,17 +26,20 @@ varda.api.errors
    :members:
 
 
+varda.api.resources
+^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: varda.api.resources
+
+.. toctree::
+
+   resources
+
+
 varda.api.security
 ^^^^^^^^^^^^^^^^^^
 
 .. automodule:: varda.api.security
-   :members:
-
-
-varda.api.serialize
-^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: varda.api.serialize
    :members:
 
 
@@ -54,10 +57,24 @@ varda.api.views
    :members:
 
 
+varda.default_settings
+----------------------
+
+.. automodule:: varda.default_settings
+   :members:
+
+
 varda.genome
 ------------
 
 .. automodule:: varda.genome
+   :members:
+
+
+varda.manage
+------------
+
+.. automodule:: varda.manage
    :members:
 
 
@@ -86,4 +103,18 @@ varda.utils
 -----------
 
 .. automodule:: varda.utils
+   :members:
+
+
+varda.web
+---------
+
+.. automodule:: varda.web
+   :members:
+
+
+varda.worker
+------------
+
+.. automodule:: varda.worker
    :members:

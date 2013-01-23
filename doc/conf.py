@@ -20,15 +20,16 @@ sys.path.insert(0, os.path.abspath('..'))
 
 import varda
 
+# A autodatadoc directive to include just the docstring without signature.
 # From: http://stackoverflow.com/questions/7825263/including-docstring-in-sphinx-documentation
 from sphinx.ext import autodoc
-class DocstringDocumenter(autodoc.MethodDocumenter):
-    objtype = 'docstring'
+class DataDocstringDocumenter(autodoc.DataDocumenter):
+    objtype = 'datadoc'
     content_indent = ''
     def add_directive_header(self, sig):
         pass
 def setup(app):
-    app.add_autodocumenter(DocstringDocumenter)
+    app.add_autodocumenter(DataDocstringDocumenter)
 
 # -- General configuration -----------------------------------------------------
 
@@ -107,7 +108,6 @@ pygments_style = 'sphinx'
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = 'default'
-import os
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 if on_rtd:
     html_theme = 'default'
