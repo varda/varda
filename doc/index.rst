@@ -42,7 +42,7 @@ For developers working on Varda server:
    :maxdepth: 1
 
    design
-   api
+   api/index
    todo
    links
 

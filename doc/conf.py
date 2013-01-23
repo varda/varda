@@ -20,26 +20,15 @@ sys.path.insert(0, os.path.abspath('..'))
 
 import varda
 
+# A autodatadoc directive to include just the docstring without signature.
 # From: http://stackoverflow.com/questions/7825263/including-docstring-in-sphinx-documentation
 from sphinx.ext import autodoc
-class MethodDocstringDocumenter(autodoc.MethodDocumenter):
-    objtype = 'methoddoc'
-    content_indent = ''
-    def add_directive_header(self, sig):
-        pass
-class ClassDocstringDocumenter(autodoc.ClassDocumenter):
-    objtype = 'classdoc'
-    content_indent = ''
-    def add_directive_header(self, sig):
-        pass
 class DataDocstringDocumenter(autodoc.DataDocumenter):
     objtype = 'datadoc'
     content_indent = ''
     def add_directive_header(self, sig):
         pass
 def setup(app):
-    app.add_autodocumenter(MethodDocstringDocumenter)
-    app.add_autodocumenter(ClassDocstringDocumenter)
     app.add_autodocumenter(DataDocstringDocumenter)
 
 # -- General configuration -----------------------------------------------------
