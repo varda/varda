@@ -1,6 +1,19 @@
 """
 REST API resources.
 
+A resource definition is parameterized with an SQLAlchemy model. A resource
+instance provides views on the model instances.
+
+This module defines some base classes for resource definitions. The standard
+:class:`Resource` base class implements the `list`, `get`, `add`, and `edit`
+views in a general way. This implementation can be made more specific for a
+model by overriding the views in a resource subclass.
+
+The :class:`TaskedResource` base class provides the same for models where
+creating a model instance implies running a Celery task. To this end, the
+`add` view implements running a specified task and the `get` view provides
+information about the state of the task.
+
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
 .. Licensed under the MIT license, see the LICENSE file.
@@ -18,6 +31,17 @@ from ..utils import collection
 
 
 class Resource(object):
+    """
+    Base class for a REST resource definition based on an SQLAlchemy model.
+
+    General implementations are provided for the following views on the
+    resource:
+
+    * **list** - Get a collection of model instances.
+    * **get** - Get details for a model instance.
+    * **add** - Add a model instance.
+    * **edit** - Update a model instance.
+    """
     model = None
     instance_name = None
     instance_type = None
@@ -136,9 +160,6 @@ class Resource(object):
 
     @classmethod
     def serialize(cls, instance, embed=None):
-        """
-        * **uri** (`string`) - URI for this resource.
-        """
         embed = embed or []
         uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: instance.id})
         serialization = {'uri': uri}
@@ -148,6 +169,10 @@ class Resource(object):
 
 
 class TaskedResource(Resource):
+    """
+    Base class for a REST resource definition based on an SQLAlchemy model
+    where creating a model instance is followed by running a Celery task.
+    """
     task = None
 
     @classmethod
