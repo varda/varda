@@ -9,7 +9,7 @@ Celery tasks.
 
 from __future__ import division
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from contextlib import contextmanager
 import hashlib
 import os
@@ -217,6 +217,36 @@ def read_observations(observations, filetype='vcf'):
             # Example use of this type are large deletions in 1000 Genomes.
             continue
 
+        # For each ALT, store sample count per number of supporting alleles.
+        # This generalizes zygosity, but for diploid genomes this will be
+        # something like:
+        #
+        #     [{1: 327, 2: 7},     # First ALT, 327 het, 7 hom
+        #      {1: 73},            # Second ALT, 73 het, 0 hom
+        #      {1: 154, 2: 561}]   # Third ALT, 154 het, 561 hom
+        #
+        # The None value is used for the unknown genotype.
+        allele_support = [Counter() for _ in record.ALT]
+
+        # Todo: Have an option to ignore genotypes (always store None in the
+        #     alleles column in that case). Sometimes we know the GT values
+        #     are just bogus.
+
+        # Allele counts are done for alle ALTs in one pass.
+        for sample in record.samples:
+            if not sample.called:
+                if len(record.ALT) == 1:
+                    # If only one ALT, we just count it with unknown number of
+                    # supporting alleles (we have no genotype).
+                    allele_support[0][None] += 1
+                # If more than one ALT, we really don't know what was
+                # called here, so we count nothing.
+                continue
+            counts = Counter(int(index) - 1 for index in sample.gt_alleles
+                             if index != '0')
+            for index, count in counts.items():
+                allele_support[index][count] += 1
+
         for index, allele in enumerate(record.ALT):
             try:
                 chromosome, position, reference, observed = normalize_variant(
@@ -231,27 +261,9 @@ def read_observations(observations, filetype='vcf'):
             if len(reference) > 200 or len(observed) > 200:
                 continue
 
-            # Variant support is defined by the number of samples in which a
-            # variant allele was called, ignoring homo-/heterozygocity.
-            # Todo: This check can break if index > 9.
-            try:
-                support = sum(1 for sample in record.samples
-                              if sample['GT'] is not None
-                              and str(index + 1) in sample['GT'])
-            except AttributeError:
-                support = 1
-
-            #if 'SF' in record.INFO and False:
-            #    # Todo: Per alt allele?
-            #    support = len(record.INFO['SF'])
-            #elif 'AC' in record.INFO and False:
-            #    # Todo: Per alt allele?
-            #    support = record.INFO['AC'][0]
-            #else:
-            #    support = 1
-
-            yield (current_record, chromosome, position, reference, observed,
-                   support)
+            for alleles, support in allele_support[index].items():
+                yield (current_record, chromosome, position, reference,
+                       observed, alleles, support)
 
 
 def read_regions(regions, filetype='bed'):
@@ -347,7 +359,7 @@ def import_variation(variation_id):
     try:
         with data as observations:
             old_percentage = -1
-            for i, (record, chromosome, position, reference, observed, support) \
+            for i, (record, chromosome, position, reference, observed, alleles, support) \
                     in enumerate(read_observations(observations,
                                                    filetype=data_source.filetype)):
                 # Task progress is updated in whole percentages, so for a
@@ -359,7 +371,7 @@ def import_variation(variation_id):
                     old_percentage = percentage
                 observation = Observation(variation, chromosome, position,
                                           reference, observed,
-                                          support=support)
+                                          alleles=alleles, support=support)
                 db.session.add(observation)
                 if i % DB_BUFFER_SIZE == DB_BUFFER_SIZE - 1:
                     db.session.commit()

@@ -384,6 +384,9 @@ class Observation(db.Model):
     observed = db.Column(db.String(200))
     bin = db.Column(db.Integer)
 
+    # Number of supporting alleles (1=het, 2=hom, None=unknown).
+    alleles = db.Column(db.Integer)
+
     # Number of individuals.
     support = db.Column(db.Integer)
 
@@ -392,7 +395,7 @@ class Observation(db.Model):
                                                    lazy='dynamic'))
 
     def __init__(self, variation, chromosome, position, reference, observed,
-                 support=1):
+                 alleles=None, support=1):
         self.variation = variation
         self.chromosome = chromosome
         self.position = position
@@ -402,6 +405,7 @@ class Observation(db.Model):
         # be the base next to it.
         self.bin = assign_bin(self.position,
                               self.position + max(1, len(self.reference)) - 1)
+        self.alleles = alleles
         self.support = support
 
     def __repr__(self):
