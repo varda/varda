@@ -217,35 +217,41 @@ def read_observations(observations, filetype='vcf'):
             # Example use of this type are large deletions in 1000 Genomes.
             continue
 
-        # For each ALT, store sample count per number of supporting alleles.
-        # This generalizes zygosity, but for diploid genomes this will be
-        # something like:
-        #
-        #     [{1: 327, 2: 7},     # First ALT, 327 het, 7 hom
-        #      {1: 73},            # Second ALT, 73 het, 0 hom
-        #      {1: 154, 2: 561}]   # Third ALT, 154 het, 561 hom
-        #
-        # The None value is used for the unknown genotype.
-        allele_support = [Counter() for _ in record.ALT]
-
         # Todo: Have an option to ignore genotypes (always store None in the
         #     alleles column in that case). Sometimes we know the GT values
         #     are just bogus.
 
-        # Allele counts are done for alle ALTs in one pass.
-        for sample in record.samples:
-            if not sample.called:
-                if len(record.ALT) == 1:
-                    # If only one ALT, we just count it with unknown number of
-                    # supporting alleles (we have no genotype).
-                    allele_support[0][None] += 1
-                # If more than one ALT, we really don't know what was
-                # called here, so we count nothing.
-                continue
-            counts = Counter(int(index) - 1 for index in sample.gt_alleles
-                             if index != '0')
-            for index, count in counts.items():
-                allele_support[index][count] += 1
+        # For each ALT, store sample count per number of supporting alleles.
+        # This generalizes zygosity, but for diploid genomes this will be
+        # something like:
+        #
+        #     allele_support =
+        #         [{1: 327, 2: 7},     # First ALT, 327 het, 7 hom
+        #          {1: 73},            # Second ALT, 73 het, 0 hom
+        #          {1: 154, 2: 561}]   # Third ALT, 154 het, 561 hom
+        #
+        # The None value is used for the unknown genotype.
+
+        if 'GT' not in record.FORMAT.split(':'):
+            # If we don't have genotypes, we just count the number of samples
+            # and store an unknown number of alleles.
+            # We don't count anything if there is more than one ALT (we could
+            # try to decide from other data, e.g. PL, which ALTs are in which
+            # sample, but we don't bother at the moment).
+            if len(record.ALT) == 1:
+                allele_support = [{None: len(record.samples)}]
+            else:
+                allele_support = [{} for _ in record.samples]
+        else:
+            # If we have genotypes, use them to count alleles.
+            allele_support = [Counter() for _ in record.ALT]
+            for sample in record.samples:
+                if not sample.called:
+                    continue
+                counts = Counter(int(index) - 1 for index in sample.gt_alleles
+                                 if index != '0')
+                for index, count in counts.items():
+                    allele_support[index][count] += 1
 
         for index, allele in enumerate(record.ALT):
             try:
