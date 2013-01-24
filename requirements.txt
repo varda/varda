@@ -1,6 +1,6 @@
 Flask==0.9
 Flask-SQLAlchemy==0.16
-PyVCF==0.6.0
+PyVCF==0.6.3
 SQLAlchemy==0.7.8
 celery==3.0.5
 celery-with-redis==3.0
@@ -12,3 +12,4 @@ numpy==1.6.2
 pyfasta==0.4.5
 sphinxcontrib-httpdomain==1.1.7
 -e git+https://github.com/martijnvermaat/cerberus.git@varda-server#egg=Cerberus
+alembic==0.4.2
