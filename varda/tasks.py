@@ -79,15 +79,15 @@ class CleanTask(Task):
 
 def annotate_variants(original_variants, annotated_variants,
                       original_filetype='vcf', annotated_filetype='vcf',
-                      global_frequencies=False, exclude_sample_ids=None,
-                      include_sample_ids=None, original_records=1):
+                      global_frequencies=False, local_frequencies=None,
+                      exclude_sample_ids=None, original_records=1):
     """
     Annotate variants.
     """
     # Todo: Here we should check again if the samples we use are active, since
     #     it could be a long time ago when this task was submitted.
+    local_frequencies = local_frequencies or []
     exclude_sample_ids = exclude_sample_ids or []
-    include_sample_ids = include_sample_ids or {}
 
     if original_filetype != 'vcf':
         raise ReadError('Original data must be in VCF format')
@@ -107,7 +107,7 @@ def annotate_variants(original_variants, annotated_variants,
                 ~Sample.id.in_(exclude_sample_ids)).count())
 
     # Header lines in VCF output for sample frequencies.
-    for label, sample_id in include_sample_ids.items():
+    for label, sample_id in local_frequencies:
         sample = Sample.query.get(sample_id)
         reader.infos['%s_FREQ' % label] = VcfInfo(
             '%s_FREQ' % label, vcf_field_counts['A'], 'Float',
@@ -131,7 +131,7 @@ def annotate_variants(original_variants, annotated_variants,
             old_percentage = percentage
 
         frequencies = []
-        sample_frequencies = {label: [] for label in include_sample_ids}
+        sample_frequencies = {label: [] for label, _ in local_frequencies}
         for index, allele in enumerate(record.ALT):
             try:
                 chromosome, position, reference, observed = normalize_variant(
@@ -168,8 +168,8 @@ def annotate_variants(original_variants, annotated_variants,
                 else:
                     frequencies.append(0)
 
-            # Frequency for each sample in ``include_sample_ids``.
-            for label, sample_id in include_sample_ids.items():
+            # Frequency for each sample in ``local_frequencies``.
+            for label, sample_id in local_frequencies:
                 observations = Observation.query.filter_by(
                     chromosome=chromosome,
                     position=position,
@@ -193,7 +193,7 @@ def annotate_variants(original_variants, annotated_variants,
 
         if global_frequencies:
             record.add_info('VARDA_FREQ', frequencies)
-        for label in include_sample_ids:
+        for label, _ in local_frequencies:
             record.add_info('%s_FREQ' % label, sample_frequencies[label])
         writer.write_record(record)
 
@@ -477,14 +477,25 @@ def import_coverage(coverage_id):
 
 @celery.task
 def write_annotation(annotation_id, global_frequencies=False,
-                     exclude_sample_ids=None, include_sample_ids=None):
+                     local_frequencies=None, exclude_sample_ids=None):
     """
     Annotate variants with frequencies from the database.
+
+    :arg annotation_id: Annotation to write.
+    :type annotation_id: int
+    :arg global_frequencies: Whether or not to compute global frequencies.
+    :type global_frequencies: bool
+    :arg local_frequencies: List of (`label`, `sample`) tuples to compute
+        frequencies for.
+    :type local_frequencies: list of (str, int)
+    :arg exclude_sample_ids: List of samples to exclude from frequency
+        calculations.
+    :type exclude_sample_ids: list of int
     """
     logger.info('Started task: write_annotation(%d)', annotation_id)
 
+    local_frequencies = local_frequencies or []
     exclude_sample_ids = exclude_sample_ids or []
-    include_sample_ids = include_sample_ids or {}
 
     annotation = Annotation.query.get(annotation_id)
     if annotation is None:
@@ -525,8 +536,8 @@ def write_annotation(annotation_id, global_frequencies=False,
                               original_filetype=original_data_source.filetype,
                               annotated_filetype=annotated_data_source.filetype,
                               global_frequencies=global_frequencies,
+                              local_frequencies=local_frequencies,
                               exclude_sample_ids=exclude_sample_ids,
-                              include_sample_ids=include_sample_ids,
                               original_records=original_data_source.records)
     except ReadError as e:
         annotated_data_source.empty()

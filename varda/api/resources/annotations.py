@@ -49,11 +49,11 @@ class AnnotationsResource(TaskedResource):
     add_ensure_options = {'satisfy': lambda conditions: next(conditions) or (next(conditions) and any(conditions))}
     add_schema = {'data_source': {'type': 'data_source', 'required': True},
                   'global_frequencies': {'type': 'boolean'},
-                  'exclude_samples': {'type': 'list', 'schema': {'type': 'sample'}},
-                  'include_samples': {'type': 'list',
-                                      'schema': {'type': 'list',
-                                                 'items': [{'type': 'string'},
-                                                           {'type': 'sample'}]}}}
+                  'local_frequencies': {'type': 'list',
+                                        'schema': {'type': 'dict',
+                                                   'schema': {'label': {'type': 'string', 'required': True},
+                                                              'sample': {'type': 'sample', 'required': True}}}},
+                  'exclude_samples': {'type': 'list', 'schema': {'type': 'sample'}}}
 
     @classmethod
     def list_view(cls, *args, **kwargs):
@@ -143,34 +143,29 @@ class AnnotationsResource(TaskedResource):
 
     @classmethod
     def add_view(cls, data_source, global_frequencies=False,
-                 exclude_samples=None, include_samples=None):
+                 local_frequencies=None, exclude_samples=None):
         """
         Create an annotation.
 
         .. todo:: Documentation.
         """
         # Todo: Check if data source is a VCF file.
-        # Todo: The `include_samples` might be better structured as a list of
-        #     objects, e.g. ``[{label: GoNL, sample: ...}, {label: 1KG, sample: ...}]``.
         # The `satisfy` keyword argument used here in the `ensure` decorator means
         # that we ensure at least one of:
         # - admin
         # - owns_data_source AND annotator
         # - owns_data_source AND trader
+        local_frequencies = local_frequencies or []
         exclude_samples = exclude_samples or []
 
-        # Todo: Perhaps a better name would be `local_frequencies` instead of
-        #     `include_sample_ids`, to contrast with the `global_frequencies`
-        #     flag.
-        include_samples = dict(include_samples or [])
-
-        if not all(re.match('[0-9A-Z]+', label) for label in include_samples):
-            raise ValidationError('Labels for inluded samples must contain only'
+        if not all(re.match('[0-9A-Z]+', frequency['label'])
+                   for frequency in local_frequencies):
+            raise ValidationError('Labels for local frequencies must contain only'
                                   ' uppercase alphanumeric characters')
 
-        for sample in include_samples.values():
-            if not (sample.public or
-                    sample.user is g.user or
+        for frequency in local_frequencies:
+            if not (frequency['sample'].public or
+                    frequency['sample'].user is g.user or
                     'admin' in g.user.roles):
                 # Todo: Meaningful error message.
                 abort(400)
@@ -196,8 +191,9 @@ class AnnotationsResource(TaskedResource):
 
         result = tasks.write_annotation.delay(annotation.id,
                                               global_frequencies=global_frequencies,
-                                              exclude_sample_ids=[sample.id for sample in exclude_samples],
-                                              include_sample_ids={label: sample.id for label, sample in include_samples.items()})
+                                              local_frequencies=[(frequency['label'], frequency['sample'].id)
+                                                                 for frequency in local_frequencies],
+                                              exclude_sample_ids=[sample.id for sample in exclude_samples])
         current_app.logger.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
         uri = url_for('.annotation_get', annotation=annotation.id)
         response = jsonify(annotation_uri=uri)
