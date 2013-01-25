@@ -104,6 +104,11 @@ class TestApi():
         r = self.client.get(self.uri_root)
         return json.loads(r.data)['annotations_uri']
 
+    @property
+    def uri_variants(self):
+        r = self.client.get(self.uri_root)
+        return json.loads(r.data)['variants_uri']
+
     def test_root(self):
         """
         Dummy test.
@@ -203,6 +208,25 @@ class TestApi():
         open('/tmp/test_exome.vcf.gz', 'w').write(r.data)
         for _ in vcf.Reader(StringIO(r.data), compressed=True):
             pass
+
+    def test_variant(self):
+        """
+        Import and annotate exome sample with coverage track, check variant
+        frequency.
+        """
+        self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
+
+        data = {'chromosome': 'chr20',
+                'position': 139745,
+                'reference': 'T',
+                'observed': 'C'}
+        r = self.client.post(self.uri_variants, data=data, headers=[auth_header(login='admin', password='test')])
+        assert_equal(r.status_code, 201)
+        variant = json.loads(r.data)['variant_uri']
+
+        r = self.client.get(variant, headers=[auth_header(login='admin', password='test')])
+        assert_equal(r.status_code, 200)
+        assert_equal(1.0, json.loads(r.data)['variant']['frequency'])
 
     def test_exome_subset(self):
         """

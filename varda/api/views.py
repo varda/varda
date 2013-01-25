@@ -7,15 +7,22 @@ REST API views.
 """
 
 
+from __future__ import division
+
 from flask import Blueprint, current_app, g, jsonify, request, url_for
 
 from .. import genome
 from .. import tasks
-from ..models import InvalidDataSource
+from ..models import (Coverage, InvalidDataSource, Observation, Region,
+                      Sample, Variation)
+from ..region_binning import all_bins
+from ..utils import normalize_variant, ReferenceMismatch
+from .data import data
 from .errors import ActivationFailure, ValidationError
 from .resources import (AnnotationsResource, CoveragesResource,
                         DataSourcesResource, SamplesResource, UsersResource,
                         VariationsResource)
+from .security import ensure, has_role, require_user
 from .utils import user_by_login
 
 
@@ -137,7 +144,8 @@ def apiroot():
            'variations_uri':     url_for('.variation_list'),
            'coverages_uri':      url_for('.coverage_list'),
            'data_sources_uri':   url_for('.data_source_list'),
-           'annotations_uri':    url_for('.annotation_list')}
+           'annotations_uri':    url_for('.annotation_list'),
+           'variants_uri':       url_for('.variant_list')}
     return jsonify(api)
 
 
@@ -179,3 +187,85 @@ def authentication():
         authentication.update(authenticated=True,
                               user=users_resource.serialize(g.user))
     return jsonify(authentication)
+
+
+@api.route('/variants')
+def variant_list():
+    abort(501)
+
+
+@api.route('/variants/<variant>')
+@require_user
+@data(variant={'type': 'variant'})
+@ensure(has_role('admin'), has_role('annotator'), satisfy=any)
+def variant_get(variant):
+    """
+    Get frequency details for a variant.
+
+    Requires the `admin` or `annotator` role.
+
+    :statuscode 200: Respond with an object defined below as `variant`.
+
+    The response object has the following fields:
+
+    * **chromosome** (`string`) - Chromosome name.
+    * **position** (`integer`) - Start position of the variant.
+    * **reference** (`string`) - Reference sequence.
+    * **observed** (`string`) - Observed sequence.
+    * **frequency** (`float`) - Frequency in database samples.
+    """
+    chromosome, position, reference, observed = variant
+
+    # Todo: Abstract this away for reuse in tasks and here.
+
+    end_position = position + max(1, len(reference)) - 1
+    bins = all_bins(position, end_position)
+
+    exclude_sample_ids = []
+
+    observations = Observation.query.filter_by(
+        chromosome=chromosome,
+        position=position,
+        reference=reference,
+        observed=observed).join(Variation).filter(
+            ~Variation.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(
+                active=True, coverage_profile=True).count()
+
+    coverage = Region.query.join(Coverage).filter(
+        Region.chromosome == chromosome,
+        Region.begin <= position,
+        Region.end >= end_position,
+        Region.bin.in_(bins),
+        ~Coverage.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(active=True).count()
+
+    try:
+        frequency = observations / coverage
+    except ZeroDivisionError:
+        frequency = 0
+
+    return jsonify(variant={'chromosome': chromosome,
+                            'position': position,
+                            'reference': reference,
+                            'observed': observed,
+                            'frequency': frequency})
+
+
+@api.route('/variants', methods=['POST'])
+@require_user
+@data(chromosome={'type': 'string', 'required': True},
+      position={'type': 'integer', 'required': True},
+      reference={'type': 'string'},
+      observed={'type': 'string'})
+def variant_add(chromosome, position, reference='', observed=''):
+    """
+    Create a variant.
+    """
+    # Todo: Also support HGVS input.
+    try:
+        variant = normalize_variant(chromosome, position, reference, observed)
+    except ReferenceMismatch as e:
+        raise ValidationError(str(e))
+    uri = url_for('.variant_get', variant='%s:%d%s>%s' % variant)
+    response = jsonify({'variant_uri': uri})
+    response.location = uri
+    return response, 201

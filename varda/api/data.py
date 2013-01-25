@@ -10,6 +10,7 @@ Utilities for working with request data.
 from copy import deepcopy
 from functools import wraps
 import re
+import urllib
 
 from cerberus import ValidationError as CerberusValidationError, Validator
 from cerberus.errors import ERROR_BAD_TYPE
@@ -156,6 +157,22 @@ class ApiValidator(Validator):
             self.document[field] = annotation_by_uri(current_app, value)
         if not isinstance(self.document[field], Annotation):
             self._error(ERROR_BAD_TYPE % (field, 'annotation'))
+
+    def _validate_type_variant(self, field, value):
+        if not isinstance(value, basestring):
+            self._error(ERROR_BAD_TYPE % (field, 'variant'))
+            return
+        # Todo: I'm not so sure about the urllib.unquote call. I would've
+        #     hoped that Werkzeug routing would unquote any argument in our
+        #     url (e.g. '/variants/<str:variant>' in views.variant_get.
+        match = re.match('([^:]+):([0-9]+)([a-zA-Z]{,200})>([a-zA-Z]{,200}$)',
+                         urllib.unquote(value))
+        try:
+            chromosome, position, reference, observed = match.groups()
+            self.document[field] = chromosome, int(position), reference, observed
+        except AttributeError:
+            raise Exception('hier: %s' % urllib.unquote(value))
+            self._error(ERROR_BAD_TYPE % (field, 'variant'))
 
 
 def data(**schema):

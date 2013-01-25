@@ -121,6 +121,9 @@ def normalize_variant(chromosome, position, reference, observed):
     prefix, reference, observed, _ = trim_common(reference, observed)
     position += prefix
 
+    # Todo: If reference == observed == '', there is no variant. Probably
+    #     raise an exception in that case.
+
     if not genome:
         return chromosome, position, reference, observed
 
