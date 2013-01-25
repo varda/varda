@@ -99,6 +99,8 @@ def normalize_variant(chromosome, position, reference, observed):
     """
     Use reference to create a normalized representation of the variant.
     """
+    # Todo: Document clearly what the position means (0/1-based, what is it
+    #     for an insertion).
     reference = reference.upper()
     observed = observed.upper()
 
