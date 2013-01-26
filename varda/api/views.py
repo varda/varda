@@ -208,10 +208,12 @@ def variant_get(variant):
 
     The response object has the following fields:
 
+    * **uri** (`string`) - URI for this variant.
     * **chromosome** (`string`) - Chromosome name.
     * **position** (`integer`) - Start position of the variant.
     * **reference** (`string`) - Reference sequence.
     * **observed** (`string`) - Observed sequence.
+    * **hgvs** (`string`) - HGVS description.
     * **frequency** (`float`) - Frequency in database samples.
     """
     chromosome, position, reference, observed = variant
@@ -243,7 +245,10 @@ def variant_get(variant):
     except ZeroDivisionError:
         frequency = 0
 
-    return jsonify(variant={'chromosome': chromosome,
+    # Todo: HGVS description is of course not really HGVS.
+    return jsonify(variant={'uri': url_for('.variant_get', variant=variant),
+                            'hgvs': '%s:g.%d%s>%s' % variant,
+                            'chromosome': chromosome,
                             'position': position,
                             'reference': reference,
                             'observed': observed,
