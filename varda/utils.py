@@ -86,6 +86,8 @@ def normalize_region(chromosome, begin, end):
     """
     chromosome = normalize_chromosome(chromosome)
 
+    # Todo: Probably raise an exception if begin > end.
+
     if genome:
         if end > len(genome[chromosome]):
             raise ReferenceMismatch('Position %d does not exist on chromosome'

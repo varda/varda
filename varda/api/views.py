@@ -16,14 +16,14 @@ from .. import tasks
 from ..models import (Coverage, InvalidDataSource, Observation, Region,
                       Sample, Variation)
 from ..region_binning import all_bins
-from ..utils import normalize_variant, ReferenceMismatch
+from ..utils import normalize_region, normalize_variant, ReferenceMismatch
 from .data import data
 from .errors import ActivationFailure, ValidationError
 from .resources import (AnnotationsResource, CoveragesResource,
                         DataSourcesResource, SamplesResource, UsersResource,
                         VariationsResource)
 from .security import ensure, has_role, require_user
-from .utils import user_by_login
+from .utils import collection, user_by_login
 
 
 API_VERSION = 1
@@ -190,8 +190,44 @@ def authentication():
 
 
 @api.route('/variants')
-def variant_list():
-    abort(501)
+#@require_user
+@data(region={'type': 'dict',
+              'schema': {'chromosome': {'type': 'string', 'required': True},
+                         'begin': {'type': 'integer', 'required': True},
+                         'end': {'type': 'integer', 'required': True}},
+              'required': True})
+#@ensure(has_role('admin'), has_role('annotator'), satisfy=any)
+@collection
+def variant_list(begin, count, region):
+    """
+    Get a collection of variants.
+    """
+    # Todo: Note that we mean start, stop to be 1-based, inclusive, but we
+    #     haven't checked if we actually treat it that way.
+    try:
+        chromosome, begin_position, end_position = normalize_region(
+            region['chromosome'], region['begin'], region['end'])
+    except ReferenceMismatch as e:
+        raise ValidationError(str(e))
+
+    bins = all_bins(begin_position, end_position)
+    observations = Observation.query.filter(
+        Observation.chromosome == chromosome,
+        Observation.position >= begin_position,
+        Observation.position <= end_position,
+        Observation.bin.in_(bins))
+
+    def serialize(o):
+        return {'uri': url_for('.variant_get', variant='%s:%d%s>%s' % (o.chromosome, o.position, o.reference, o.observed)),
+                'hgvs': '%s:g.%d%s>%s' % (o.chromosome, o.position, o.reference, o.observed),
+                'chromosome': o.chromosome,
+                'position': o.position,
+                'reference': o.reference,
+                'observed': o.observed}
+
+    return (observations.count(),
+            jsonify(variants=[serialize(o) for o in
+                              observations.limit(count).offset(begin)]))
 
 
 @api.route('/variants/<variant>')
