@@ -1,5 +1,5 @@
 """
-Varda server, a database for genomic variantion.
+Varda, a database for genomic variation frequencies.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
@@ -48,9 +48,9 @@ genome = Genome()
 
 def create_app(settings=None):
     """
-    Create a Flask instance for Varda server. Configuration settings are read
-    from a file specified by the ``VARDA_SETTINGS`` environment variable, if
-    it exists.
+    Create a Flask instance for Varda. Configuration settings are read from a
+    file specified by the ``VARDA_SETTINGS`` environment variable, if it
+    exists.
 
     :arg settings: Dictionary of configuration settings. These take precedence
         over settings read from the file pointed to by the ``VARDA_SETTINGS``
@@ -70,10 +70,10 @@ def create_app(settings=None):
         genome.init(app.config['GENOME'])
     from .api import api
     app.register_blueprint(api, url_prefix=app.config['API_URL_PREFIX'])
-    if app.config['VARDA_WEB_LOCAL_PATH'] is not None:
+    if app.config['AULE_LOCAL_PATH'] is not None:
         assert (app.config['API_URL_PREFIX'] !=
-                app.config['VARDA_WEB_URL_PREFIX'])
+                app.config['AULE_URL_PREFIX'])
         from .web import web
         app.register_blueprint(web,
-                               url_prefix=app.config['VARDA_WEB_URL_PREFIX'])
+                               url_prefix=app.config['AULE_URL_PREFIX'])
     return app

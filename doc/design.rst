@@ -8,7 +8,7 @@ Application design
 Implementation
 --------------
 
-Varda server is implemented on top of the `Flask web microframework <http://flask.pocoo.org/>`_,
+Varda is implemented on top of the `Flask web microframework <http://flask.pocoo.org/>`_,
 the `Celery distributed task queue <http://celeryproject.org/>`_, and the
 `SQLAlchemy object relational mapper <http://www.sqlalchemy.org/>`_.
 
@@ -94,7 +94,7 @@ can only make a sample active, not inactive.
 Trading observations
 --------------------
 
-One use case of Varda server is sharing variant observations between different
+One use case of Varda is sharing variant observations between different
 parties where it undesirable that a certain party only uses the data for
 annotation without sharing its variant observations.
 

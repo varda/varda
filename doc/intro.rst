@@ -10,17 +10,16 @@ and annotated with their frequencies in previously imported datasets.
 Varda is implemented by very loosely coupled components, communicating using
 a RESTful protocol over HTTP with JSON-encoded response payloads.
 
-* *Varda server:* Exposes a RESTful API for managing and querying the variant
-  database.
-* *Varda client:* Command line client for querying the server
-  non-interactively.
-* *Varda web:* Web interface for browsing the server interactively.
+* **Varda** - Server exposing a RESTful API for managing and querying the
+    variant database.
+* **Manwë** - Python client library and command line interface to Varda.
+* **Aulë** - Web interface to Varda.
 
-This is Varda server.
+This is Varda.
 
 
-Varda server
-------------
+Varda
+-----
 
 The server is implemented in Python using the `Flask <http://flask.pocoo.org/>`_
 framework and directly interfaces the `PostgreSQL <http://www.postgresql.org>`_
@@ -33,4 +32,4 @@ future version may use other encodings, depending on the value of the
 Long-running actions are executed asynchonously through the `Celery <http://celeryproject.org/>`_
 distributed task queue.
 
-Varda server is licensed under the :doc:`MIT License </copyright>`.
+Varda is licensed under the :doc:`MIT License </copyright>`.

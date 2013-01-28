@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Varda server documentation build configuration file, created by
+# Varda documentation build configuration file, created by
 # sphinx-quickstart on Mon Aug 20 21:25:28 2012.
 #
 # This file is execfile()d with the current directory set to its containing dir.
@@ -56,8 +56,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Varda server'
-copyright = u'2012, %s' % varda.__author__
+project = u'Varda'
+copyright = u'2011-2013, %s' % varda.__author__
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -185,7 +185,7 @@ html_static_path = ['.static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'Vardaserverdoc'
+htmlhelp_basename = 'Vardadoc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -204,7 +204,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'Vardaserver.tex', u'Varda server Documentation',
+  ('index', 'Varda.tex', u'Varda Documentation',
    u'Martijn Vermaat \\textless{}martijn@vermaat.name\\textgreater{}', 'manual'),
 ]
 
@@ -234,7 +234,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'vardaserver', u'Varda server Documentation',
+    ('index', 'varda', u'Varda Documentation',
      [u'Martijn Vermaat <martijn@vermaat.name>'], 1)
 ]
 
@@ -248,8 +248,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'Vardaserver', u'Varda server Documentation',
-   u'Martijn Vermaat <martijn@vermaat.name>', 'Vardaserver', 'One line description of project.',
+  ('index', 'Varda', u'Varda Documentation',
+   u'Martijn Vermaat <martijn@vermaat.name>', 'Varda', 'One line description of project.',
    'Miscellaneous'),
 ]
 

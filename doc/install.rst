@@ -15,14 +15,14 @@ Installation
     is a bit heavier-weight than redis, the most sensible for us might be to
     just use redis for both. See also `this thread <http://stackoverflow.com/questions/9140716/whats-the-advantage-of-using-celery-with-rabbitmq-over-redis-mongodb-or-django>`_.
 
-Getting Varda server running consists of the following steps:
+Getting Varda running consists of the following steps:
 
 * `Installing a database server`_
 * `Installing a message broker`_
 * `Setting up a Python virtual environment`_
 * `Creating initial configuration`_
 * `Setting up the database`_
-* `Running Varda server`_
+* `Running Varda`_
 
 
 .. _database:
@@ -41,7 +41,7 @@ could work.)
 Option 1: PostgreSQL
 ^^^^^^^^^^^^^^^^^^^^
 
-Install PostgreSQL and add a user for Varda server. Create two empty databases,
+Install PostgreSQL and add a user for Varda. Create two empty databases,
 ``varda`` and ``vardaresults``, both owned by the new user. For example::
 
     $ sudo aptitude install postgresql

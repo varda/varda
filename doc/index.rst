@@ -1,5 +1,5 @@
-Varda server
-============
+Varda
+=====
 
 A database for genomic variation frequencies.
 
@@ -14,19 +14,18 @@ and annotated with their frequencies in previously imported datasets.
 Varda is implemented by very loosely coupled components, communicating using
 a RESTful protocol over HTTP with json-encoded response payloads.
 
-* *Varda server:* Exposes a RESTful API for managing and querying the
-  variant database.
-* *Varda client:* Command line client for querying the server
-  non-interactively.
-* *Varda web:* Web interface for browsing the server interactively.
+* **Varda** - Server exposing a RESTful API for managing and querying the
+    variant database.
+* **Manwë** - Python client library and command line interface to Varda.
+* **Aulë** - Web interface to Varda.
 
-This is Varda server.
+This is Varda.
 
 
 Contents
 --------
 
-Documentation for users of Varda server:
+Documentation for users of Varda:
 
 .. toctree::
    :maxdepth: 1
@@ -36,7 +35,7 @@ Documentation for users of Varda server:
    install
    rest-api/index
 
-For developers working on Varda server:
+For developers working on Varda:
 
 .. toctree::
    :maxdepth: 1

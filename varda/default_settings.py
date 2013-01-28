@@ -1,14 +1,15 @@
+# -*- coding: utf-8 -*-
 # You can overwrite these settings in the file specified by the VARDA_SETTINGS
 # environment variable.
 
 # URL prefix to serve the Varda server API under
 API_URL_PREFIX = None
 
-# Path to serve the Varda web application from
-VARDA_WEB_LOCAL_PATH = None
+# Path to serve the Aulë application from
+AULE_LOCAL_PATH = None
 
-# URL prefix to serve Varda web under
-VARDA_WEB_URL_PREFIX = '/varda-web'
+# URL prefix to serve Aulë under
+AULE_URL_PREFIX = '/aule'
 
 # Directory to store uploaded files
 import tempfile

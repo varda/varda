@@ -3,7 +3,7 @@ REST server API
 
 .. Todo: Cleanup this intro.
 
-This page documents the REST server API exposed by Varda server to client
+This page documents the REST server API exposed by Varda to client
 applications.
 
 In general, the following HTTP error status codes can be returned on any
