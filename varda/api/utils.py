@@ -40,7 +40,9 @@ def collection(rule):
                         jsonify(samples=[serialize(s) for s in
                                          samples.limit(count).offset(begin)]))
     """
-    # Todo: Should we return with status 206?
+    # Todo: Should we return with status 206? But that's only allowed if the
+    #     request included a Range header. Maybe we could return 406 if there
+    #     was no Range header?
     @wraps(rule)
     def collection_rule(*args, **kwargs):
         r = parse_range_header(request.headers.get('Range')) \
