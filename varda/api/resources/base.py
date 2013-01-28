@@ -84,7 +84,7 @@ class Resource(object):
         if cls.filterable:
             filter_schema = {k: {'type': v} for k, v in cls.filterable.items()}
             cls.list_schema.update(filter_schema)
-        return object.__new__(cls, *args, **kwargs)
+        return super(Resource, cls).__new__(cls, *args, **kwargs)
 
     def __init__(self, blueprint, url_prefix=None):
         self.blueprint = blueprint
