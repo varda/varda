@@ -15,7 +15,7 @@ Varda is implemented by very loosely coupled components, communicating using
 a RESTful protocol over HTTP with json-encoded response payloads.
 
 * **Varda** - Server exposing a RESTful API for managing and querying the
-    variant database.
+  variant database.
 * **Manwë** - Python client library and command line interface to Varda.
 * **Aulë** - Web interface to Varda.
 
