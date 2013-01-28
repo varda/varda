@@ -113,7 +113,7 @@ Although not recommended, it can even be your database server.
 Setting up a Python virtual environment
 ---------------------------------------
 
-It is recommended to run Varda server from a Python virtual environment, using
+It is recommended to run Varda from a Python virtual environment, using
 `virtualenv <http://www.virtualenv.org/>`_. Managing virtual environments is
 easiest using `virtualenvwrapper <http://www.doughellmann.com/docs/virtualenvwrapper/>`_.
 
@@ -135,10 +135,9 @@ Add the following to your ``~/.bashrc`` and start a new shell::
     export PIP_REQUIRE_VIRTUALENV=true
     export PIP_RESPECT_VIRTUALENV=true
 
-Create the environment for Varda server and install all required Python
-packages::
+Create the environment for Varda and install all required Python packages::
 
-    $ mkvirtualenv varda-server
+    $ mkvirtualenv varda
     $ pip install -r requirements.txt
 
 Now might be a good idea to run the unit tests::
@@ -153,11 +152,11 @@ The remainder of this guide assumes the virtual environment is activated.
 Creating initial configuration
 ------------------------------
 
-Varda server looks for its configuration in the file specified by the
+Varda looks for its configuration in the file specified by the
 ``VARDA_SETTINGS`` environment variable. First create the file with your
 configuration settings, for example::
 
-    $ export VARDA_SETTINGS=~/varda-server/settings.py
+    $ export VARDA_SETTINGS=~/varda/settings.py
     $ cat > $VARDA_SETTINGS
     FILES_DIR = '/tmp/varda'
     SQLALCHEMY_DATABASE_URI = 'postgresql://user:password@localhost/varda'
@@ -167,8 +166,8 @@ configuration settings, for example::
 Some example settings can be found in ``varda/default_settings.py``.
 
 Make sure to always have the ``VARDA_SETTINGS`` environment variable set when
-invoking any component of Varda server. One way of doing this is adding the
-above ``export`` command to your ``~/.bashrc``. Another is prefixing your
+invoking any component of Varda. One way of doing this is adding the above
+``export`` command to your ``~/.bashrc``. Another is prefixing your
 invocations with ``VARDA_SETTINGS=...``.
 
 Varda can use a reference genome to check and normalize variant descriptions.
@@ -194,8 +193,8 @@ user::
 
 .. _running:
 
-Running Varda server
---------------------
+Running Varda
+-------------
 
 Start a Celery worker node (only used for long-running tasks)::
 
