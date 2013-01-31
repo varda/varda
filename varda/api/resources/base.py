@@ -203,4 +203,11 @@ class TaskedResource(Resource):
         uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: instance.id})
         response = jsonify({'%s_uri' % cls.instance_name: uri})
         response.location = uri
+        # Todo: The resourse is created, only it is not imported yet, so I
+        #     this isn't a reall asynchronous request and we can just return
+        #     the 201 status code.
+        #     In case of a real asynchronous request, we should point to a
+        #     temporary status monitor (the real resource cannot be polled
+        #     since it does not yet exist). But we don't have such a case
+        #     I believe.
         return response, 202
