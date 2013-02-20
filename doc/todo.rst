@@ -12,6 +12,7 @@ Todo list
 * Optionally only import variants from VCF file with PASS.
 * Throtling.
 * Better rights/roles model.
+* For samtools VCF's, don't rely on GT, but decide from PL.
 
 
 Document use cases
