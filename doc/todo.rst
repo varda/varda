@@ -13,6 +13,7 @@ Todo list
 * Throtling.
 * Better rights/roles model.
 * For samtools VCF's, don't rely on GT, but decide from PL.
+* Support input in BCF2 format.
 
 
 Document use cases
