@@ -149,11 +149,27 @@ class ModelResource(Resource):
 
     @classmethod
     def list_view(cls, begin, count, embed=None, **filter):
-        # Todo: Just appending 's' to the result key to get plural here is
-        #     very ugly.
+        # Todo: Explicitely order resources in the collection, possibly in a
+        #     user-defined way.
+        #     Since we are using LIMIT/OFFSET, it is very important that we
+        #     use ORDER BY as well [1]. It might be the case that we already
+        #     implicitely have ORDER BY clauses on our queries [2], and if
+        #     not, we at least have the option to define a default ORDER BY
+        #     in the model definition [3].
+        #     Also not that LIMIT/OFFSET may get slow on many rows [1], so
+        #     perhaps it's worth considering a recipe like [4] or [5] as an
+        #     alternative.
+        #
+        # [1] http://www.postgresql.org/docs/8.0/static/queries-limit.html
+        # [2] http://www.mail-archive.com/sqlalchemy@googlegroups.com/msg07314.html
+        # [3] https://groups.google.com/forum/?fromgroups=#!topic/sqlalchemy/mhMPaKNQYyc
+        # [4] http://www.sqlalchemy.org/trac/wiki/UsageRecipes/WindowedRangeQuery
+        # [5] http://stackoverflow.com/questions/6618366/improving-offset-performance-in-postgresql
         instances = cls.model.query
         if filter:
             instances = instances.filter_by(**filter)
+        # Todo: Just appending 's' to the result key to get plural here is
+        #     very ugly.
         return (instances.count(),
                 jsonify({cls.instance_name + 's': [cls.serialize(r, embed=embed) for r in
                                                    instances.limit(count).offset(begin)]}))
