@@ -12,4 +12,5 @@ from .coverages import CoveragesResource
 from .data_sources import DataSourcesResource
 from .samples import SamplesResource
 from .users import UsersResource
+from .variants import VariantsResource
 from .variations import VariationsResource

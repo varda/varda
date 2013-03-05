@@ -1,5 +1,5 @@
 """
-REST API samples resource.
+REST API samples model resource.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 

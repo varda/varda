@@ -1,5 +1,5 @@
 """
-REST API annotations resource.
+REST API annotations model resource.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 

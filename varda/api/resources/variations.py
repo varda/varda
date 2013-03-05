@@ -1,5 +1,5 @@
 """
-REST API variations resource.
+REST API variations model resource.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 

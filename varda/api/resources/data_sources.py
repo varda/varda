@@ -1,5 +1,5 @@
 """
-REST API data sources resource.
+REST API data sources model resource.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 

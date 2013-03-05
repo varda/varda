@@ -35,17 +35,10 @@ class Resource(object):
     """
     Base class for a REST resource definition.
 
-    General implementations are provided for the following views on the
-    resource:
-
-    * **list** - Get a collection of instances.
-    * **get** - Get details for an instance.
-    * **add** - Add an instance.
-    * **edit** - Update an instance.
+    General implementation is provided for the **get** view on the resource.
     """
     instance_name = None
     instance_type = None
-    human_name = None
 
     views = ['get']
 
@@ -68,11 +61,13 @@ class Resource(object):
     edit_ensure_options = {}
     edit_schema = {}
 
+    key_type = 'int'
+
     def __new__(cls, *args, **kwargs):
         cls.list_rule = '/'
-        cls.get_rule = '/<int:%s>' % cls.instance_name
+        cls.get_rule = '/<%s:%s>' % (cls.key_type, cls.instance_name)
         cls.add_rule = '/'
-        cls.edit_rule = '/<int:%s>' % cls.instance_name
+        cls.edit_rule = '/<%s:%s>' % (cls.key_type, cls.instance_name)
 
         id_schema = {cls.instance_name: {'type': cls.instance_type}}
         cls.get_schema.update(id_schema)

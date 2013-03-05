@@ -1,5 +1,5 @@
 """
-REST API coverages resource.
+REST API coverages model resource.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 

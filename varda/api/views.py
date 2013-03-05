@@ -7,23 +7,17 @@ REST API views.
 """
 
 
-from __future__ import division
-
 from flask import Blueprint, current_app, g, jsonify, request, url_for
 
 from .. import genome
 from .. import tasks
 from ..models import (Coverage, InvalidDataSource, Observation, Region,
                       Sample, Variation)
-from ..region_binning import all_bins
-from ..utils import normalize_region, normalize_variant, ReferenceMismatch
-from .data import data
 from .errors import ActivationFailure, ValidationError
 from .resources import (AnnotationsResource, CoveragesResource,
                         DataSourcesResource, SamplesResource, UsersResource,
-                        VariationsResource)
-from .security import ensure, has_role, require_user
-from .utils import collection, user_by_login
+                        VariantsResource, VariationsResource)
+from .utils import user_by_login
 
 
 API_VERSION = 1
@@ -113,6 +107,7 @@ variations_resource = VariationsResource(api, url_prefix='/variations')
 coverages_resource = CoveragesResource(api, url_prefix='/coverages')
 data_sources_resource = DataSourcesResource(api, url_prefix='/data_sources')
 annotations_resource = AnnotationsResource(api, url_prefix='/annotations')
+variants_resource = VariantsResource(api, url_prefix='/variants')
 
 
 @api.route('/')
@@ -187,126 +182,3 @@ def authentication():
         authentication.update(authenticated=True,
                               user=users_resource.serialize(g.user))
     return jsonify(authentication)
-
-
-@api.route('/variants')
-#@require_user
-@data(region={'type': 'dict',
-              'schema': {'chromosome': {'type': 'string', 'required': True},
-                         'begin': {'type': 'integer', 'required': True},
-                         'end': {'type': 'integer', 'required': True}},
-              'required': True})
-#@ensure(has_role('admin'), has_role('annotator'), satisfy=any)
-@collection
-def variant_list(begin, count, region):
-    """
-    Get a collection of variants.
-    """
-    # Todo: Note that we mean start, stop to be 1-based, inclusive, but we
-    #     haven't checked if we actually treat it that way.
-    try:
-        chromosome, begin_position, end_position = normalize_region(
-            region['chromosome'], region['begin'], region['end'])
-    except ReferenceMismatch as e:
-        raise ValidationError(str(e))
-
-    bins = all_bins(begin_position, end_position)
-    observations = Observation.query.filter(
-        Observation.chromosome == chromosome,
-        Observation.position >= begin_position,
-        Observation.position <= end_position,
-        Observation.bin.in_(bins))
-
-    def serialize(o):
-        return {'uri': url_for('.variant_get', variant='%s:%d%s>%s' % (o.chromosome, o.position, o.reference, o.observed)),
-                'hgvs': '%s:g.%d%s>%s' % (o.chromosome, o.position, o.reference, o.observed),
-                'chromosome': o.chromosome,
-                'position': o.position,
-                'reference': o.reference,
-                'observed': o.observed}
-
-    return (observations.count(),
-            jsonify(variants=[serialize(o) for o in
-                              observations.limit(count).offset(begin)]))
-
-
-@api.route('/variants/<variant>')
-@require_user
-@data(variant={'type': 'variant'})
-@ensure(has_role('admin'), has_role('annotator'), satisfy=any)
-def variant_get(variant):
-    """
-    Get frequency details for a variant.
-
-    Requires the `admin` or `annotator` role.
-
-    :statuscode 200: Respond with an object defined below as `variant`.
-
-    The response object has the following fields:
-
-    * **uri** (`string`) - URI for this variant.
-    * **chromosome** (`string`) - Chromosome name.
-    * **position** (`integer`) - Start position of the variant.
-    * **reference** (`string`) - Reference sequence.
-    * **observed** (`string`) - Observed sequence.
-    * **hgvs** (`string`) - HGVS description.
-    * **frequency** (`float`) - Frequency in database samples.
-    """
-    chromosome, position, reference, observed = variant
-
-    # Todo: Abstract this away for reuse in tasks and here.
-
-    end_position = position + max(1, len(reference)) - 1
-    bins = all_bins(position, end_position)
-
-    exclude_sample_ids = []
-
-    observations = Observation.query.filter_by(
-        chromosome=chromosome,
-        position=position,
-        reference=reference,
-        observed=observed).join(Variation).filter(
-            ~Variation.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(
-                active=True, coverage_profile=True).count()
-
-    coverage = Region.query.join(Coverage).filter(
-        Region.chromosome == chromosome,
-        Region.begin <= position,
-        Region.end >= end_position,
-        Region.bin.in_(bins),
-        ~Coverage.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(active=True).count()
-
-    try:
-        frequency = observations / coverage
-    except ZeroDivisionError:
-        frequency = 0
-
-    # Todo: HGVS description is of course not really HGVS.
-    return jsonify(variant={'uri': url_for('.variant_get', variant=variant),
-                            'hgvs': '%s:g.%d%s>%s' % variant,
-                            'chromosome': chromosome,
-                            'position': position,
-                            'reference': reference,
-                            'observed': observed,
-                            'frequency': frequency})
-
-
-@api.route('/variants', methods=['POST'])
-@require_user
-@data(chromosome={'type': 'string', 'required': True},
-      position={'type': 'integer', 'required': True},
-      reference={'type': 'string'},
-      observed={'type': 'string'})
-def variant_add(chromosome, position, reference='', observed=''):
-    """
-    Create a variant.
-    """
-    # Todo: Also support HGVS input.
-    try:
-        variant = normalize_variant(chromosome, position, reference, observed)
-    except ReferenceMismatch as e:
-        raise ValidationError(str(e))
-    uri = url_for('.variant_get', variant='%s:%d%s>%s' % variant)
-    response = jsonify({'variant_uri': uri})
-    response.location = uri
-    return response, 201

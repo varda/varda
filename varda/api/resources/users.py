@@ -1,5 +1,5 @@
 """
-REST API users resource.
+REST API users model resource.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
