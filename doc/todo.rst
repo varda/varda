@@ -14,6 +14,7 @@ Todo list
 * Better rights/roles model.
 * For samtools VCF's, don't rely on GT, but decide from PL.
 * Support input in BCF2 format.
+* Have a look at supporting the `gVCF format <https://sites.google.com/site/gvcftools/)>`_.
 
 
 Document use cases
