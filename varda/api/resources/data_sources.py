@@ -11,10 +11,10 @@ from flask import current_app, g, request, send_from_directory, url_for
 
 from ...models import DataSource, DATA_SOURCE_FILETYPES
 from ..security import is_user, has_role, owns_data_source
-from .base import Resource
+from .base import ModelResource
 
 
-class DataSourcesResource(Resource):
+class DataSourcesResource(ModelResource):
     """
     A data source is represented as an object with the following fields:
 

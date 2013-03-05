@@ -11,10 +11,10 @@ from flask import g, url_for
 
 from ...models import Sample
 from ..security import is_user, has_role, owns_sample, true
-from .base import Resource
+from .base import ModelResource
 
 
-class SamplesResource(Resource):
+class SamplesResource(ModelResource):
     """
     A sample is represented as an object with the following fields:
 

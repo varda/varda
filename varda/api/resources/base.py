@@ -1,13 +1,14 @@
 """
 REST API resources.
 
-A resource definition is parameterized with an SQLAlchemy model. A resource
-instance provides views on the model instances.
-
 This module defines some base classes for resource definitions. The standard
-:class:`Resource` base class implements the `list`, `get`, `add`, and `edit`
-views in a general way. This implementation can be made more specific for a
-model by overriding the views in a resource subclass.
+:class:`Resource` base class implements just the `get` view in a general way.
+
+A :class:`ModelResource` definition is parameterized by an SQLAlchemy model,
+where a resource instance provides views on the model instances. In addition
+to the `get` view, this class implements the `list`, `add`, and `edit` views.
+The definition can be made more specific for a model by overriding the views
+in a resource subclass.
 
 The :class:`TaskedResource` base class provides the same for models where
 creating a model instance implies running a Celery task. To this end, the
@@ -32,22 +33,21 @@ from ..utils import collection
 
 class Resource(object):
     """
-    Base class for a REST resource definition based on an SQLAlchemy model.
+    Base class for a REST resource definition.
 
     General implementations are provided for the following views on the
     resource:
 
-    * **list** - Get a collection of model instances.
-    * **get** - Get details for a model instance.
-    * **add** - Add a model instance.
-    * **edit** - Update a model instance.
+    * **list** - Get a collection of instances.
+    * **get** - Get details for an instance.
+    * **add** - Add an instance.
+    * **edit** - Update an instance.
     """
-    model = None
     instance_name = None
     instance_type = None
     human_name = None
 
-    views = ['list', 'get', 'add', 'edit']
+    views = ['get']
 
     embeddable = {}
     filterable = {}
@@ -122,6 +122,37 @@ class Resource(object):
                                     **kwargs)
 
     @classmethod
+    def get_view(cls, embed=None, **kwargs):
+        instance = kwargs.get(cls.instance_name)
+        return jsonify({cls.instance_name: cls.serialize(instance, embed=embed)})
+
+    @classmethod
+    def serialize(cls, instance, embed=None):
+        embed = embed or []
+        uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: instance.id})
+        serialization = {'uri': uri}
+        serialization.update({field: cls.embeddable[field].serialize(getattr(instance, field))
+                              for field in embed})
+        return serialization
+
+
+class ModelResource(Resource):
+    """
+    Base class for a REST resource definition based on an SQLAlchemy model.
+
+    General implementations are provided for the following views on the
+    resource:
+
+    * **list** - Get a collection of model instances.
+    * **get** - Get details for a model instance.
+    * **add** - Add a model instance.
+    * **edit** - Update a model instance.
+    """
+    model = None
+
+    views = ['list', 'get', 'add', 'edit']
+
+    @classmethod
     def list_view(cls, begin, count, embed=None, **filter):
         # Todo: Just appending 's' to the result key to get plural here is
         #     very ugly.
@@ -131,11 +162,6 @@ class Resource(object):
         return (instances.count(),
                 jsonify({cls.instance_name + 's': [cls.serialize(r, embed=embed) for r in
                                                    instances.limit(count).offset(begin)]}))
-
-    @classmethod
-    def get_view(cls, embed=None, **kwargs):
-        instance = kwargs.get(cls.instance_name)
-        return jsonify({cls.instance_name: cls.serialize(instance, embed=embed)})
 
     @classmethod
     def add_view(cls, *args, **kwargs):
@@ -158,17 +184,8 @@ class Resource(object):
         current_app.logger.info('Updated %s: %r', cls.instance_name, instance)
         return jsonify({cls.instance_name: cls.serialize(instance)})
 
-    @classmethod
-    def serialize(cls, instance, embed=None):
-        embed = embed or []
-        uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: instance.id})
-        serialization = {'uri': uri}
-        serialization.update({field: cls.embeddable[field].serialize(getattr(instance, field))
-                              for field in embed})
-        return serialization
 
-
-class TaskedResource(Resource):
+class TaskedResource(ModelResource):
     """
     Base class for a REST resource definition based on an SQLAlchemy model
     where creating a model instance is followed by running a Celery task.

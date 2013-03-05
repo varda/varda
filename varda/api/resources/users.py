@@ -10,10 +10,10 @@ REST API users resource.
 from ...models import User, USER_ROLES
 from ..errors import ValidationError
 from ..security import is_user, has_role
-from .base import Resource
+from .base import ModelResource
 
 
-class UsersResource(Resource):
+class UsersResource(ModelResource):
     """
     A user is represented as an object with the following fields:
 
