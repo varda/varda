@@ -58,6 +58,7 @@ following pages.
    variations
    coverages
    annotations
+   variants
 
 
 .. _api_misc:

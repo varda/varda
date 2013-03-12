@@ -22,9 +22,11 @@ class VariantsResource(Resource):
     """
     A variant is represented as an object with the following fields:
 
-    .. todo: `List` and `get` give different information, I think this should
-        be fixed before writing documentation.
+    **Note:** This resource is subject to change and therefore not documented
+        yet.
     """
+    # Todo: `List` and `get` give different information, fix this.
+    # Todo: Use the same parameters here as in the VCF annotation.
     instance_name = 'variant'
     instance_type = 'variant'
 

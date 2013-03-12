@@ -1,12 +1,10 @@
 Todo list
 =========
 
-* Everything must be in UTF8.
 * Other types of authentication (OAuth).
 * Better docs.
 * Add setup.py with ``entry_points={'console_scripts': ['varda-manage = varda.manage:main']}``.
 * Validate user input, especially file uploads (max file size).
-* Less granular API, e.g. way to import and annotate sample with fewer requests.
 * Use accept HTTP headers in the API.
 * More comprehensive test suite.
 * Optionally only import variants from VCF file with PASS.

@@ -3,7 +3,7 @@ Links
 
 Some links to hopefully relevant resources on the web.
 
-* `Modern Web Application Architecture <http://leftnode.com/entry/modern-web-application-architecture>`_
+* `Modern Web Application Architecture <http://leftnode.com/entry/modern-web-application-architecture.html>`_
 * `Getting RESTful with web.py <http://johnpaulett.com/2008/09/20/getting-restful-with-webpy/>`_
 * `Simple Flask extension for RESTful APIs <https://github.com/kennethreitz/flask-rest>`_
 * `Example: Glpi Rest Api <https://bitbucket.org/ee_lars/gra>`_

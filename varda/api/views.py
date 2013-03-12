@@ -11,8 +11,7 @@ from flask import Blueprint, current_app, g, jsonify, request, url_for
 
 from .. import genome
 from .. import tasks
-from ..models import (Coverage, InvalidDataSource, Observation, Region,
-                      Sample, Variation)
+from ..models import InvalidDataSource
 from .errors import ActivationFailure, ValidationError
 from .resources import (AnnotationsResource, CoveragesResource,
                         DataSourcesResource, SamplesResource, UsersResource,
@@ -130,6 +129,7 @@ def apiroot():
     * **data_sources_uri** (`string`) - URI for the :ref:`data sources
       resource <api_data_sources>`.
     """
+    # Todo: Genome could be expanded into a separate resource.
     api = {'status':             'ok',
            'version':            API_VERSION,
            'genome':             genome.keys(),
