@@ -427,7 +427,7 @@ def import_variation(variation_id):
     except DataUnavailable as e:
         raise TaskError(e.code, e.message)
 
-    # Remember that this only makes sence if autocommit and autoflush are off,
+    # Remember that this only makes sense if autocommit and autoflush are off,
     # which is the default for flask-sqlalchemy.
     # Related discussion: https://groups.google.com/forum/?fromgroups=#!topic/sqlalchemy/ZD5RNfsmQmU
 
@@ -440,7 +440,10 @@ def import_variation(variation_id):
             old_percentage = -1
             for i, (record, chromosome, position, reference, observed, alleles, support) \
                     in enumerate(read_observations(observations,
-                                                   filetype=data_source.filetype)):
+                                                   filetype=data_source.filetype,
+                                                   skip_filtered=variation.skip_filtered,
+                                                   use_genotypes=variation.use_genotypes,
+                                                   prefer_genotype_likelihoods=variation.prefer_genotype_likelihoods)):
                 # Task progress is updated in whole percentages, so for a
                 # maximum of 100 times per task.
                 percentage = min(int(record / data_source.records * 100), 99)

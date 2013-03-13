@@ -46,7 +46,10 @@ class VariationsResource(TaskedResource):
     add_ensure_conditions = [has_role('admin'), owns_sample]
     add_ensure_options = {'satisfy': any}
     add_schema = {'sample': {'type': 'sample', 'required': True},
-                  'data_source': {'type': 'data_source', 'required': True}}
+                  'data_source': {'type': 'data_source', 'required': True},
+                  'skip_filtered': {'type': 'boolean'},
+                  'use_genotypes': {'type': 'boolean'},
+                  'prefer_genotype_likelihoods': {'type': 'boolean'}}
 
     @classmethod
     def list_view(cls, *args, **kwargs):

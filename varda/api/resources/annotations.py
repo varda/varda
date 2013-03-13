@@ -189,6 +189,9 @@ class AnnotationsResource(TaskedResource):
         current_app.logger.info('Added data source: %r', annotated_data_source)
         current_app.logger.info('Added annotation: %r', annotation)
 
+        # Todo: If the task doesn't complete for some reason, we have no way
+        #     to restart it since we don't store the parameters. Parameters
+        #     should probably be stored in the Annotation model.
         result = tasks.write_annotation.delay(annotation.id,
                                               global_frequencies=global_frequencies,
                                               local_frequencies=[(frequency['label'], frequency['sample'].id)

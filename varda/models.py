@@ -293,6 +293,9 @@ class Variation(db.Model):
     data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
     task_done = db.Column(db.Boolean, default=False)
     task_uuid = db.Column(db.String(36))
+    skip_filtered = db.Column(db.Boolean)
+    use_genotypes = db.Column(db.Boolean)
+    prefer_genotype_likelihoods = db.Column(db.Boolean)
 
     sample = db.relationship(Sample,
                              backref=db.backref('variations', lazy='dynamic'))
@@ -300,9 +303,13 @@ class Variation(db.Model):
                                   backref=db.backref('variations',
                                                      lazy='dynamic'))
 
-    def __init__(self, sample, data_source):
+    def __init__(self, sample, data_source, skip_filtered=True,
+                 use_genotypes=True, prefer_genotype_likelihoods=False):
         self.sample = sample
         self.data_source = data_source
+        self.skip_filtered = skip_filtered
+        self.use_genotypes = use_genotypes
+        self.prefer_genotype_likelihoods = prefer_genotype_likelihoods
 
     def __repr__(self):
         return '<Variation>'
