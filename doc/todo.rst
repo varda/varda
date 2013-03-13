@@ -3,14 +3,11 @@ Todo list
 
 * Other types of authentication (OAuth).
 * Better docs.
-* Add setup.py with ``entry_points={'console_scripts': ['varda-manage = varda.manage:main']}``.
 * Validate user input, especially file uploads (max file size).
 * Use accept HTTP headers in the API.
 * More comprehensive test suite.
-* Optionally only import variants from VCF file with PASS.
 * Throtling.
 * Better rights/roles model.
-* For samtools VCF's, don't rely on GT, but decide from PL.
 * Support input in BCF2 format.
 * Have a look at supporting the `gVCF format <https://sites.google.com/site/gvcftools/)>`_.
 * Attach tags (e.g. 'exome', 'illumina', 'cancer').
