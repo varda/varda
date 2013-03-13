@@ -198,8 +198,8 @@ def annotate_variants(original_variants, annotated_variants,
         writer.write_record(record)
 
 
-def read_observations(observations, filetype='vcf', use_genotypes=True,
-                      prefer_genotype_likelihoods=False):
+def read_observations(observations, filetype='vcf', skip_filtered=True,
+                      use_genotypes=True, prefer_genotype_likelihoods=False):
     """
     Read variant observations from a file and yield them one by one.
 
@@ -207,6 +207,9 @@ def read_observations(observations, filetype='vcf', use_genotypes=True,
     :type observations: file-like object
     :kwarg filetype: Filetype (currently only ``vcf`` allowed).
     :type filetype: str
+    :kwarg skip_filtered: Whether or not to skip variants annotated as being
+        filtered.
+    :type skip_filtered: bool
     :kwarg use_genotypes: Whether or not to use genotypes (if available) for
         allele counts.
     :type use_genotypes: bool
@@ -240,6 +243,9 @@ def read_observations(observations, filetype='vcf', use_genotypes=True,
 
     for record in reader:
         current_record += 1
+
+        if skip_filtered and record.FILTER:
+            continue
 
         if 'SV' in record.INFO:
             # For now we ignore these, reference is likely to be larger than
