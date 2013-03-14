@@ -27,9 +27,9 @@ from . import db, celery
 from .models import (Annotation, Coverage, DataSource, DataUnavailable,
                      Observation, Sample, Region, Variation)
 from .region_binning import all_bins
-from .utils import (digest, NoGenotypesInRecord, normalize_variant,
-                    normalize_chromosome, normalize_region, read_genotype,
-                    ReferenceMismatch)
+from .utils import (calculate_frequency, digest, NoGenotypesInRecord,
+                    normalize_variant, normalize_chromosome, normalize_region,
+                    read_genotype, ReferenceMismatch)
 
 
 # Number of records to buffer before committing to the database.
@@ -159,56 +159,14 @@ def annotate_variants(original_variants, annotated_variants,
             except ReferenceMismatch as e:
                 raise ReadError(str(e))
 
-            end_position = position + max(1, len(reference)) - 1
-            bins = all_bins(position, end_position)
-
-            # Todo: Check if we handle pooled samples correctly.
-
-            if global_frequencies:
-                # Frequency over entire database, except:
-                #  - samples in `exclude`
-                #  - samples without coverage profile
-                #  - samples not activated
-                observations = Observation.query.filter_by(
-                    chromosome=chromosome,
-                    position=position,
-                    reference=reference,
-                    observed=observed).join(Variation).filter(
-                    ~Variation.sample_id.in_([s.id for s in exclude])).join(Sample).filter_by(
-                        active=True, coverage_profile=True).count()
-                coverage = Region.query.join(Coverage).filter(
-                    Region.chromosome == chromosome,
-                    Region.begin <= position,
-                    Region.end >= end_position,
-                    Region.bin.in_(bins),
-                    ~Coverage.sample_id.in_([s.id for s in exclude])).join(Sample).filter_by(
-                    active=True).count()
-                if coverage:
-                    frequencies.append(observations / coverage)
-                else:
-                    frequencies.append(0)
-
-            # Frequency for each sample in ``local_frequencies``.
-            for label, sample in local_frequencies:
-                observations = Observation.query.filter_by(
-                    chromosome=chromosome,
-                    position=position,
-                    reference=reference,
-                    observed=observed).join(Variation).filter_by(
-                    sample=sample).count()
-                if sample.coverage_profile:
-                    coverage = Region.query.join(Coverage).filter(
-                        Region.chromosome == chromosome,
-                        Region.begin <= position,
-                        Region.end >= end_position,
-                        Region.bin.in_(bins),
-                        Coverage.sample == sample).count()
-                else:
-                    coverage = sample.pool_size
-                if coverage:
-                    sample_frequencies[label].append(observations / coverage)
-                else:
-                    sample_frequencies[label].append(0)
+            frequency, sample_frequency = calculate_frequency(
+                chromosome, position, reference, observed, global_frequencies,
+                local_frequencies, exclude)
+            if frequency is not None:
+                frequencies.append(frequency)
+            if sample_frequency is not None:
+                for label in sample_frequency:
+                    sample_frequencies[label].append(sample_frequency[label])
 
         if global_frequencies:
             record.add_info('VARDA_FREQ', frequencies)

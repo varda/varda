@@ -7,12 +7,16 @@ Various utilities for Varda.
 """
 
 
+from __future__ import division
+
 import hashlib
 import itertools
 
 from flask import current_app
 
 from . import genome
+from .models import Coverage, Observation, Region, Sample, Variation
+from .region_binning import all_bins
 
 
 class ReferenceMismatch(Exception):
@@ -296,3 +300,68 @@ def read_genotype(call, prefer_likelihoods=False):
     # If we didn't deduce it yet, and it was called, use GT.
     if call.called:
         return [int(a) for a in call.gt_alleles]
+
+
+def calculate_frequency(chromosome, position, reference, observed,
+                        global_=True, local=None, exclude=None):
+    """
+    Calculate frequency for a variant.
+    """
+    local = local or []
+    exclude = exclude or []
+
+    global_frequency = None
+    sample_frequency = dict(local) or None
+
+    end_position = position + max(1, len(reference)) - 1
+    bins = all_bins(position, end_position)
+
+    # Todo: Double-check if we handle pooled samples correctly.
+
+    if global_:
+        exclude_ids = [sample.id for sample in exclude]
+        # Frequency over entire database, except:
+        #  - samples in `exclude`
+        #  - samples without coverage profile
+        #  - samples not activated
+        observations = Observation.query.filter_by(
+            chromosome=chromosome,
+            position=position,
+            reference=reference,
+            observed=observed).join(Variation).filter(
+            ~Variation.sample_id.in_(exclude_ids)).join(Sample).filter_by(
+                active=True, coverage_profile=True).count()
+        coverage = Region.query.join(Coverage).filter(
+            Region.chromosome == chromosome,
+            Region.begin <= position,
+            Region.end >= end_position,
+            Region.bin.in_(bins),
+            ~Coverage.sample_id.in_(exclude_ids)).join(Sample).filter_by(
+            active=True).count()
+        if coverage:
+            global_frequency = observations / coverage
+        else:
+            global_frequency = 0
+
+    for label, sample in local:
+        observations = Observation.query.filter_by(
+            chromosome=chromosome,
+            position=position,
+            reference=reference,
+            observed=observed).join(Variation).filter_by(
+            sample=sample).count()
+        if sample.coverage_profile:
+            coverage = Region.query.join(Coverage).filter(
+                Region.chromosome == chromosome,
+                Region.begin <= position,
+                Region.end >= end_position,
+                Region.bin.in_(bins),
+                Coverage.sample == sample).count()
+        else:
+            coverage = sample.pool_size
+        if coverage:
+            sample_frequency[label] = observations / coverage
+        else:
+            sample_frequency[label] = 0
+
+    return global_frequency, sample_frequency
