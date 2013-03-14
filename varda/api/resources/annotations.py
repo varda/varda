@@ -12,7 +12,8 @@ import re
 from flask import abort, current_app, g, jsonify, url_for
 
 from ... import db
-from ...models import Annotation, DataSource, InvalidDataSource, Sample
+from ...models import (Annotation, DataSource, Exclude, InvalidDataSource,
+                       LocalFrequency, Sample)
 from ... import tasks
 from ..errors import ValidationError
 from ..security import has_role, owns_annotation, owns_data_source
@@ -50,10 +51,10 @@ class AnnotationsResource(TaskedResource):
     add_schema = {'data_source': {'type': 'data_source', 'required': True},
                   'global_frequencies': {'type': 'boolean'},
                   'local_frequencies': {'type': 'list',
-                                        'schema': {'type': 'dict',
-                                                   'schema': {'label': {'type': 'string', 'required': True},
-                                                              'sample': {'type': 'sample', 'required': True}}}},
-                  'exclude_samples': {'type': 'list', 'schema': {'type': 'sample'}}}
+                                        'schema': {'type': 'list',
+                                                   'items': [{'type': 'label', 'required': True},
+                                                             {'type': 'sample', 'required': True}]}},
+                  'exclude': {'type': 'list', 'schema': {'type': 'sample'}}}
 
     @classmethod
     def list_view(cls, *args, **kwargs):
@@ -142,30 +143,26 @@ class AnnotationsResource(TaskedResource):
         return super(AnnotationsResource, cls).get_view(*args, **kwargs)
 
     @classmethod
-    def add_view(cls, data_source, global_frequencies=False,
-                 local_frequencies=None, exclude_samples=None):
+    def add_view(cls, data_source, global_frequencies=True,
+                 local_frequencies=None, exclude=None):
         """
         Create an annotation.
 
         .. todo:: Documentation.
         """
         # Todo: Check if data source is a VCF file.
+        # Todo: Check that labels in local_frequencies are unique.
         # The `satisfy` keyword argument used here in the `ensure` decorator means
         # that we ensure at least one of:
         # - admin
         # - owns_data_source AND annotator
         # - owns_data_source AND trader
         local_frequencies = local_frequencies or []
-        exclude_samples = exclude_samples or []
+        exclude = exclude or []
 
-        if not all(re.match('[0-9A-Z]+', frequency['label'])
-                   for frequency in local_frequencies):
-            raise ValidationError('Labels for local frequencies must contain only'
-                                  ' uppercase alphanumeric characters')
-
-        for frequency in local_frequencies:
-            if not (frequency['sample'].public or
-                    frequency['sample'].user is g.user or
+        for label, sample in local_frequencies:
+            if not (sample.public or
+                    sample.user is g.user or
                     'admin' in g.user.roles):
                 # Todo: Meaningful error message.
                 abort(400)
@@ -183,20 +180,22 @@ class AnnotationsResource(TaskedResource):
                                            data_source.filetype,
                                            empty=True, gzipped=True)
         db.session.add(annotated_data_source)
-        annotation = Annotation(data_source, annotated_data_source)
+
+        annotation = Annotation(data_source, annotated_data_source,
+                                global_frequencies=global_frequencies)
         db.session.add(annotation)
+
+        for sample in exclude:
+            db.session.add(Exclude(annotation, sample))
+
+        for label, sample in local_frequencies:
+            db.session.add(LocalFrequency(annotation, sample, label))
+
         db.session.commit()
         current_app.logger.info('Added data source: %r', annotated_data_source)
         current_app.logger.info('Added annotation: %r', annotation)
 
-        # Todo: If the task doesn't complete for some reason, we have no way
-        #     to restart it since we don't store the parameters. Parameters
-        #     should probably be stored in the Annotation model.
-        result = tasks.write_annotation.delay(annotation.id,
-                                              global_frequencies=global_frequencies,
-                                              local_frequencies=[(frequency['label'], frequency['sample'].id)
-                                                                 for frequency in local_frequencies],
-                                              exclude_sample_ids=[sample.id for sample in exclude_samples])
+        result = tasks.write_annotation.delay(annotation.id)
         current_app.logger.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
         uri = url_for('.annotation_get', annotation=annotation.id)
         response = jsonify(annotation_uri=uri)

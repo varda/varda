@@ -79,15 +79,35 @@ class CleanTask(Task):
 
 def annotate_variants(original_variants, annotated_variants,
                       original_filetype='vcf', annotated_filetype='vcf',
-                      global_frequencies=False, local_frequencies=None,
-                      exclude_sample_ids=None, original_records=1):
+                      global_frequencies=True, local_frequencies=None,
+                      exclude=None, original_records=1):
     """
-    Annotate variants.
+    Read variants from a file and write them to another file with annotation.
+
+    :arg original_variants: Open handle to a file with variants.
+    :type observations: file-like object
+    :arg annotated_variants: Open handle to write annotated variants to.
+    :type observations: file-like object
+    :kwarg original_filetype: Filetype for variants (currently only ``vcf``
+        allowed).
+    :type filetype: str
+    :kwarg annotated_filetype: Filetype for annotated variants (currently only
+        ``vcf`` allowed).
+    :type filetype: str
+    :arg global_frequencies: Whether or not to compute global frequencies.
+    :type global_frequencies: bool
+    :arg local_frequencies: List of (`label`, `sample`) tuples to compute
+        frequencies for.
+    :type local_frequencies: list of (str, Sample)
+    :arg exclude: List of samples to exclude from frequency calculations.
+    :type exclude: list of Sample
+    :arg original_records: Number of records in original variants file.
+    :type original_records: int
     """
     # Todo: Here we should check again if the samples we use are active, since
     #     it could be a long time ago when this task was submitted.
     local_frequencies = local_frequencies or []
-    exclude_sample_ids = exclude_sample_ids or []
+    exclude = exclude or []
 
     if original_filetype != 'vcf':
         raise ReadError('Original data must be in VCF format')
@@ -104,11 +124,10 @@ def annotate_variants(original_variants, annotated_variants,
             'Frequency in Varda (over %i samples, using coverage profiles)'
             % Sample.query.filter_by(active=True,
                                      coverage_profile=True).filter(
-                ~Sample.id.in_(exclude_sample_ids)).count())
+                ~Sample.id.in_([s.id for s in exclude])).count())
 
     # Header lines in VCF output for sample frequencies.
-    for label, sample_id in local_frequencies:
-        sample = Sample.query.get(sample_id)
+    for label, sample in local_frequencies:
         reader.infos['%s_FREQ' % label] = VcfInfo(
             '%s_FREQ' % label, vcf_field_counts['A'], 'Float',
             'Frequency in %s (over %i samples, %susing coverage profiles)'
@@ -146,7 +165,7 @@ def annotate_variants(original_variants, annotated_variants,
 
             if global_frequencies:
                 # Frequency over entire database, except:
-                #  - samples in ``exclude_sample_ids``
+                #  - samples in `exclude`
                 #  - samples without coverage profile
                 #  - samples not activated
                 observations = Observation.query.filter_by(
@@ -154,14 +173,14 @@ def annotate_variants(original_variants, annotated_variants,
                     position=position,
                     reference=reference,
                     observed=observed).join(Variation).filter(
-                    ~Variation.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(
+                    ~Variation.sample_id.in_([s.id for s in exclude])).join(Sample).filter_by(
                         active=True, coverage_profile=True).count()
                 coverage = Region.query.join(Coverage).filter(
                     Region.chromosome == chromosome,
                     Region.begin <= position,
                     Region.end >= end_position,
                     Region.bin.in_(bins),
-                    ~Coverage.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(
+                    ~Coverage.sample_id.in_([s.id for s in exclude])).join(Sample).filter_by(
                     active=True).count()
                 if coverage:
                     frequencies.append(observations / coverage)
@@ -169,21 +188,20 @@ def annotate_variants(original_variants, annotated_variants,
                     frequencies.append(0)
 
             # Frequency for each sample in ``local_frequencies``.
-            for label, sample_id in local_frequencies:
+            for label, sample in local_frequencies:
                 observations = Observation.query.filter_by(
                     chromosome=chromosome,
                     position=position,
                     reference=reference,
                     observed=observed).join(Variation).filter_by(
-                    sample_id=sample_id).count()
-                sample = Sample.query.get(sample_id)
+                    sample=sample).count()
                 if sample.coverage_profile:
                     coverage = Region.query.join(Coverage).filter(
                         Region.chromosome == chromosome,
                         Region.begin <= position,
                         Region.end >= end_position,
                         Region.bin.in_(bins),
-                        Coverage.sample_id == sample_id).count()
+                        Coverage.sample == sample).count()
                 else:
                     coverage = sample.pool_size
                 if coverage:
@@ -203,7 +221,7 @@ def read_observations(observations, filetype='vcf', skip_filtered=True,
     """
     Read variant observations from a file and yield them one by one.
 
-    :arg observations: Open handler to a file with variant observations.
+    :arg observations: Open handle to a file with variant observations.
     :type observations: file-like object
     :kwarg filetype: Filetype (currently only ``vcf`` allowed).
     :type filetype: str
@@ -552,26 +570,14 @@ def import_coverage(coverage_id):
 
 
 @celery.task
-def write_annotation(annotation_id, global_frequencies=False,
-                     local_frequencies=None, exclude_sample_ids=None):
+def write_annotation(annotation_id):
     """
     Annotate variants with frequencies from the database.
 
     :arg annotation_id: Annotation to write.
     :type annotation_id: int
-    :arg global_frequencies: Whether or not to compute global frequencies.
-    :type global_frequencies: bool
-    :arg local_frequencies: List of (`label`, `sample`) tuples to compute
-        frequencies for.
-    :type local_frequencies: list of (str, int)
-    :arg exclude_sample_ids: List of samples to exclude from frequency
-        calculations.
-    :type exclude_sample_ids: list of int
     """
     logger.info('Started task: write_annotation(%d)', annotation_id)
-
-    local_frequencies = local_frequencies or []
-    exclude_sample_ids = exclude_sample_ids or []
 
     annotation = Annotation.query.get(annotation_id)
     if annotation is None:
@@ -605,15 +611,18 @@ def write_annotation(annotation_id, global_frequencies=False,
     except DataUnavailable as e:
         raise TaskError(e.code, e.message)
 
+    local_frequencies = [(l.label, l.sample) for l in annotation.local_frequencies]
+    exclude = [e.sample for e in annotation.excludes]
+
     try:
         with original_data as original_variants, \
                 annotated_data as annotated_variants:
             annotate_variants(original_variants, annotated_variants,
                               original_filetype=original_data_source.filetype,
                               annotated_filetype=annotated_data_source.filetype,
-                              global_frequencies=global_frequencies,
+                              global_frequencies=annotation.global_frequencies,
                               local_frequencies=local_frequencies,
-                              exclude_sample_ids=exclude_sample_ids,
+                              exclude=exclude,
                               original_records=original_data_source.records)
     except ReadError as e:
         annotated_data_source.empty()

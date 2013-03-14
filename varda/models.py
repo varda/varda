@@ -357,6 +357,7 @@ class Annotation(db.Model):
                                          db.ForeignKey('data_source.id'))
     task_done = db.Column(db.Boolean, default=False)
     task_uuid = db.Column(db.String(36))
+    global_frequencies = db.Column(db.Boolean)
 
     original_data_source = db.relationship(
         DataSource,
@@ -367,13 +368,62 @@ class Annotation(db.Model):
         primaryjoin='DataSource.id==Annotation.annotated_data_source_id',
         backref=db.backref('annotation', uselist=False, lazy='select'))
 
-    def __init__(self, original_data_source, annotated_data_source):
+    def __init__(self, original_data_source, annotated_data_source, global_frequencies=True):
         self.original_data_source = original_data_source
         self.annotated_data_source = annotated_data_source
+        self.global_frequencies = global_frequencies
 
     def __repr__(self):
         return '<Variation "%d", %swritten>' % (
             self.id, '' if self.task_done else 'not ')
+
+
+class Exclude(db.Model):
+    """
+    Sample to exclude from global frequeny calculations in an annotation.
+    """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    annotation_id = db.Column(db.Integer, db.ForeignKey('annotation.id'))
+    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
+
+    annotation = db.relationship(Annotation,
+                                 backref=db.backref('excludes', lazy='dynamic'))
+    sample = db.relationship(Sample,
+                             backref=db.backref('excludes', lazy='dynamic'))
+
+    def __init__(self, annotation, sample):
+        self.annotation = annotation
+        self.sample = sample
+
+    def __repr__(self):
+        return '<Exclude>'
+
+
+class LocalFrequency(db.Model):
+    """
+    Sample to calculate local frequencies for in an annotation.
+    """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    annotation_id = db.Column(db.Integer, db.ForeignKey('annotation.id'))
+    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
+    label = db.Column(db.String(200))
+
+    annotation = db.relationship(Annotation,
+                                 backref=db.backref('local_frequencies', lazy='dynamic'))
+    sample = db.relationship(Sample,
+                             backref=db.backref('local_frequencies', lazy='dynamic'))
+
+    def __init__(self, annotation, sample, label):
+        self.annotation = annotation
+        self.sample = sample
+        self.label = label
+
+    def __repr__(self):
+        return '<LocalFrequency>'
 
 
 class Observation(db.Model):

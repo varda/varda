@@ -196,7 +196,7 @@ class TestApi():
         All annotations should have observation and coverage 1.
         """
         sample, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
-        annotated_data_source = self._annotate(vcf_data_source, exclude=[sample], local=[{'label': 'SAMPLE', 'sample': sample}])
+        annotated_data_source = self._annotate(vcf_data_source, exclude=[sample], local=[('SAMPLE', sample)])
 
         # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotated_data_source, headers=[auth_header()])
@@ -345,7 +345,7 @@ class TestApi():
 
         # Annotate observations
         data = {'data_source': vcf_data_source,
-                'exclude_samples': [sample]}
+                'exclude': [sample]}
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 400)
 
@@ -370,7 +370,7 @@ class TestApi():
 
         # Annotate observations
         data = {'data_source': vcf_data_source,
-                'exclude_samples': [sample]}
+                'exclude': [sample]}
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 400)
 
@@ -381,7 +381,7 @@ class TestApi():
 
         # Annotate observations
         data = {'data_source': vcf_data_source,
-                'exclude_samples': [sample]}
+                'exclude': [sample]}
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 202)
 
@@ -395,7 +395,7 @@ class TestApi():
         # Annotate observations
         data = {'data_source': vcf_data_source,
                 'local_frequencies': local,
-                'exclude_samples': exclude}
+                'exclude': exclude}
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 202)
         annotation = json.loads(r.data)['annotation_uri']

@@ -30,6 +30,7 @@ class UsersResource(ModelResource):
     get_ensure_conditions = [has_role('admin'), is_user]
     get_ensure_options = {'satisfy': any}
 
+    # Todo: I think we can lose the 'safe' constraint.
     add_schema = {'login': {'type': 'string', 'minlength': 3, 'maxlength': 40,
                             'safe': True, 'required': True},
                   'name': {'type': 'string'},
