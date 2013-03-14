@@ -8,6 +8,7 @@ Various utilities for Varda.
 
 
 import hashlib
+import itertools
 
 from flask import current_app
 
@@ -17,6 +18,14 @@ from . import genome
 class ReferenceMismatch(Exception):
     """
     Exception thrown mismatch with reference.
+    """
+    pass
+
+
+class NoGenotypesInRecord(Exception):
+    """
+    Exception thrown when reading a genotype while there are no genotypes in
+    the record (or anything we could derive them from anyway).
     """
     pass
 
@@ -238,3 +247,52 @@ def move_left(context, position, sequence):
             context[position - move - 1
                     :min(position, position - move + len(sequence)) - 1]
             + sequence[:-move])
+
+
+def read_genotype(call, prefer_likelihoods=False):
+    """
+    Read genotype from a call, either using GT or deducing it from GL or PL.
+
+    :arg call: Genotype call for a sample.
+    :type call: vcf.model._Call
+    :arg prefer_likelihoods: Whether or not to prefer deriving genotypes from
+        likelihoods (if available).
+    :type prefer_likelihoods: bool
+
+    :return: (Most-likely) genotype for the call, or `None` if unknown. The
+        genotype is encoded as a list of integers (length is sample ploidy),
+        refering to the reference (`0`) or variant (`1`, `2`, ...) alleles.
+    :raise NoGenotypesInRecord: If the record for the given call has no
+        genotype information.
+    """
+    if not any(x in call.site.FORMAT.split(':') for x in ('GT', 'GL', 'PL')):
+        raise NoGenotypesInRecord('The record for the given call has no '
+                                  'genotypes defined and nothing to derive '
+                                  'them from')
+
+    if prefer_likelihoods or 'GT' not in call.data:
+        if 'GL' in call.data or 'PL' in call.data:
+            # Get ploidy from GT, default to diploid.
+            try:
+                ploidy = len(call.gt_alleles)
+            except AttributeError:
+                ploidy = 2
+
+            # All possible genotypes given alleles and call ploidy. Example
+            # (diploid, two alt alleles):
+            #
+            #     genotypes = [(0, 0), (0, 1), (1, 1), (0, 2), (1, 2), (2, 2)]
+            genotypes = sorted(itertools.combinations_with_replacement(
+                                 range(len(call.site.ALT) + 1), ploidy),
+                               key=lambda g: g[::-1])
+
+            if 'PL' in call.data:
+                return genotypes[min((call.data.PL[i], i)
+                                     for i in range(len(genotypes)))[1]]
+            elif 'GL' in call.data:
+                return genotypes[min((-call.data.GL[i], i)
+                                     for i in range(len(genotypes)))[1]]
+
+    # If we didn't deduce it yet, and it was called, use GT.
+    if call.called:
+        return [int(a) for a in call.gt_alleles]

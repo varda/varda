@@ -27,8 +27,9 @@ from . import db, celery
 from .models import (Annotation, Coverage, DataSource, DataUnavailable,
                      Observation, Sample, Region, Variation)
 from .region_binning import all_bins
-from .utils import (digest, normalize_variant, normalize_chromosome,
-                    normalize_region, ReferenceMismatch)
+from .utils import (digest, NoGenotypesInRecord, normalize_variant,
+                    normalize_chromosome, normalize_region, read_genotype,
+                    ReferenceMismatch)
 
 
 # Number of records to buffer before committing to the database.
@@ -281,65 +282,30 @@ def read_observations(observations, filetype='vcf', skip_filtered=True,
         #          {1: 154, 2: 561}]   # Third ALT, 154 het, 561 hom
         #
         # The None value is used for the unknown genotype.
+        allele_support = [Counter() for _ in record.ALT]
 
-        if use_genotypes and any(x in record.FORMAT.split(':')
-                                 for x in ('GT', 'GL', 'PL')):
-            # We want to use genotypes and we have them (or can derive them).
-            allele_support = [Counter() for _ in record.ALT]
+        # In the case where we don't have genotypes or don't want to use them,
+        # we just count the number of samples and store an unknown number of
+        # alleles. But only if there is exactly one ALT.
 
-            for sample in record.samples:
-                # Try to get genotype somehow, either from GT or deduced from
-                # PL or GL.
-                genotype = None
+        if use_genotypes:
+            for call in record.samples:
+                try:
+                    genotype = read_genotype(call, prefer_genotype_likelihoods)
+                except NoGenotypesInRecord:
+                    # Exception will be raised for all calls in this record,
+                    # so we can define the aggregate result and break.
+                    if len(record.ALT) == 1:
+                        allele_support = [{None: len(record.samples)}]
+                    break
 
-                # If we don't have GT or prefere to use GL or PL, deduce
-                # genotype from GL or PL (if available).
-                if ('GT' not in sample.data or prefer_genotype_likelihoods) \
-                   and any(x in sample.data for x in ('GL', 'PL')):
-                    # Get ploidy from GT, default to diploid.
-                    try:
-                        ploidy = len(sample.gt_alleles)
-                    except AttributeError:
-                        ploidy = 2
-
-                    # All possible genotypes given alleles and sample ploidy.
-                    # Example (diploid, two alt alleles):
-                    #
-                    #     genotypes = [(0,0),(0,1),(1,1),(0,2),(1,2),(2,2)]
-                    genotypes = sorted(itertools.combinations_with_replacement(
-                                         range(len(record.ALT) + 1), ploidy),
-                                       key=lambda g: g[::-1])
-
-                    # First try PL, then GL.
-                    if 'PL' in sample.data:
-                        best_pl = min((sample.data.PL[i], i)
-                                      for i in range(len(genotypes)))[1]
-                        genotype = genotypes[best_pl]
-                    elif 'GL' in sample.data:
-                        best_gl = min((-sample.data.GL[i], i)
-                                      for i in range(len(genotypes)))[1]
-                        genotype = genotypes[best_pl]
-
-                # If we didn't deduce it yet, and it was called, use GT.
-                if not genotype and sample.called:
-                    genotype = [int(a) for a in sample.gt_alleles]
-
-                # If we managed to get a genotype, increment allele support.
                 if genotype:
                     counts = Counter(a - 1 for a in genotype if a > 0)
                     for index, count in counts.items():
                         allele_support[index][count] += 1
 
-        else:
-            # We don't have genotypes, or don't want to use them. Now we just
-            # count the number of samples and store an unknown number of
-            # alleles.
-            # We don't count anything if there is more than one ALT (we could
-            # try to decide from other data perhaps?).
-            if len(record.ALT) == 1:
-                allele_support = [{None: len(record.samples)}]
-            else:
-                allele_support = [{} for _ in record.samples]
+        elif len(record.ALT) == 1:
+            allele_support = [{None: len(record.samples)}]
 
         for index, allele in enumerate(record.ALT):
             try:
