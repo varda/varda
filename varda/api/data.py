@@ -13,13 +13,17 @@ import re
 import urllib
 
 from cerberus import ValidationError as CerberusValidationError, Validator
-from cerberus.errors import ERROR_BAD_TYPE
+from cerberus.errors import ERROR_BAD_TYPE, ERROR_ITEMS_LIST
 from flask import current_app, g, request
 
 from ..models import Annotation, Coverage, DataSource, Sample, User, Variation
 from .errors import ValidationError
 from .utils import (annotation_by_uri, coverage_by_uri, data_source_by_uri,
                     sample_by_uri, user_by_uri, variation_by_uri)
+
+
+ERROR_UNALLOWED_VALUE = "unallowed value '%s' for field '%s'"
+ERROR_LABEL_CHARACTERS = "field '%s' of %s type must contain only uppercase alphanumeric characters"
 
 
 # Todo: We currently hacked the Validator class a bit such that some type
@@ -44,8 +48,7 @@ class ApiValidator(Validator):
         # rule on string values.
         if isinstance(value, basestring):
             if value not in allowed_values:
-                self._error("unallowed value '%s' for field '%s'"
-                            % (value, field))
+                self._error(ERROR_UNALLOWED_VALUE % (value, field))
         else:
             super(ApiValidator, self)._validate_allowed(allowed_values,
                                                         field, value)
@@ -110,6 +113,12 @@ class ApiValidator(Validator):
         super(ApiValidator, self)._validate_type_boolean(field,
                                                          self.document[field])
 
+    def _validate_type_label(self, field, value):
+        super(ApiValidator, self)._validate_type_string(field,
+                                                        self.document[field])
+        if value and not re.match('[0-9A-Z]+$', value):
+            self._error(ERROR_LABEL_CHARACTERS % (field, 'label'))
+
     def _validate_type_user(self, field, value):
         if isinstance(value, int):
             self.document[field] = User.query.get(value)
@@ -171,7 +180,6 @@ class ApiValidator(Validator):
             chromosome, position, reference, observed = match.groups()
             self.document[field] = chromosome, int(position), reference, observed
         except AttributeError:
-            raise Exception('hier: %s' % urllib.unquote(value))
             self._error(ERROR_BAD_TYPE % (field, 'variant'))
 
 
