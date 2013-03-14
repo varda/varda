@@ -11,6 +11,7 @@ Todo list
 * Support input in BCF2 format.
 * Have a look at supporting the `gVCF format <https://sites.google.com/site/gvcftools/)>`_.
 * Attach tags (e.g. 'exome', 'illumina', 'cancer').
+* Possibility to contact submitter of an observation.
 
 
 Document use cases
