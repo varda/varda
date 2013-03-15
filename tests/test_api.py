@@ -196,7 +196,7 @@ class TestApi():
         All annotations should have observation and coverage 1.
         """
         sample, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
-        annotated_data_source = self._annotate(vcf_data_source, exclude=[sample], local=[('SAMPLE', sample)])
+        annotated_data_source = self._annotate(vcf_data_source, exclude=[sample], sample_frequency=[sample])
 
         # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotated_data_source, headers=[auth_header()])
@@ -226,7 +226,7 @@ class TestApi():
 
         r = self.client.get(variant, headers=[auth_header(login='admin', password='test')])
         assert_equal(r.status_code, 200)
-        assert_equal(1.0, json.loads(r.data)['variant']['frequency'])
+        assert_equal(1.0, json.loads(r.data)['variant']['global_frequency'])
 
     def test_exome_subset(self):
         """
@@ -385,16 +385,16 @@ class TestApi():
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 202)
 
-    def _annotate(self, vcf_data_source, exclude=None, local=None):
+    def _annotate(self, vcf_data_source, exclude=None, sample_frequency=None):
         """
         Annotate observations and return the annotated data source URI.
         """
         exclude = exclude or []
-        local = local or []
+        sample_frequency = sample_frequency or []
 
         # Annotate observations
         data = {'data_source': vcf_data_source,
-                'local_frequencies': local,
+                'sample_frequency': sample_frequency,
                 'exclude': exclude}
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 202)

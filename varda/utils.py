@@ -303,22 +303,23 @@ def read_genotype(call, prefer_likelihoods=False):
 
 
 def calculate_frequency(chromosome, position, reference, observed,
-                        global_=True, local=None, exclude=None):
+                        global_frequency=True, sample_frequency=None,
+                        exclude=None):
     """
     Calculate frequency for a variant.
     """
-    local = local or []
+    sample_frequency = sample_frequency or []
     exclude = exclude or []
 
-    global_frequency = None
-    sample_frequency = dict(local) or None
+    global_result = None
+    sample_result = [] if sample_frequency else None
 
     end_position = position + max(1, len(reference)) - 1
     bins = all_bins(position, end_position)
 
     # Todo: Double-check if we handle pooled samples correctly.
 
-    if global_:
+    if global_frequency:
         exclude_ids = [sample.id for sample in exclude]
         # Frequency over entire database, except:
         #  - samples in `exclude`
@@ -339,11 +340,11 @@ def calculate_frequency(chromosome, position, reference, observed,
             ~Coverage.sample_id.in_(exclude_ids)).join(Sample).filter_by(
             active=True).count()
         if coverage:
-            global_frequency = observations / coverage
+            global_result = observations / coverage
         else:
-            global_frequency = 0
+            global_result = 0
 
-    for label, sample in local:
+    for sample in sample_frequency:
         observations = Observation.query.filter_by(
             chromosome=chromosome,
             position=position,
@@ -360,8 +361,8 @@ def calculate_frequency(chromosome, position, reference, observed,
         else:
             coverage = sample.pool_size
         if coverage:
-            sample_frequency[label] = observations / coverage
+            sample_result.append(observations / coverage)
         else:
-            sample_frequency[label] = 0
+            sample_result.append(0)
 
-    return global_frequency, sample_frequency
+    return global_result, sample_result

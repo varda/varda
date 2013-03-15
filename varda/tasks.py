@@ -12,6 +12,7 @@ from __future__ import division
 from collections import Counter, defaultdict
 from contextlib import contextmanager
 import hashlib
+import itertools
 import os
 import time
 import uuid
@@ -80,7 +81,7 @@ class CleanTask(Task):
 
 def annotate_variants(original_variants, annotated_variants,
                       original_filetype='vcf', annotated_filetype='vcf',
-                      global_frequencies=True, local_frequencies=None,
+                      global_frequency=True, sample_frequency=None,
                       exclude=None, original_records=1):
     """
     Read variants from a file and write them to another file with annotation.
@@ -107,7 +108,7 @@ def annotate_variants(original_variants, annotated_variants,
     """
     # Todo: Here we should check again if the samples we use are active, since
     #     it could be a long time ago when this task was submitted.
-    local_frequencies = local_frequencies or []
+    sample_frequency = sample_frequency or []
     exclude = exclude or []
 
     if original_filetype != 'vcf':
@@ -119,7 +120,7 @@ def annotate_variants(original_variants, annotated_variants,
     reader = vcf.Reader(original_variants)
 
     # Header line in VCF output for global frequencies.
-    if global_frequencies:
+    if global_frequency:
         reader.infos['VARDA_FREQ'] = VcfInfo(
             'VARDA_FREQ', vcf_field_counts['A'], 'Float',
             'Frequency in Varda (over %i samples, using coverage profiles)'
@@ -127,10 +128,17 @@ def annotate_variants(original_variants, annotated_variants,
                                      coverage_profile=True).filter(
                 ~Sample.id.in_([s.id for s in exclude])).count())
 
+    # Todo: We have to refer to the samples in the VCF file by some label,
+    #     ideally consisting of only uppercase letters. For now, we just
+    #     generate some random labels, but we might let the user define them
+    #     in the future.
+    labels = ['VARDA_FREQ_' + chr(x) for x, _ in
+              zip(itertools.count(ord('A')), sample_frequency)]
+
     # Header lines in VCF output for sample frequencies.
-    for label, sample in local_frequencies:
-        reader.infos['%s_FREQ' % label] = VcfInfo(
-            '%s_FREQ' % label, vcf_field_counts['A'], 'Float',
+    for sample, label in zip(sample_frequency, labels):
+        reader.infos[label] = VcfInfo(
+            label, vcf_field_counts['A'], 'Float',
             'Frequency in %s (over %i samples, %susing coverage profiles)'
             % (sample.name, sample.pool_size,
                '' if sample.coverage_profile else 'not '))
@@ -150,8 +158,8 @@ def annotate_variants(original_variants, annotated_variants,
                                       meta={'percentage': percentage})
             old_percentage = percentage
 
-        frequencies = []
-        sample_frequencies = {label: [] for label, _ in local_frequencies}
+        global_frequencies = []
+        sample_frequencies = [[] for _ in sample_frequency]
         for index, allele in enumerate(record.ALT):
             try:
                 chromosome, position, reference, observed = normalize_variant(
@@ -159,19 +167,19 @@ def annotate_variants(original_variants, annotated_variants,
             except ReferenceMismatch as e:
                 raise ReadError(str(e))
 
-            frequency, sample_frequency = calculate_frequency(
-                chromosome, position, reference, observed, global_frequencies,
-                local_frequencies, exclude)
-            if frequency is not None:
-                frequencies.append(frequency)
-            if sample_frequency is not None:
-                for label in sample_frequency:
-                    sample_frequencies[label].append(sample_frequency[label])
+            global_frequency_result, sample_frequency_result = calculate_frequency(
+                chromosome, position, reference, observed, global_frequency,
+                sample_frequency, exclude)
+            if global_frequency_result is not None:
+                global_frequencies.append(global_frequency_result)
+            if sample_frequency_result is not None:
+                for i, f in enumerate(sample_frequency_result):
+                    sample_frequencies[i].append(f)
 
-        if global_frequencies:
-            record.add_info('VARDA_FREQ', frequencies)
-        for label, _ in local_frequencies:
-            record.add_info('%s_FREQ' % label, sample_frequencies[label])
+        if global_frequency:
+            record.add_info('VARDA_FREQ', global_frequencies)
+        for fs, label in zip(sample_frequencies, labels):
+            record.add_info(label, fs)
         writer.write_record(record)
 
 
@@ -535,18 +543,15 @@ def write_annotation(annotation_id):
     except DataUnavailable as e:
         raise TaskError(e.code, e.message)
 
-    local_frequencies = [(l.label, l.sample) for l in annotation.local_frequencies]
-    exclude = [e.sample for e in annotation.excludes]
-
     try:
         with original_data as original_variants, \
                 annotated_data as annotated_variants:
             annotate_variants(original_variants, annotated_variants,
                               original_filetype=original_data_source.filetype,
                               annotated_filetype=annotated_data_source.filetype,
-                              global_frequencies=annotation.global_frequencies,
-                              local_frequencies=local_frequencies,
-                              exclude=exclude,
+                              global_frequency=annotation.global_frequency,
+                              sample_frequency=annotation.sample_frequency,
+                              exclude=annotation.exclude,
                               original_records=original_data_source.records)
     except ReadError as e:
         annotated_data_source.empty()

@@ -123,6 +123,7 @@ class Resource(object):
 
     @classmethod
     def serialize(cls, instance, embed=None):
+        # Todo: I think we can only use the instance.id in the ModelResource.
         embed = embed or []
         uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: instance.id})
         serialization = {'uri': uri}

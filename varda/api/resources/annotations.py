@@ -12,8 +12,7 @@ import re
 from flask import abort, current_app, g, jsonify, url_for
 
 from ... import db
-from ...models import (Annotation, DataSource, Exclude, InvalidDataSource,
-                       LocalFrequency, Sample)
+from ...models import Annotation, DataSource, InvalidDataSource, Sample
 from ... import tasks
 from ..errors import ValidationError
 from ..security import has_role, owns_annotation, owns_data_source
@@ -49,11 +48,9 @@ class AnnotationsResource(TaskedResource):
                              has_role('annotator'), has_role('trader')]
     add_ensure_options = {'satisfy': lambda conditions: next(conditions) or (next(conditions) and any(conditions))}
     add_schema = {'data_source': {'type': 'data_source', 'required': True},
-                  'global_frequencies': {'type': 'boolean'},
-                  'local_frequencies': {'type': 'list',
-                                        'schema': {'type': 'list',
-                                                   'items': [{'type': 'label', 'required': True},
-                                                             {'type': 'sample', 'required': True}]}},
+                  'global_frequency': {'type': 'boolean'},
+                  'sample_frequency': {'type': 'list',
+                                       'schema': {'type': 'sample'}},
                   'exclude': {'type': 'list', 'schema': {'type': 'sample'}}}
 
     @classmethod
@@ -143,8 +140,8 @@ class AnnotationsResource(TaskedResource):
         return super(AnnotationsResource, cls).get_view(*args, **kwargs)
 
     @classmethod
-    def add_view(cls, data_source, global_frequencies=True,
-                 local_frequencies=None, exclude=None):
+    def add_view(cls, data_source, global_frequency=True,
+                 sample_frequency=None, exclude=None):
         """
         Create an annotation.
 
@@ -157,10 +154,10 @@ class AnnotationsResource(TaskedResource):
         # - admin
         # - owns_data_source AND annotator
         # - owns_data_source AND trader
-        local_frequencies = local_frequencies or []
+        sample_frequency = sample_frequency or []
         exclude = exclude or []
 
-        for label, sample in local_frequencies:
+        for sample in sample_frequency:
             if not (sample.public or
                     sample.user is g.user or
                     'admin' in g.user.roles):
@@ -180,17 +177,11 @@ class AnnotationsResource(TaskedResource):
                                            data_source.filetype,
                                            empty=True, gzipped=True)
         db.session.add(annotated_data_source)
-
         annotation = Annotation(data_source, annotated_data_source,
-                                global_frequencies=global_frequencies)
+                                global_frequency=global_frequency,
+                                sample_frequency=sample_frequency,
+                                exclude=exclude)
         db.session.add(annotation)
-
-        for sample in exclude:
-            db.session.add(Exclude(annotation, sample))
-
-        for label, sample in local_frequencies:
-            db.session.add(LocalFrequency(annotation, sample, label))
-
         db.session.commit()
         current_app.logger.info('Added data source: %r', annotated_data_source)
         current_app.logger.info('Added annotation: %r', annotation)

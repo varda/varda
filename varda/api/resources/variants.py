@@ -13,7 +13,8 @@ from flask import jsonify, url_for
 
 from ...models import Coverage, Observation, Region, Sample, Variation
 from ...region_binning import all_bins
-from ...utils import normalize_region, normalize_variant, ReferenceMismatch
+from ...utils import (calculate_frequency, normalize_region, normalize_variant,
+                      ReferenceMismatch)
 from ..security import has_role
 from .base import Resource
 
@@ -25,8 +26,6 @@ class VariantsResource(Resource):
     **Note:** This resource is subject to change and therefore not documented
         yet.
     """
-    # Todo: `List` and `get` give different information, fix this.
-    # Todo: Use the same parameters here as in the VCF annotation.
     instance_name = 'variant'
     instance_type = 'variant'
 
@@ -38,10 +37,18 @@ class VariantsResource(Resource):
                               'schema': {'chromosome': {'type': 'string', 'required': True},
                                          'begin': {'type': 'integer', 'required': True},
                                          'end': {'type': 'integer', 'required': True}},
-                              'required': True}}
+                              'required': True},
+                   'global_frequency': {'type': 'boolean'},
+                   'sample_frequency': {'type': 'list',
+                                        'schema': {'type': 'sample'}},
+                   'exclude': {'type': 'list', 'schema': {'type': 'sample'}}}
 
     get_ensure_conditions = [has_role('admin'), has_role('annotator')]
     get_ensure_options = {'satisfy': any}
+    get_schema = {'global_frequency': {'type': 'boolean'},
+                  'sample_frequency': {'type': 'list',
+                                       'schema': {'type': 'sample'}},
+                  'exclude': {'type': 'list', 'schema': {'type': 'sample'}}}
 
     add_ensure_conditions = []
     add_schema = {'chromosome': {'type': 'string', 'required': True},
@@ -52,10 +59,21 @@ class VariantsResource(Resource):
     key_type = 'string'
 
     @classmethod
-    def list_view(cls, begin, count, region):
+    def list_view(cls, begin, count, region, global_frequency=True,
+                  sample_frequency=None, exclude=None):
         """
         Get a collection of variants.
         """
+        sample_frequency = sample_frequency or []
+        exclude = exclude or []
+
+        for sample in sample_frequency:
+            if not (sample.public or
+                    sample.user is g.user or
+                    'admin' in g.user.roles):
+                # Todo: Meaningful error message.
+                abort(400)
+
         # Todo: Note that we mean start, stop to be 1-based, inclusive, but we
         #     haven't checked if we actually treat it that way.
         try:
@@ -64,6 +82,8 @@ class VariantsResource(Resource):
         except ReferenceMismatch as e:
             raise ValidationError(str(e))
 
+        # Todo: Only report variants that have positive frequency in the
+        #     calculation for this view?
         bins = all_bins(begin_position, end_position)
         observations = Observation.query.filter(
             Observation.chromosome == chromosome,
@@ -71,20 +91,16 @@ class VariantsResource(Resource):
             Observation.position <= end_position,
             Observation.bin.in_(bins))
 
-        def serialize(o):
-            return {'uri': url_for('.variant_get', variant='%s:%d%s>%s' % (o.chromosome, o.position, o.reference, o.observed)),
-                    'hgvs': '%s:g.%d%s>%s' % (o.chromosome, o.position, o.reference, o.observed),
-                    'chromosome': o.chromosome,
-                    'position': o.position,
-                    'reference': o.reference,
-                    'observed': o.observed}
-
         return (observations.count(),
-                jsonify(variants=[serialize(o) for o in
+                jsonify(variants=[serialize((o.chromosome, o.position, o.reference, o.observed),
+                                            global_frequency=global_frequency,
+                                            sample_frequency=sample_frequency,
+                                            exclude=exclude) for o in
                                   observations.limit(count).offset(begin)]))
 
     @classmethod
-    def get_view(cls, variant):
+    def get_view(cls, variant, global_frequency=True, sample_frequency=None,
+                 exclude=None):
         """
         Get frequency details for a variant.
 
@@ -102,43 +118,20 @@ class VariantsResource(Resource):
         * **hgvs** (`string`) - HGVS description.
         * **frequency** (`float`) - Frequency in database samples.
         """
-        chromosome, position, reference, observed = variant
+        sample_frequency = sample_frequency or []
+        exclude = exclude or []
 
-        # Todo: Abstract this away for reuse in tasks and here.
+        for sample in sample_frequency:
+            if not (sample.public or
+                    sample.user is g.user or
+                    'admin' in g.user.roles):
+                # Todo: Meaningful error message.
+                abort(400)
 
-        end_position = position + max(1, len(reference)) - 1
-        bins = all_bins(position, end_position)
-
-        exclude_sample_ids = []
-
-        observations = Observation.query.filter_by(
-            chromosome=chromosome,
-            position=position,
-            reference=reference,
-            observed=observed).join(Variation).filter(
-                ~Variation.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(
-                    active=True, coverage_profile=True).count()
-
-        coverage = Region.query.join(Coverage).filter(
-            Region.chromosome == chromosome,
-            Region.begin <= position,
-            Region.end >= end_position,
-            Region.bin.in_(bins),
-            ~Coverage.sample_id.in_(exclude_sample_ids)).join(Sample).filter_by(active=True).count()
-
-        try:
-            frequency = observations / coverage
-        except ZeroDivisionError:
-            frequency = 0
-
-        # Todo: HGVS description is of course not really HGVS.
-        return jsonify(variant={'uri': url_for('.variant_get', variant=variant),
-                                'hgvs': '%s:g.%d%s>%s' % variant,
-                                'chromosome': chromosome,
-                                'position': position,
-                                'reference': reference,
-                                'observed': observed,
-                                'frequency': frequency})
+        return jsonify(variant=cls.serialize(variant,
+                                             global_frequency=global_frequency,
+                                             sample_frequency=sample_frequency,
+                                             exclude=exclude))
 
     @classmethod
     def add_view(cls, chromosome, position, reference='', observed=''):
@@ -154,3 +147,23 @@ class VariantsResource(Resource):
         response = jsonify({'variant_uri': uri})
         response.location = uri
         return response, 201
+
+    @classmethod
+    def serialize(cls, variant, global_frequency=True, sample_frequency=None,
+                  exclude=None):
+        sample_frequency = sample_frequency or []
+        exclude = exclude or []
+
+        chromosome, position, reference, observed = variant
+
+        global_frequency_result, sample_frequency_result = calculate_frequency(
+            chromosome, position, reference, observed, global_frequency,
+            sample_frequency, exclude)
+
+        return {'uri': url_for('.variant_get', variant='%s:%d%s>%s' % variant),
+                'chromosome': chromosome,
+                'position': position,
+                'reference': reference,
+                'observed': observed,
+                'global_frequency': global_frequency_result,
+                'sample_frequency': sample_frequency_result}
