@@ -61,6 +61,8 @@ class Resource(object):
     edit_ensure_options = {}
     edit_schema = {}
 
+    # Can be one of `string`, `int`, `float`, `path`.
+    # http://flask.pocoo.org/docs/api/#url-route-registrations
     key_type = 'int'
 
     def __new__(cls, *args, **kwargs):
@@ -122,11 +124,19 @@ class Resource(object):
         return jsonify({cls.instance_name: cls.serialize(instance, embed=embed)})
 
     @classmethod
+    def instance_key(cls, instance):
+        # Should return something of type `cls.key_type`.
+        raise NotImplementedError
+
+    @classmethod
+    def instance_uri(cls, instance):
+        return url_for('.%s_get' % cls.instance_type,
+                       **{cls.instance_name: cls.instance_key(instance)})
+
+    @classmethod
     def serialize(cls, instance, embed=None):
-        # Todo: I think we can only use the instance.id in the ModelResource.
         embed = embed or []
-        uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: instance.id})
-        serialization = {'uri': uri}
+        serialization = {'uri': cls.instance_uri(instance)}
         serialization.update({field: cls.embeddable[field].serialize(getattr(instance, field))
                               for field in embed})
         return serialization
@@ -182,7 +192,7 @@ class ModelResource(Resource):
         db.session.add(instance)
         db.session.commit()
         current_app.logger.info('Added %s: %r', cls.instance_name, instance)
-        uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: instance.id})
+        uri = cls.instance_uri(instance)
         response = jsonify({'%s_uri' % cls.instance_name: uri})
         response.location = uri
         return response, 201
@@ -195,6 +205,10 @@ class ModelResource(Resource):
         db.session.commit()
         current_app.logger.info('Updated %s: %r', cls.instance_name, instance)
         return jsonify({cls.instance_name: cls.serialize(instance)})
+
+    @classmethod
+    def instance_key(cls, instance):
+        return instance.id
 
 
 class TaskedResource(ModelResource):
@@ -229,7 +243,7 @@ class TaskedResource(ModelResource):
         current_app.logger.info('Added %s: %r', cls.instance_name, instance)
         result = cls.task.delay(instance.id)
         current_app.logger.info('Called task: %s(%d) %s', cls.task.__name__, instance.id, result.task_id)
-        uri = url_for('.%s_get' % cls.instance_type, **{cls.instance_name: instance.id})
+        uri = cls.instance_uri(instance)
         response = jsonify({'%s_uri' % cls.instance_name: uri})
         response.location = uri
         # Todo: The resourse is created, only it is not imported yet, so I

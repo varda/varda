@@ -7,11 +7,9 @@ REST API variants resource.
 """
 
 
-from __future__ import division
+from flask import jsonify
 
-from flask import jsonify, url_for
-
-from ...models import Coverage, Observation, Region, Sample, Variation
+from ...models import Observation
 from ...region_binning import all_bins
 from ...utils import (calculate_frequency, normalize_region, normalize_variant,
                       ReferenceMismatch)
@@ -92,11 +90,11 @@ class VariantsResource(Resource):
             Observation.bin.in_(bins))
 
         return (observations.count(),
-                jsonify(variants=[serialize((o.chromosome, o.position, o.reference, o.observed),
-                                            global_frequency=global_frequency,
-                                            sample_frequency=sample_frequency,
-                                            exclude=exclude) for o in
-                                  observations.limit(count).offset(begin)]))
+                jsonify(variants=[cls.serialize((o.chromosome, o.position, o.reference, o.observed),
+                                                global_frequency=global_frequency,
+                                                sample_frequency=sample_frequency,
+                                                exclude=exclude)
+                                  for o in observations.limit(count).offset(begin)]))
 
     @classmethod
     def get_view(cls, variant, global_frequency=True, sample_frequency=None,
@@ -143,10 +141,14 @@ class VariantsResource(Resource):
             variant = normalize_variant(chromosome, position, reference, observed)
         except ReferenceMismatch as e:
             raise ValidationError(str(e))
-        uri = url_for('.variant_get', variant='%s:%d%s>%s' % variant)
+        uri = cls.instance_uri(variant)
         response = jsonify({'variant_uri': uri})
         response.location = uri
         return response, 201
+
+    @classmethod
+    def instance_key(cls, variant):
+        return '%s:%d%s>%s' % variant
 
     @classmethod
     def serialize(cls, variant, global_frequency=True, sample_frequency=None,
@@ -160,7 +162,7 @@ class VariantsResource(Resource):
             chromosome, position, reference, observed, global_frequency,
             sample_frequency, exclude)
 
-        return {'uri': url_for('.variant_get', variant='%s:%d%s>%s' % variant),
+        return {'uri': cls.instance_uri(variant),
                 'chromosome': chromosome,
                 'position': position,
                 'reference': reference,
