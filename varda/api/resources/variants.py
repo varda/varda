@@ -32,27 +32,33 @@ class VariantsResource(Resource):
     list_ensure_conditions = [has_role('admin'), has_role('annotator')]
     list_ensure_options = {'satisfy': any}
     list_schema = {'region': {'type': 'dict',
-                              'schema': {'chromosome': {'type': 'string', 'required': True},
+                              'schema': {'chromosome': {'type': 'string', 'required': True, 'maxlength': 30},
                                          'begin': {'type': 'integer', 'required': True},
                                          'end': {'type': 'integer', 'required': True}},
                               'required': True},
                    'global_frequency': {'type': 'boolean'},
                    'sample_frequency': {'type': 'list',
+                                        'maxlength': 20,
                                         'schema': {'type': 'sample'}},
-                   'exclude': {'type': 'list', 'schema': {'type': 'sample'}}}
+                   'exclude': {'type': 'list',
+                               'maxlength': 30,
+                               'schema': {'type': 'sample'}}}
 
     get_ensure_conditions = [has_role('admin'), has_role('annotator')]
     get_ensure_options = {'satisfy': any}
     get_schema = {'global_frequency': {'type': 'boolean'},
                   'sample_frequency': {'type': 'list',
+                                       'maxlength': 20,
                                        'schema': {'type': 'sample'}},
-                  'exclude': {'type': 'list', 'schema': {'type': 'sample'}}}
+                  'exclude': {'type': 'list',
+                              'maxlength': 20,
+                              'schema': {'type': 'sample'}}}
 
     add_ensure_conditions = []
-    add_schema = {'chromosome': {'type': 'string', 'required': True},
+    add_schema = {'chromosome': {'type': 'string', 'required': True, 'maxlength': 30},
                   'position': {'type': 'integer', 'required': True},
-                  'reference': {'type': 'string'},
-                  'observed': {'type': 'string'}}
+                  'reference': {'type': 'string', 'maxlength': 200},
+                  'observed': {'type': 'string', 'maxlength': 200}}
 
     key_type = 'string'
 

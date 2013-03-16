@@ -3,8 +3,8 @@ Todo list
 
 * Other types of authentication (OAuth).
 * Better docs.
-* Validate user input, especially file uploads (max file size) and max length
-  for string parameters.
+* More strict validation of user input, especially file uploads (max file size
+  and contents).
 * Use accept HTTP headers in the API.
 * More comprehensive test suite.
 * Throtling.

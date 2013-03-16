@@ -113,12 +113,6 @@ class ApiValidator(Validator):
         super(ApiValidator, self)._validate_type_boolean(field,
                                                          self.document[field])
 
-    def _validate_type_label(self, field, value):
-        super(ApiValidator, self)._validate_type_string(field,
-                                                        self.document[field])
-        if value and not re.match('[0-9A-Z]+$', value):
-            self._error(ERROR_LABEL_CHARACTERS % (field, 'label'))
-
     def _validate_type_user(self, field, value):
         if isinstance(value, int):
             self.document[field] = User.query.get(value)
@@ -169,6 +163,9 @@ class ApiValidator(Validator):
 
     def _validate_type_variant(self, field, value):
         if not isinstance(value, basestring):
+            self._error(ERROR_BAD_TYPE % (field, 'variant'))
+            return
+        if len(value) > 500:
             self._error(ERROR_BAD_TYPE % (field, 'variant'))
             return
         # Todo: I'm not so sure about the urllib.unquote call. I would've

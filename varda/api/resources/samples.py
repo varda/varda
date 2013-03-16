@@ -40,7 +40,7 @@ class SamplesResource(ModelResource):
 
     add_ensure_conditions = [has_role('admin'), has_role('importer')]
     add_ensure_options = {'satisfy': any}
-    add_schema = {'name': {'type': 'string', 'required': True},
+    add_schema = {'name': {'type': 'string', 'required': True, 'maxlength': 200},
                   'pool_size': {'type': 'integer'},
                   'coverage_profile': {'type': 'boolean'},
                   'public': {'type': 'boolean'}}
@@ -48,7 +48,7 @@ class SamplesResource(ModelResource):
     edit_ensure_conditions = [has_role('admin'), owns_sample]
     edit_ensure_options = {'satisfy': any}
     edit_schema = {'active': {'type': 'boolean'},
-                   'name': {'type': 'string'},
+                   'name': {'type': 'string', 'maxlength': 200},
                    'pool_size': {'type': 'integer'},
                    'coverage_profile': {'type': 'boolean'},
                    'public': {'type': 'boolean'}}

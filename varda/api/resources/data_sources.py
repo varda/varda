@@ -41,15 +41,15 @@ class DataSourcesResource(ModelResource):
     get_ensure_options = {'satisfy': any}
 
     add_ensure_conditions = []
-    add_schema = {'name': {'type': 'string', 'required': True},
+    add_schema = {'name': {'type': 'string', 'required': True, 'maxlength': 200},
                   'filetype': {'type': 'string', 'allowed': DATA_SOURCE_FILETYPES,
                                'required': True},
                   'gzipped': {'type': 'boolean'},
-                  'local_file': {'type': 'string'}}
+                  'local_file': {'type': 'string', 'maxlength': 200}}
 
     edit_ensure_conditions = [has_role('admin'), owns_data_source]
     edit_ensure_options = {'satisfy': any}
-    edit_schema = {'name': {'type': 'string'}}
+    edit_schema = {'name': {'type': 'string', 'maxlength': 200}}
 
     data_rule = '/<int:data_source>/data'
     data_ensure_conditions = [has_role('admin'), owns_data_source]

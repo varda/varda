@@ -50,8 +50,11 @@ class AnnotationsResource(TaskedResource):
     add_schema = {'data_source': {'type': 'data_source', 'required': True},
                   'global_frequency': {'type': 'boolean'},
                   'sample_frequency': {'type': 'list',
+                                       'maxlength': 30,
                                        'schema': {'type': 'sample'}},
-                  'exclude': {'type': 'list', 'schema': {'type': 'sample'}}}
+                  'exclude': {'type': 'list',
+                              'maxlength': 30,
+                              'schema': {'type': 'sample'}}}
 
     @classmethod
     def list_view(cls, *args, **kwargs):

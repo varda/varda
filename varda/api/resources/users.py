@@ -33,12 +33,12 @@ class UsersResource(ModelResource):
     # Todo: I think we can lose the 'safe' constraint.
     add_schema = {'login': {'type': 'string', 'minlength': 3, 'maxlength': 40,
                             'safe': True, 'required': True},
-                  'name': {'type': 'string'},
-                  'password': {'type': 'string', 'required': True},
+                  'name': {'type': 'string', 'maxlength': 200},
+                  'password': {'type': 'string', 'required': True, 'maxlength': 500},
                   'roles': {'type': 'list', 'allowed': USER_ROLES}}
 
-    edit_schema = {'name': {'type': 'string'},
-                   'password': {'type': 'string'},
+    edit_schema = {'name': {'type': 'string', 'maxlength': 200},
+                   'password': {'type': 'string', 'maxlength': 500},
                    'roles': {'type': 'list', 'allowed': USER_ROLES}}
 
     @classmethod
