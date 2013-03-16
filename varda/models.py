@@ -67,7 +67,6 @@ class User(db.Model):
     :data:`USER_ROLES` tuple is defined by the least-significant bit.
     Essentially, this creates a set of roles.
 
-    .. todo:: Login should really be validated to only contain alphanums.
     .. todo:: The bitstring encoding/decoding can probably be implemented more
         efficiently.
     """

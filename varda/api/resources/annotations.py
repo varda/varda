@@ -148,7 +148,6 @@ class AnnotationsResource(TaskedResource):
         .. todo:: Documentation.
         """
         # Todo: Check if data source is a VCF file.
-        # Todo: Check that labels in local_frequencies are unique.
         # The `satisfy` keyword argument used here in the `ensure` decorator means
         # that we ensure at least one of:
         # - admin
