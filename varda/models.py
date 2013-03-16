@@ -196,7 +196,7 @@ class DataSource(db.Model):
                     'allowed by system configuration')
             if current_app.config['SECONDARY_DATA_BY_USER']:
                 local_dir = os.path.join(current_app.config['SECONDARY_DATA_DIR'],
-                                         str(user.id))
+                                         user.login)
             else:
                 local_dir = current_app.config['SECONDARY_DATA_DIR']
             local_path = os.path.join(local_dir,
