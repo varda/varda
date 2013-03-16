@@ -195,11 +195,6 @@ class DataSource(db.Model):
             #     the directory is not configured.
             os.symlink(local_path, filepath)
 
-        if not empty and not self.is_valid():
-            os.unlink(filepath)
-            raise InvalidDataSource('invalid_data',
-                                    'Data source cannot be read')
-
     def __repr__(self):
         # Todo: If CELERY_ALWAYS_EAGER=True, the worker can end up with a
         #     detached session when printing its log after an error. This
@@ -262,24 +257,6 @@ class DataSource(db.Model):
         Get a local filepath for the data.
         """
         return os.path.join(current_app.config['FILES_DIR'], self.filename)
-
-    def is_valid(self):
-        """
-        Peek into the file and determine if it is of the given filetype.
-        """
-        data = self.data()
-
-        def is_bed():
-            # Todo.
-            return True
-
-        def is_vcf():
-            return 'fileformat=VCFv4.1' in data.readline()
-
-        validators = {'bed': is_bed,
-                      'vcf': is_vcf}
-        with data as data:
-            return validators[self.filetype]()
 
 
 class Variation(db.Model):
