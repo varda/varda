@@ -45,7 +45,7 @@ class DataSourcesResource(ModelResource):
                   'filetype': {'type': 'string', 'allowed': DATA_SOURCE_FILETYPES,
                                'required': True},
                   'gzipped': {'type': 'boolean'},
-                  'local_path': {'type': 'string'}}
+                  'local_file': {'type': 'string'}}
 
     edit_ensure_conditions = [has_role('admin'), owns_data_source]
     edit_ensure_options = {'satisfy': any}

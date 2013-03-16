@@ -16,10 +16,11 @@ import gzip
 import os
 import uuid
 
+import bcrypt
 from flask import current_app
 from sqlalchemy import Index
 from sqlalchemy.orm.exc import DetachedInstanceError
-import bcrypt
+import werkzeug
 
 from . import db
 from .region_binning import assign_bin
@@ -163,7 +164,7 @@ class DataSource(db.Model):
     user = db.relationship(User,
                            backref=db.backref('data_sources', lazy='dynamic'))
 
-    def __init__(self, user, name, filetype, upload=None, local_path=None,
+    def __init__(self, user, name, filetype, upload=None, local_file=None,
                  empty=False, gzipped=False):
         if not filetype in DATA_SOURCE_FILETYPES:
             raise InvalidDataSource('unknown_filetype',
@@ -177,22 +178,35 @@ class DataSource(db.Model):
         self.gzipped = gzipped
         self.added = datetime.now()
 
-        filepath = os.path.join(current_app.config['DATA_DIR'],
+        path = os.path.join(current_app.config['DATA_DIR'],
                                 self.filename)
 
         if upload is not None:
             if gzipped:
-                upload.save(filepath)
+                upload.save(path)
             else:
-                data = gzip.open(filepath, 'wb')
+                data = gzip.open(path, 'wb')
                 data.write(upload.read())
                 data.close()
             self.gzipped = True
-        elif local_path is not None:
-            # Todo: Restrict this to a preconfigured directory, and only pass
-            #     filename instead of full path. Don't allow this method if
-            #     the directory is not configured.
-            os.symlink(local_path, filepath)
+        elif local_file is not None:
+            if not current_app.config['SECONDARY_DATA_DIR']:
+                raise InvalidDataSource(
+                    'invalid_data', 'Referencing local data files is not '
+                    'allowed by system configuration')
+            if current_app.config['SECONDARY_DATA_BY_USER']:
+                local_dir = os.path.join(current_app.config['SECONDARY_DATA_DIR'],
+                                         str(user.id))
+            else:
+                local_dir = current_app.config['SECONDARY_DATA_DIR']
+            local_path = os.path.join(local_dir,
+                                      werkzeug.secure_filename(local_file))
+            if not os.path.isfile(local_path):
+                raise InvalidDataSource(
+                    'invalid_data', 'Local data file referenced does not exist')
+            os.symlink(local_path, path)
+        elif not empty:
+            raise InvalidDataSource('invalid_data', 'No data supplied')
 
     def __repr__(self):
         # Todo: If CELERY_ALWAYS_EAGER=True, the worker can end up with a

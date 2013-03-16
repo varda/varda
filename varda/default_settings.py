@@ -18,6 +18,13 @@ DATA_DIR = tempfile.mkdtemp()
 # Maximum size for uploaded files
 MAX_CONTENT_LENGTH = 1024 * 1024 * 1024  # 1 gigabyte
 
+# Secondary directory to use files from, for example uploaded there by other
+# means such as SFTP (Varda will never write there, only symlink to it)
+SECONDARY_DATA_DIR = None
+
+# Have subdirectory per user in SECONDARY_DATA_DIR (using the database id)
+SECONDARY_DATA_BY_USER = False
+
 # Location of reference genome Fasta file
 GENOME = None
 
