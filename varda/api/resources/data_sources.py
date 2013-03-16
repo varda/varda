@@ -275,7 +275,7 @@ class DataSourcesResource(ModelResource):
 
             <gzipped data omitted>
         """
-        return send_from_directory(current_app.config['FILES_DIR'],
+        return send_from_directory(current_app.config['DATA_DIR'],
                                    data_source.filename,
                                    mimetype='application/x-gzip')
 

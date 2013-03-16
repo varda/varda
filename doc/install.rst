@@ -158,7 +158,7 @@ configuration settings, for example::
 
     $ export VARDA_SETTINGS=~/varda/settings.py
     $ cat > $VARDA_SETTINGS
-    FILES_DIR = '/tmp/varda'
+    DATA_DIR = '/tmp/varda'
     SQLALCHEMY_DATABASE_URI = 'postgresql://user:password@localhost/varda'
     BROKER_URL = 'redis://'
     CELERY_RESULT_BACKEND = 'redis://'

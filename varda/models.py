@@ -178,7 +178,7 @@ class DataSource(db.Model):
         self.gzipped = gzipped
         self.added = datetime.now()
 
-        filepath = os.path.join(current_app.config['FILES_DIR'],
+        filepath = os.path.join(current_app.config['DATA_DIR'],
                                 self.filename)
 
         if upload is not None:
@@ -216,7 +216,7 @@ class DataSource(db.Model):
 
         .. note:: Be sure to close after calling this.
         """
-        filepath = os.path.join(current_app.config['FILES_DIR'],
+        filepath = os.path.join(current_app.config['DATA_DIR'],
                                 self.filename)
         try:
             if self.gzipped:
@@ -234,7 +234,7 @@ class DataSource(db.Model):
 
         .. note:: Be sure to close after calling this.
         """
-        filepath = os.path.join(current_app.config['FILES_DIR'],
+        filepath = os.path.join(current_app.config['DATA_DIR'],
                                 self.filename)
         try:
             if self.gzipped:
@@ -256,7 +256,7 @@ class DataSource(db.Model):
         """
         Get a local filepath for the data.
         """
-        return os.path.join(current_app.config['FILES_DIR'], self.filename)
+        return os.path.join(current_app.config['DATA_DIR'], self.filename)
 
 
 class Variation(db.Model):

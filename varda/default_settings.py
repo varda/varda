@@ -11,9 +11,9 @@ AULE_LOCAL_PATH = None
 # URL prefix to serve Aulë under
 AULE_URL_PREFIX = '/aule'
 
-# Directory to store uploaded files
+# Directory to store files (uploaded and generated)
 import tempfile
-FILES_DIR = tempfile.mkdtemp()
+DATA_DIR = tempfile.mkdtemp()
 
 # Maximum size for uploaded files
 MAX_CONTENT_LENGTH = 1024 * 1024 * 1024  # 1 gigabyte
