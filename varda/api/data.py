@@ -30,6 +30,12 @@ ERROR_LABEL_CHARACTERS = "field '%s' of %s type must contain only uppercase alph
 #     casting is done in the 'type' rules by modifying the document in-place.
 #     This isn't really how Cerberus works and there might be a better way of
 #     doing things.
+#     Note the ugly consequence of this is that we explicitely rely on our own
+#     branch of Cerberus where the type rule is always checked first (the
+#     'varda' branch on github.com/martijnvermaat/cerberus).
+#     Since this concerns a critical part of our security, we should at least
+#     have some assertion somewhere checking that we are using this Cerberus
+#     branch (and ideally get rid of this setup alltogether).
 # Todo: I would like to have the app as extra argument to the constructor, so
 #     that it can be given to the `*_by_uri` functions and they would no
 #     longer need the ugly `current_app`. Unfortunately, that's not so easy
@@ -41,43 +47,42 @@ ERROR_LABEL_CHARACTERS = "field '%s' of %s type must contain only uppercase alph
 #     arguments in our @data decorator. Some wrapper code generating Colander
 #     schemas would be possible though.
 #     See https://github.com/ccnmtl/mvsim/blob/master/main/models.py
+#     Another alternative would be the `Voluptuous <https://github.com/alecthomas/voluptuous>`
+#     library.
 class ApiValidator(Validator):
-    # Todo: Try to get this in upstream Cerberus.
-    def _validate_allowed(self, allowed_values, field, value):
-        # This is a bit of a hack, we add a special case for the `allowed`
-        # rule on string values.
-        if isinstance(value, basestring):
-            if value not in allowed_values:
-                self._error(ERROR_UNALLOWED_VALUE % (value, field))
-        else:
-            super(ApiValidator, self)._validate_allowed(allowed_values,
-                                                        field, value)
-
-    # Todo: Try to get this in upstream Cerberus.
+    # Because of the casting we do in some validators (described above), we
+    # need to aggregate values from temporary subvalidators back into the
+    # original validator. For example, in the _validate_schema rule for lists.
     def _validate_schema(self, schema, field, value):
-        # And another hack, we add a special case for the `schema` rule on
-        # list values.
         if isinstance(value, list):
             self.document[field] = []
-            for v in value:
-                validator = self.__class__({field: schema})
-                if not validator.validate({field: v}):
-                    self._error(validator.errors)
-                self.document[field].append(validator.document[field])
+            for i in range(len(value)):
+                key = "%s[%s]" % (field, str(i))
+                validator = self.__class__({key: schema})
+                if not validator.validate({key: value[i]}):
+                    self._error([error for error in validator.errors])
+                self.document[field].append(validator.document[key])
+        elif isinstance(value, dict):
+            validator = self.__class__(schema)
+            if not validator.validate(value):
+                self._error(["'%s': " % field + error
+                            for error in validator.errors])
         else:
-            super(ApiValidator, self)._validate_schema(schema, field, value)
+            self._error(errors.ERROR_BAD_TYPE % (field, "dict"))
 
-    def _validate_items_list(self, schemas, field, values):
-        if len(schemas) != len(values):
-            self._error(ERROR_ITEMS_LIST % (field, len(schemas)))
+    # Because of the casting we do in some validators (described above), we
+    # need to aggregate values from temporary subvalidators back into the
+    # original validator. For example, in the _validate_items_list rule.
+    def _validate_items_list(self, schema, field, values):
+        if len(schema) != len(values):
+            self._error(errors.ERROR_ITEMS_LIST % (field, len(schema)))
         else:
             self.document[field] = []
-            for i in range(len(schemas)):
-                key = "_data" + str(i)
-                validator = self.__class__({key: schemas[i]})
+            for i in range(len(schema)):
+                key = "%s[%s]" % (field, str(i))
+                validator = self.__class__({key: schema[i]})
                 if not validator.validate({key: values[i]}):
-                    self._error(["'%s': " % field + error
-                                for error in validator.errors])
+                    self._error([error for error in validator.errors])
                 self.document[field].append(validator.document[key])
 
     def _validate_safe(self, safe, field, value):
