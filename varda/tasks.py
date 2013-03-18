@@ -122,8 +122,10 @@ def annotate_variants(original_variants, annotated_variants,
     # Header line in VCF output for global frequencies.
     if global_frequency:
         reader.infos['VARDA_FREQ'] = VcfInfo(
-            'VARDA_FREQ', vcf_field_counts['A'], 'Float',
-            'Frequency in Varda (over %i samples, using coverage profiles)'
+            'VARDA_FREQ', vcf_field_counts['A'], 'String',
+            'Frequency in Varda (over %i samples, using coverage profiles), '
+            'followed by frequency per known allele count starting from 1, '
+            'separated by /'
             % Sample.query.filter_by(active=True,
                                      coverage_profile=True).filter(
                 ~Sample.id.in_([s.id for s in exclude])).count())
@@ -138,8 +140,10 @@ def annotate_variants(original_variants, annotated_variants,
     # Header lines in VCF output for sample frequencies.
     for sample, label in zip(sample_frequency, labels):
         reader.infos[label] = VcfInfo(
-            label, vcf_field_counts['A'], 'Float',
-            'Frequency in %s (over %i samples, %susing coverage profiles)'
+            label, vcf_field_counts['A'], 'String',
+            'Frequency in %s (over %i samples, %susing coverage profiles), '
+            'followed by frequency per known allele count starting from 1, '
+            'separated by /'
             % (sample.name, sample.pool_size,
                '' if sample.coverage_profile else 'not '))
 
@@ -170,11 +174,11 @@ def annotate_variants(original_variants, annotated_variants,
             global_frequency_result, sample_frequency_result = calculate_frequency(
                 chromosome, position, reference, observed, global_frequency,
                 sample_frequency, exclude)
-            if global_frequency_result is not None:
-                global_frequencies.append(global_frequency_result)
-            if sample_frequency_result is not None:
+            if global_frequency:
+                global_frequencies.append('/'.join(str(r) for r in [global_frequency_result[0]] + global_frequency_result[1]))
+            if sample_frequency:
                 for i, f in enumerate(sample_frequency_result):
-                    sample_frequencies[i].append(f)
+                    sample_frequencies[i].append('/'.join(str(r) for r in [f[0]] + f[1]))
 
         if global_frequency:
             record.add_info('VARDA_FREQ', global_frequencies)

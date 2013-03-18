@@ -307,7 +307,13 @@ def calculate_frequency(chromosome, position, reference, observed,
                         exclude=None):
     """
     Calculate frequency for a variant.
+
+    Return for global and each sample tuple:
+    - total frequency
+    - list of frequency per allele count starting from 1 going up
     """
+    # Todo: Calculate frequency per known allele count, we currently use
+    #     dummy values 0.17 and 0.02 for 1 and 2 respectively.
     sample_frequency = sample_frequency or []
     exclude = exclude or []
 
@@ -340,9 +346,9 @@ def calculate_frequency(chromosome, position, reference, observed,
             ~Coverage.sample_id.in_(exclude_ids)).join(Sample).filter_by(
             active=True).count()
         if coverage:
-            global_result = observations / coverage
+            global_result = observations / coverage, [0.17, 0.02]
         else:
-            global_result = 0
+            global_result = 0, [0.17, 0.02]
 
     for sample in sample_frequency:
         observations = Observation.query.filter_by(
@@ -361,8 +367,8 @@ def calculate_frequency(chromosome, position, reference, observed,
         else:
             coverage = sample.pool_size
         if coverage:
-            sample_result.append(observations / coverage)
+            sample_result.append( (observations / coverage, [0.17, 0.02]) )
         else:
-            sample_result.append(0)
+            sample_result.append(0, [0.17, 0.02])
 
     return global_result, sample_result
