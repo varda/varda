@@ -339,6 +339,7 @@ def import_variation(variation_id):
         #     new import task can be started.
         #     Note that for non-existing tasks, PENDING state is reported.
         #     See also: http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
+        #     Or: https://github.com/PolicyStat/jobtastic
         result = import_variation.AsyncResult(variation.task_uuid)
         if result.state in ('STARTED', 'PROGRESS'):
             raise TaskError('variation_importing',
@@ -365,6 +366,10 @@ def import_variation(variation_id):
     # Calculate data digest if it is not yet known.
     # Todo: Can we somehow factor this out into a separate (singleton) task,
     #     on which we wait?
+    #     Waiting synchronously is not a good idea, since we would be holding
+    #     the worker process, but I think retrying after some countdown would
+    #     be the solution?
+    #     self.apply_async(countdown=SOME_CONFIGURATION_VARIABLE)
     if not data_source.checksum:
         with data_source.data() as data:
             data_source.checksum, data_source.records = digest(data)
