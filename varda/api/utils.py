@@ -10,7 +10,7 @@ Various REST API utilities.
 from functools import wraps
 import urlparse
 
-from flask import request
+from flask import abort, request
 from werkzeug.datastructures import Range
 from werkzeug.exceptions import HTTPException
 from werkzeug.http import parse_range_header
