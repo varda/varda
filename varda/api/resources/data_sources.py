@@ -41,7 +41,7 @@ class DataSourcesResource(ModelResource):
     get_ensure_options = {'satisfy': any}
 
     add_ensure_conditions = []
-    add_schema = {'name': {'type': 'string', 'required': True, 'maxlength': 200},
+    add_schema = {'name': {'type': 'string', 'maxlength': 200, 'required': True},
                   'filetype': {'type': 'string', 'allowed': DATA_SOURCE_FILETYPES,
                                'required': True},
                   'gzipped': {'type': 'boolean'},

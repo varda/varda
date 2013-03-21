@@ -57,6 +57,7 @@ def collection(rule):
         if begin > max(total - 1, 0):
             abort(404)
         end = min(end, total)
+        # Todo: Use ContentRange object from Werkzeug to construct this value.
         response.headers.add('Content-Range',
                              'items %d-%d/%d' % (begin, end - 1, total))
         return response

@@ -31,6 +31,16 @@ from ..security import ensure, has_role, require_user
 from ..utils import collection
 
 
+# Todo: We implement the different resources here with inheritance. If we at
+#    some point want to factor out the resource stuff into some sort of small
+#    REST framework, it might be better to change this to composition.
+#    The superclasses and subclasses are quite tightly coupled and especially
+#    in a library setting this wouldn't work very well since the interface
+#    offered by the superclasses is unclear. See, for example, [1].
+#
+# [1] https://github.com/mcdonc/apidesign/blob/master/presentation.rst#4-composinginheriting
+
+
 class Resource(object):
     """
     Base class for a REST resource definition.
