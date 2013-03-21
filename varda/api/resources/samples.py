@@ -263,5 +263,6 @@ class SamplesResource(ModelResource):
                              name=instance.name,
                              pool_size=instance.pool_size,
                              public=instance.public,
+                             active=instance.active,
                              added=str(instance.added.isoformat()))
         return serialization
