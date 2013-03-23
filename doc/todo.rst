@@ -11,7 +11,8 @@ Todo list
 * Better rights/roles model.
 * Support input in BCF2 format.
 * Have a look at supporting the `gVCF format <https://sites.google.com/site/gvcftools/)>`_.
-* Attach tags (e.g. 'exome', 'illumina', 'cancer').
+* Attach tags (e.g. 'exome', 'illumina', 'cancer'). Not sure if they should be
+  separate resources on their own, or just string arguments.
 * Possibility to contact submitter of an observation.
 
 
@@ -26,7 +27,7 @@ following fields:
 - `slug`: Short identifier consisting of only letters (used as VCF field).
 - `exclude_samples`: List of samples to exclude.
 - `within_sample`: Sample to restrict calculation to, or None for a global
-    calculation.
+  calculation.
 
 In the future, we could extend this. For example, if we can attach tags to
 samples, queries could include or exclude samples with a certain tag.
@@ -42,6 +43,31 @@ the observations we are currently annotating if they are already in the
 database. This can simply be solved by excluding the current data source
 from the calculation. Or, generalizing, excluding any data source with the
 same checksum.
+
+Some example query specifications::
+
+    [
+        query: {
+            description: 'Frequencies in the GoNL study',
+            slug: 'gonl',
+            sample: '/samples/34'
+        },
+        query: {
+            description: 'Frequencies in the 1KG study',
+            slug: '1kg',
+            sample: '/samples/31'
+        },
+        query: {
+            description: 'Global frequencies in Varda',
+            slug: 'varda'
+        },
+        query: {
+            description: 'Frequencies in Varda exome samples (excluding cancer)',
+            slug: 'varda',
+            include-tags: ['exome'],
+            exclude-tags: ['cancer']
+        }
+    ]
 
 
 Document use cases
