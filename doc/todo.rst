@@ -15,6 +15,35 @@ Todo list
 * Possibility to contact submitter of an observation.
 
 
+Queries
+-------
+
+Idea to better implement querying variant frequencies. Have a new `queries`
+resource collection, where we can create a new `query` resource with the
+following fields:
+
+- `description`: Textual description of the query (used in VCF header).
+- `slug`: Short identifier consisting of only letters (used as VCF field).
+- `exclude_samples`: List of samples to exclude.
+- `within_sample`: Sample to restrict calculation to, or None for a global
+    calculation.
+
+In the future, we could extend this. For example, if we can attach tags to
+samples, queries could include or exclude samples with a certain tag.
+
+Now, each annotation references one or more queries. Ad-hoc frequency
+calculations on a single variant or region, could be modelled as sub
+resources of the query (so multiple queries on one variant must be done
+separately).
+
+By the way, I'm not convinced we need the option to exclude samples from
+the calculation. The main problem it solves is making sure we don't include
+the observations we are currently annotating if they are already in the
+database. This can simply be solved by excluding the current data source
+from the calculation. Or, generalizing, excluding any data source with the
+same checksum.
+
+
 Document use cases
 ------------------
 
