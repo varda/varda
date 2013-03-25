@@ -14,6 +14,7 @@ Todo list
 * Attach tags (e.g. 'exome', 'illumina', 'cancer'). Not sure if they should be
   separate resources on their own, or just string arguments.
 * Possibility to contact submitter of an observation.
+* Have a maintenance and/or read-only mode.
 
 
 Queries
