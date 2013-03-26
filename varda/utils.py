@@ -15,7 +15,7 @@ import itertools
 from flask import current_app
 
 from . import genome
-from .models import Coverage, Observation, Region, Sample, Variation
+from .models import Coverage, DataSource, Observation, Region, Sample, Variation
 from .region_binning import all_bins
 
 
@@ -303,7 +303,8 @@ def read_genotype(call, prefer_likelihoods=False):
 
 
 def calculate_frequency(chromosome, position, reference, observed,
-                        global_frequency=True, sample_frequency=None):
+                        global_frequency=True, sample_frequency=None,
+                        exclude_checksum=None):
     """
     Calculate frequency for a variant.
 
@@ -325,14 +326,18 @@ def calculate_frequency(chromosome, position, reference, observed,
 
     if global_frequency:
         # Frequency over entire database, except:
+        #  - observations imported from data source with `exclude_checksum`
         #  - samples without coverage profile
         #  - samples not activated
+        # Todo: Filter on checksum below makes us ignore any data sources with
+        #     no checksum if exclude_checksum=None.
         observations = Observation.query.filter_by(
             chromosome=chromosome,
             position=position,
             reference=reference,
             observed=observed).join(Variation).join(Sample).filter_by(
-                active=True, coverage_profile=True).count()
+                active=True, coverage_profile=True).join(DataSource).filter(
+                DataSource.checksum != exclude_checksum).count()
         coverage = Region.query.join(Coverage).filter(
             Region.chromosome == chromosome,
             Region.begin <= position,
@@ -350,7 +355,8 @@ def calculate_frequency(chromosome, position, reference, observed,
             position=position,
             reference=reference,
             observed=observed).join(Variation).filter_by(
-            sample=sample).count()
+            sample=sample).join(DataSource).filter(
+                DataSource.checksum != exclude_checksum).count()
         if sample.coverage_profile:
             coverage = Region.query.join(Coverage).filter(
                 Region.chromosome == chromosome,

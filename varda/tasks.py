@@ -82,7 +82,7 @@ class CleanTask(Task):
 def annotate_variants(original_variants, annotated_variants,
                       original_filetype='vcf', annotated_filetype='vcf',
                       global_frequency=True, sample_frequency=None,
-                      original_records=1):
+                      original_records=1, exclude_checksum=None):
     """
     Read variants from a file and write them to another file with annotation.
 
@@ -103,6 +103,9 @@ def annotate_variants(original_variants, annotated_variants,
     :type local_frequencies: list of (str, Sample)
     :arg original_records: Number of records in original variants file.
     :type original_records: int
+    :arg exclude_checksum: Checksum of data source(s) to exclude variation
+        from.
+    :type exclude_checksum: str
     """
     # Todo: Here we should check again if the samples we use are active, since
     #     it could be a long time ago when this task was submitted.
@@ -169,7 +172,7 @@ def annotate_variants(original_variants, annotated_variants,
 
             global_frequency_result, sample_frequency_result = calculate_frequency(
                 chromosome, position, reference, observed, global_frequency,
-                sample_frequency)
+                sample_frequency, exclude_checksum=exclude_checksum)
             if global_frequency:
                 global_frequencies.append('/'.join(str(r) for r in [global_frequency_result[0]] + global_frequency_result[1]))
             if sample_frequency:
@@ -567,7 +570,8 @@ def write_annotation(annotation_id):
                               annotated_filetype=annotated_data_source.filetype,
                               global_frequency=annotation.global_frequency,
                               sample_frequency=annotation.sample_frequency,
-                              original_records=original_data_source.records)
+                              original_records=original_data_source.records,
+                              exclude_checksum=original_data_source.checksum)
     except ReadError as e:
         annotated_data_source.empty()
         raise TaskError('invalid_observations', str(e))
