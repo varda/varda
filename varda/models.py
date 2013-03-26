@@ -340,12 +340,6 @@ sample_frequency = db.Table(
     db.Column('sample_id', db.Integer, db.ForeignKey('sample.id')))
 
 
-exclude = db.Table(
-    'exclude', db.Model.metadata,
-    db.Column('annotation_id', db.Integer, db.ForeignKey('annotation.id')),
-    db.Column('sample_id', db.Integer, db.ForeignKey('sample.id')))
-
-
 class Annotation(db.Model):
     """
     Annotated data source.
@@ -371,18 +365,15 @@ class Annotation(db.Model):
         backref=db.backref('annotation', uselist=False, lazy='select'))
 
     sample_frequency = db.relationship(Sample, secondary=sample_frequency)
-    exclude = db.relationship(Sample, secondary=exclude)
 
     def __init__(self, original_data_source, annotated_data_source,
-                 global_frequency=True, sample_frequency=None, exclude=None):
+                 global_frequency=True, sample_frequency=None):
         sample_frequency = sample_frequency or []
-        exclude = exclude or []
 
         self.original_data_source = original_data_source
         self.annotated_data_source = annotated_data_source
         self.global_frequency = global_frequency
         self.sample_frequency = sample_frequency
-        self.exclude = exclude
 
     # Todo: Never use self.id in the repr, we might not have it yet.
     def __repr__(self):

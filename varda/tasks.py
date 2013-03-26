@@ -82,7 +82,7 @@ class CleanTask(Task):
 def annotate_variants(original_variants, annotated_variants,
                       original_filetype='vcf', annotated_filetype='vcf',
                       global_frequency=True, sample_frequency=None,
-                      exclude=None, original_records=1):
+                      original_records=1):
     """
     Read variants from a file and write them to another file with annotation.
 
@@ -101,15 +101,12 @@ def annotate_variants(original_variants, annotated_variants,
     :arg local_frequencies: List of (`label`, `sample`) tuples to compute
         frequencies for.
     :type local_frequencies: list of (str, Sample)
-    :arg exclude: List of samples to exclude from frequency calculations.
-    :type exclude: list of Sample
     :arg original_records: Number of records in original variants file.
     :type original_records: int
     """
     # Todo: Here we should check again if the samples we use are active, since
     #     it could be a long time ago when this task was submitted.
     sample_frequency = sample_frequency or []
-    exclude = exclude or []
 
     if original_filetype != 'vcf':
         raise ReadError('Original data must be in VCF format')
@@ -127,8 +124,7 @@ def annotate_variants(original_variants, annotated_variants,
             'followed by frequency per known allele count starting from 1, '
             'separated by /'
             % Sample.query.filter_by(active=True,
-                                     coverage_profile=True).filter(
-                ~Sample.id.in_([s.id for s in exclude])).count())
+                                     coverage_profile=True).count())
 
     # Todo: We have to refer to the samples in the VCF file by some label,
     #     ideally consisting of only uppercase letters. For now, we just
@@ -173,7 +169,7 @@ def annotate_variants(original_variants, annotated_variants,
 
             global_frequency_result, sample_frequency_result = calculate_frequency(
                 chromosome, position, reference, observed, global_frequency,
-                sample_frequency, exclude)
+                sample_frequency)
             if global_frequency:
                 global_frequencies.append('/'.join(str(r) for r in [global_frequency_result[0]] + global_frequency_result[1]))
             if sample_frequency:
@@ -571,7 +567,6 @@ def write_annotation(annotation_id):
                               annotated_filetype=annotated_data_source.filetype,
                               global_frequency=annotation.global_frequency,
                               sample_frequency=annotation.sample_frequency,
-                              exclude=annotation.exclude,
                               original_records=original_data_source.records)
     except ReadError as e:
         annotated_data_source.empty()

@@ -39,20 +39,14 @@ class VariantsResource(Resource):
                    'global_frequency': {'type': 'boolean'},
                    'sample_frequency': {'type': 'list',
                                         'maxlength': 20,
-                                        'schema': {'type': 'sample'}},
-                   'exclude': {'type': 'list',
-                               'maxlength': 30,
-                               'schema': {'type': 'sample'}}}
+                                        'schema': {'type': 'sample'}}}
 
     get_ensure_conditions = [has_role('admin'), has_role('annotator')]
     get_ensure_options = {'satisfy': any}
     get_schema = {'global_frequency': {'type': 'boolean'},
                   'sample_frequency': {'type': 'list',
                                        'maxlength': 20,
-                                       'schema': {'type': 'sample'}},
-                  'exclude': {'type': 'list',
-                              'maxlength': 20,
-                              'schema': {'type': 'sample'}}}
+                                       'schema': {'type': 'sample'}}}
 
     add_ensure_conditions = []
     add_schema = {'chromosome': {'type': 'string', 'required': True, 'maxlength': 30},
@@ -64,12 +58,11 @@ class VariantsResource(Resource):
 
     @classmethod
     def list_view(cls, begin, count, region, global_frequency=True,
-                  sample_frequency=None, exclude=None):
+                  sample_frequency=None):
         """
         Get a collection of variants.
         """
         sample_frequency = sample_frequency or []
-        exclude = exclude or []
 
         for sample in sample_frequency:
             if not (sample.public or
@@ -98,13 +91,11 @@ class VariantsResource(Resource):
         return (observations.count(),
                 jsonify(variants=[cls.serialize((o.chromosome, o.position, o.reference, o.observed),
                                                 global_frequency=global_frequency,
-                                                sample_frequency=sample_frequency,
-                                                exclude=exclude)
+                                                sample_frequency=sample_frequency)
                                   for o in observations.limit(count).offset(begin)]))
 
     @classmethod
-    def get_view(cls, variant, global_frequency=True, sample_frequency=None,
-                 exclude=None):
+    def get_view(cls, variant, global_frequency=True, sample_frequency=None):
         """
         Get frequency details for a variant.
 
@@ -123,7 +114,6 @@ class VariantsResource(Resource):
         * **frequency** (`float`) - Frequency in database samples.
         """
         sample_frequency = sample_frequency or []
-        exclude = exclude or []
 
         for sample in sample_frequency:
             if not (sample.public or
@@ -134,8 +124,7 @@ class VariantsResource(Resource):
 
         return jsonify(variant=cls.serialize(variant,
                                              global_frequency=global_frequency,
-                                             sample_frequency=sample_frequency,
-                                             exclude=exclude))
+                                             sample_frequency=sample_frequency))
 
     @classmethod
     def add_view(cls, chromosome, position, reference='', observed=''):
@@ -157,16 +146,14 @@ class VariantsResource(Resource):
         return '%s:%d%s>%s' % variant
 
     @classmethod
-    def serialize(cls, variant, global_frequency=True, sample_frequency=None,
-                  exclude=None):
+    def serialize(cls, variant, global_frequency=True, sample_frequency=None):
         sample_frequency = sample_frequency or []
-        exclude = exclude or []
 
         chromosome, position, reference, observed = variant
 
         global_frequency_result, sample_frequency_result = calculate_frequency(
             chromosome, position, reference, observed, global_frequency,
-            sample_frequency, exclude)
+            sample_frequency)
 
         return {'uri': cls.instance_uri(variant),
                 'chromosome': chromosome,

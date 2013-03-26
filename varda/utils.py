@@ -303,8 +303,7 @@ def read_genotype(call, prefer_likelihoods=False):
 
 
 def calculate_frequency(chromosome, position, reference, observed,
-                        global_frequency=True, sample_frequency=None,
-                        exclude=None):
+                        global_frequency=True, sample_frequency=None):
     """
     Calculate frequency for a variant.
 
@@ -315,7 +314,6 @@ def calculate_frequency(chromosome, position, reference, observed,
     # Todo: Calculate frequency per known allele count, we currently use
     #     dummy values 0.17 and 0.02 for 1 and 2 respectively.
     sample_frequency = sample_frequency or []
-    exclude = exclude or []
 
     global_result = None
     sample_result = [] if sample_frequency else None
@@ -326,24 +324,20 @@ def calculate_frequency(chromosome, position, reference, observed,
     # Todo: Double-check if we handle pooled samples correctly.
 
     if global_frequency:
-        exclude_ids = [sample.id for sample in exclude]
         # Frequency over entire database, except:
-        #  - samples in `exclude`
         #  - samples without coverage profile
         #  - samples not activated
         observations = Observation.query.filter_by(
             chromosome=chromosome,
             position=position,
             reference=reference,
-            observed=observed).join(Variation).filter(
-            ~Variation.sample_id.in_(exclude_ids)).join(Sample).filter_by(
+            observed=observed).join(Variation).join(Sample).filter_by(
                 active=True, coverage_profile=True).count()
         coverage = Region.query.join(Coverage).filter(
             Region.chromosome == chromosome,
             Region.begin <= position,
             Region.end >= end_position,
-            Region.bin.in_(bins),
-            ~Coverage.sample_id.in_(exclude_ids)).join(Sample).filter_by(
+            Region.bin.in_(bins)).join(Sample).filter_by(
             active=True).count()
         if coverage:
             global_result = observations / coverage, [0.17, 0.02]

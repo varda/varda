@@ -51,10 +51,7 @@ class AnnotationsResource(TaskedResource):
                   'global_frequency': {'type': 'boolean'},
                   'sample_frequency': {'type': 'list',
                                        'maxlength': 30,
-                                       'schema': {'type': 'sample'}},
-                  'exclude': {'type': 'list',
-                              'maxlength': 30,
-                              'schema': {'type': 'sample'}}}
+                                       'schema': {'type': 'sample'}}}
 
     @classmethod
     def list_view(cls, *args, **kwargs):
@@ -144,7 +141,7 @@ class AnnotationsResource(TaskedResource):
 
     @classmethod
     def add_view(cls, data_source, global_frequency=True,
-                 sample_frequency=None, exclude=None):
+                 sample_frequency=None):
         """
         Create an annotation.
 
@@ -157,7 +154,6 @@ class AnnotationsResource(TaskedResource):
         # - owns_data_source AND annotator
         # - owns_data_source AND trader
         sample_frequency = sample_frequency or []
-        exclude = exclude or []
 
         for sample in sample_frequency:
             if not (sample.public or
@@ -181,8 +177,7 @@ class AnnotationsResource(TaskedResource):
         db.session.add(annotated_data_source)
         annotation = Annotation(data_source, annotated_data_source,
                                 global_frequency=global_frequency,
-                                sample_frequency=sample_frequency,
-                                exclude=exclude)
+                                sample_frequency=sample_frequency)
         db.session.add(annotation)
         db.session.commit()
         current_app.logger.info('Added data source: %r', annotated_data_source)
