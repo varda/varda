@@ -15,6 +15,7 @@ Todo list
   separate resources on their own, or just string arguments.
 * Possibility to contact submitter of an observation.
 * Have a maintenance and/or read-only mode.
+* Make checksums optional.
 
 
 Queries
