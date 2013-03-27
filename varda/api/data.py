@@ -22,6 +22,7 @@ from .utils import (annotation_by_uri, coverage_by_uri, data_source_by_uri,
                     sample_by_uri, user_by_uri, variation_by_uri)
 
 
+# Todo: Rename cast to coerce.
 def cast(document, schema):
     """
     Cast certain values in a data document to specific types.
