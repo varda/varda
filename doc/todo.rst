@@ -16,6 +16,8 @@ Todo list
 * Possibility to contact submitter of an observation.
 * Have a maintenance and/or read-only mode.
 * Make checksums optional.
+* Store phasing info, for example by numbering each allele (uniquely within a
+  sample) and store the allele number with observations.
 
 
 Queries
