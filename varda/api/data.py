@@ -14,7 +14,7 @@ import urllib
 
 from cerberus import ValidationError as CerberusValidationError, Validator
 import cerberus.errors
-from flask import current_app, g, request
+from flask import abort, current_app, g, request
 
 from ..models import Annotation, Coverage, DataSource, Sample, User, Variation
 from .errors import ValidationError
@@ -191,11 +191,19 @@ def _cast_variation(value, definition):
 #     Another alternative would be the `Voluptuous <https://github.com/alecthomas/voluptuous>`
 #     library.
 class ApiValidator(Validator):
+    def _validate(self, *args, **kwargs):
+        self.missing_id = False
+        return super(ApiValidator, self)._validate(*args, **kwargs)
+
     def _validate_safe(self, safe, field, value):
         expression = '[a-zA-Z][a-zA-Z0-9._-]*$'
         if safe and not re.match(expression, value):
             self._error("value for field '%s' must match the expression '%s'"
                         % (field, expression))
+
+    def _validate_id(self, id_, field, value):
+        if id_ and not value:
+            self.missing_id = True
 
     def _validate_type_annotation(self, field, value):
         if not isinstance(self.document[field], Annotation):
@@ -256,7 +264,7 @@ def data(**schema):
     Example::
 
         >>> @api.route('/users/<int:user_id>/samples', methods=['POST'])
-        >>> @data(name={'type': 'string'})
+        >>> @data(name={'type': 'string', 'id': True})
         >>> def add_sample(data, user_id):
         ...     user = User.query.get(user_id)
         ...     sample = Sample(user, data['name'])
@@ -271,6 +279,8 @@ def data(**schema):
             data = cast(raw_data, schema)
             try:
                 if not validator.validate(data):
+                    if validator.missing_id:
+                        abort(404)
                     raise ValidationError('Invalid request content: %s'
                                           % '; '.join(validator.errors))
             except CerberusValidationError as e:

@@ -81,7 +81,7 @@ class Resource(object):
         cls.add_rule = '/'
         cls.edit_rule = '/<%s:%s>' % (cls.key_type, cls.instance_name)
 
-        id_schema = {cls.instance_name: {'type': cls.instance_type}}
+        id_schema = {cls.instance_name: {'type': cls.instance_type, 'id': True}}
         cls.get_schema.update(id_schema)
         cls.edit_schema.update(id_schema)
         if cls.embeddable:
