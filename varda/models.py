@@ -113,6 +113,8 @@ class Sample(db.Model):
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
+    # Todo: Should we have a unique constraint on (user_id, name)?
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     name = db.Column(db.String(200))
