@@ -188,7 +188,7 @@ Setting up the database
 A script is included to setup the database tables and add an administrator
 user::
 
-    $ python -m varda.manage setup
+    $ python -m varda.commands setup
 
 
 .. _running:
@@ -202,7 +202,7 @@ Start a Celery worker node (only used for long-running tasks)::
 
 And start a local Varda testserver in debug mode::
 
-    $ python -m varda.manage debugserver
+    $ python -m varda.commands debugserver
 
 You can now point your webbrowser to the URL that is printed and see a json-
 encoded status page.

@@ -22,7 +22,7 @@ setup(
     packages=['varda'],
     requires=requires,
     entry_points = {
-        'console_scripts': ['varda-manage = varda.manages:main']
+        'console_scripts': ['varda = varda.commands:main']
         },
     classifiers = [
         'Development Status :: 3 - Alpha',
