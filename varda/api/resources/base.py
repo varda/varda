@@ -23,6 +23,7 @@ information about the state of the task.
 
 from functools import wraps
 
+import celery.exceptions
 from flask import current_app, jsonify, url_for
 
 from ... import db

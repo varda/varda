@@ -334,7 +334,7 @@ def read_observations(observations, filetype='vcf', skip_filtered=True,
         # we just count the number of samples and store an unknown number of
         # alleles. But only if there is exactly one ALT.
 
-        if use_genotypes:
+        if use_genotypes and record.samples is not None:
             for call in record.samples:
                 try:
                     genotype = read_genotype(call, prefer_genotype_likelihoods)
@@ -351,7 +351,10 @@ def read_observations(observations, filetype='vcf', skip_filtered=True,
                         allele_support[index][count] += 1
 
         elif len(record.ALT) == 1:
-            allele_support = [{None: len(record.samples)}]
+            if record.samples is None:
+                allele_support = [{None: 1}]
+            else:
+                allele_support = [{None: len(record.samples)}]
 
         for index, allele in enumerate(record.ALT):
             try:
