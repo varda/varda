@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 REST API views.
 
@@ -74,7 +75,12 @@ def error_entity_too_large(error):
         'message': 'The request entity is too large'}), 413
 
 
-@api.errorhandler(500)
+# Note: It is currently not possible to register a 500 internal server error
+#     on a per-blueprint level in Flask, so we have no other choice than to
+#     register it on the application. The downside in our case is small, since
+#     we only serve Aulë static files (if configured) besides our API. It is
+#     important for clients that they get 500 error codes encoded as JSON.
+@api.app_errorhandler(500)
 def error_internal(error):
     return jsonify(error={
         'code': 'internal_server_error',
