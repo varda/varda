@@ -18,6 +18,7 @@ Todo list
 * Make checksums optional.
 * Store phasing info, for example by numbering each allele (uniquely within a
   sample) and store the allele number with observations.
+* Delete resources (have to think about cascading or not).
 
 
 Queries
