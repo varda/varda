@@ -74,6 +74,13 @@ def error_entity_too_large(error):
         'message': 'The request entity is too large'}), 413
 
 
+@api.errorhandler(500)
+def error_internal(error):
+    return jsonify(error={
+        'code': 'internal_server_error',
+        'message': 'The server encountered an unexpected condition which prevented it from fulfilling the request'}), 500
+
+
 @api.errorhandler(501)
 def error_not_implemented(error):
     return jsonify(error={
