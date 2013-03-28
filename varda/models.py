@@ -398,7 +398,12 @@ class Observation(db.Model):
     observed = db.Column(db.String(200))
     bin = db.Column(db.Integer)
 
-    # Number of supporting alleles (1=het, 2=hom, None=unknown).
+    # Number of supporting alleles. This can be used to derive zygosity, e.g.
+    # for a diploid chromosome 1=het, 2=hom, None=unknown.
+    # Note that this number is per individual, so if alleles=2 and support=2,
+    # there are two individuals, both having this variant in two alleles,
+    # meaning that they are both homozygous for this variant on a diploid
+    # chromosome.
     alleles = db.Column(db.Integer)
 
     # Number of individuals.
