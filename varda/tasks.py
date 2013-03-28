@@ -7,12 +7,15 @@ Celery tasks.
 """
 
 
+# Todo: Really only have Celery tasks in this file, anything that can in
+#     principle be used without Celery should be defined elsewhere.
+
+
 from __future__ import division
 
 from collections import Counter, defaultdict
 from contextlib import contextmanager
 import hashlib
-import itertools
 import os
 import time
 import uuid
@@ -106,6 +109,50 @@ def annotate_variants(original_variants, annotated_variants,
     :arg exclude_checksum: Checksum of data source(s) to exclude variation
         from.
     :type exclude_checksum: str
+
+    Frequency information is annotated using fields in the INFO column. For
+    the global frequency, we use the following fields:
+
+    - ``GLOBAL_VN``: For each alternate allele, the number of individuals
+      used for calculating ``GLOBAL_VF``, i.e. the number of individuals that
+      have this region covered.
+    - ``GLOBAL_VF``: For each alternate allele, the observed frequency, i.e.,
+      the ratio of individuals in which the allele was observed.
+    - ``GLOBAL_VF1``: For each alternate allele, the observed frequency of
+      allele count 1, i.e., the ratio of individuals in which the allele was
+      observed once.
+    - ``GLOBAL_VF2``: For each alternate allele, the observed frequency of
+      allele count 2, i.e., the ratio of individuals in which the allele was
+      observed twice.
+
+    Note that the ``GLOBAL_VF*`` values for a particular alternate allele
+    might not add up to the ``GLOBAL_VF`` value, since there can be
+    observations where the exact genotype is unknown.
+
+    For the per-sample frequencies, we use the following fields, where the
+    ``S1`` prefix identifies the sample:
+
+    - ``S1_VN``: For each alternate allele, the number of individuals used for
+      calculating ``S1_VF``, i.e. the number of individuals that have this
+      region covered, or, if the sample does not have coverage information,
+      simply the number of individuals contained in the sample.
+    - ``S1_VF``: For each alternate allele, the observed frequency, i.e., the
+      ratio of individuals in which the allele was observed.
+    - ``S1_VF1``: For each alternate allele, the observed frequency of allele
+      count 1, i.e., the ratio of individuals in which the allele was observed
+      once.
+    - ``S1_VF2``: For each alternate allele, the observed frequency of allele
+      count 2, i.e., the ratio of individuals in which the allele was observed
+      twice.
+
+    Remember that in our model, `sample` is not the same as `individual`. A
+    given sample might contain any number of individuals. For example, a
+    population study such as 1KG can be modelled as one sample containing
+    1092 individuals. As another example, to guarantee anonymity of clinical
+    data, multiple individuals might be pooled into one sample.
+
+    .. todo:: Although not expected in human data, we should support the
+       frequencies of allele count 3 and up (``GLOBAL_VF3``).
     """
     # Todo: Here we should check again if the samples we use are active, since
     #     it could be a long time ago when this task was submitted.
@@ -121,30 +168,48 @@ def annotate_variants(original_variants, annotated_variants,
 
     # Header line in VCF output for global frequencies.
     if global_frequency:
-        reader.infos['VARDA_FREQ'] = VcfInfo(
-            'VARDA_FREQ', vcf_field_counts['A'], 'String',
-            'Frequency in Varda (over %i samples, using coverage profiles), '
-            'followed by frequency per known allele count starting from 1, '
-            'separated by /'
+        # Todo: Make sure the count query is correct here.
+        reader.infos['GLOBAL_VN'] = VcfInfo(
+            'GLOBAL_VN', vcf_field_counts['A'], 'Integer',
+            'Number of individuals having this region covered (out of %i '
+            'considered)'
             % Sample.query.filter_by(active=True,
                                      coverage_profile=True).count())
+        reader.infos['GLOBAL_VF'] = VcfInfo(
+            'GLOBAL_VF', vcf_field_counts['A'], 'Float',
+            'Ratio of individuals in which the allele was observed.')
+        reader.infos['GLOBAL_VF1'] = VcfInfo(
+            'GLOBAL_VF1', vcf_field_counts['A'], 'Float',
+            'Ratio of individuals in which the allele was observed once.')
+        reader.infos['GLOBAL_VF2'] = VcfInfo(
+            'GLOBAL_VF2', vcf_field_counts['A'], 'Float',
+            'Ratio of individuals in which the allele was observed twice.')
 
-    # Todo: We have to refer to the samples in the VCF file by some label,
-    #     ideally consisting of only uppercase letters. For now, we just
-    #     generate some random labels, but we might let the user define them
-    #     in the future.
-    labels = ['VARDA_FREQ_' + chr(x) for x, _ in
-              zip(itertools.count(ord('A')), sample_frequency)]
+    # S1, S2, ... etcetera (one for each entry in `sample_frequency`).
+    labels = ['S' + str(i + 1) for i, _ in enumerate(sample_frequency)]
 
     # Header lines in VCF output for sample frequencies.
     for sample, label in zip(sample_frequency, labels):
-        reader.infos[label] = VcfInfo(
-            label, vcf_field_counts['A'], 'String',
-            'Frequency in %s (over %i samples, %susing coverage profiles), '
-            'followed by frequency per known allele count starting from 1, '
-            'separated by /'
-            % (sample.name, sample.pool_size,
-               '' if sample.coverage_profile else 'not '))
+        if sample.coverage_profile:
+            description = ('having this region covered (out of %i considered)'
+                           % sample.pool_size)
+        else:
+            description = '(%i)' % sample.pool_size
+        reader.infos[label + '_VN'] = VcfInfo(
+            label + '_VN', vcf_field_counts['A'], 'Integer',
+            'Number of individuals in %s %s' % (sample.name, description))
+        reader.infos['GLOBAL_VF'] = VcfInfo(
+            'GLOBAL_VF', vcf_field_counts['A'], 'Float',
+            'Ratio of individuals in %s in which the allele was observed.'
+            % sample.name)
+        reader.infos['GLOBAL_VF1'] = VcfInfo(
+            'GLOBAL_VF1', vcf_field_counts['A'], 'Float',
+            'Ratio of individuals in %s in which the allele was observed once.'
+            % sample.name)
+        reader.infos['GLOBAL_VF2'] = VcfInfo(
+            'GLOBAL_VF2', vcf_field_counts['A'], 'Float',
+            'Ratio of individuals in %s in which the allele was observed twice.'
+            % sample.name)
 
     writer = vcf.Writer(annotated_variants, reader, lineterminator='\n')
 
@@ -157,12 +222,14 @@ def annotate_variants(original_variants, annotated_variants,
         current_record += 1
         percentage = min(int(current_record / original_records * 100), 99)
         if percentage > old_percentage:
+            # Todo: Task state updating should be defined in the task itself,
+            #     perhaps we can give values using a callback.
             current_task.update_state(state='PROGRESS',
                                       meta={'percentage': percentage})
             old_percentage = percentage
 
-        global_frequencies = []
-        sample_frequencies = [[] for _ in sample_frequency]
+        global_result = []
+        sample_results = [[] for _ in sample_frequency]
         for index, allele in enumerate(record.ALT):
             try:
                 chromosome, position, reference, observed = normalize_variant(
@@ -170,19 +237,29 @@ def annotate_variants(original_variants, annotated_variants,
             except ReferenceMismatch as e:
                 raise ReadError(str(e))
 
-            global_frequency_result, sample_frequency_result = calculate_frequency(
-                chromosome, position, reference, observed, global_frequency,
-                sample_frequency, exclude_checksum=exclude_checksum)
             if global_frequency:
-                global_frequencies.append('/'.join(str(r) for r in [global_frequency_result[0]] + global_frequency_result[1]))
-            if sample_frequency:
-                for i, f in enumerate(sample_frequency_result):
-                    sample_frequencies[i].append('/'.join(str(r) for r in [f[0]] + f[1]))
+                global_result.append(calculate_frequency(
+                        chromosome, position, reference, observed,
+                        exclude_checksum=exclude_checksum))
+
+            # Todo: Instead of doing it separately per sample, it can probably
+            #     be done much more efficiently in one go.
+            for i, sample in enumerate(sample_frequency):
+                sample_results[i].append(calculate_frequency(
+                        chromosome, position, reference, observed,
+                        sample=sample, exclude_checksum=exclude_checksum))
 
         if global_frequency:
-            record.add_info('VARDA_FREQ', global_frequencies)
-        for fs, label in zip(sample_frequencies, labels):
-            record.add_info(label, fs)
+            record.add_info('GLOBAL_VN', [vn for vn, _, _ in global_result])
+            record.add_info('GLOBAL_VF', [vf for _, vf, _ in global_result])
+            record.add_info('GLOBAL_VF1', [vfn[0] for _, _, vfn in global_result])
+            record.add_info('GLOBAL_VF2', [vfn[1] for _, _, vfn in global_result])
+        for sample_result, label in zip(sample_results, labels):
+            record.add_info(label + '_VN', [vn for vn, _, _ in sample_result])
+            record.add_info(label + '_VF', [vf for _, vf, _ in sample_result])
+            record.add_info(label + '_VF1', [vfn[0] for _, _, vfn in sample_result])
+            record.add_info(label + '_VF2', [vfn[1] for _, _, vfn in sample_result])
+
         writer.write_record(record)
 
 

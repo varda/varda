@@ -303,28 +303,51 @@ def read_genotype(call, prefer_likelihoods=False):
 
 
 def calculate_frequency(chromosome, position, reference, observed,
-                        global_frequency=True, sample_frequency=None,
-                        exclude_checksum=None):
+                        sample=None, exclude_checksum=None):
     """
     Calculate frequency for a variant.
 
-    Return for global and each sample tuple:
-    - total frequency
-    - list of frequency per allele count starting from 1 going up
+    Return a tuple of:
+    - number of individuals (with coverage)
+    - ratio of individuals with observed allele
+    - list of:
+      - ratio of individuals with observed allele once
+      - ratio of individuals with observed allele twice
+      - etcetera...
     """
     # Todo: Calculate frequency per known allele count, we currently use
     #     dummy values 0.17 and 0.02 for 1 and 2 respectively.
-    sample_frequency = sample_frequency or []
-
-    global_result = None
-    sample_result = [] if sample_frequency else None
+    frequencies = [0.17, 0.02]
 
     end_position = position + max(1, len(reference)) - 1
     bins = all_bins(position, end_position)
 
     # Todo: Double-check if we handle pooled samples correctly.
 
-    if global_frequency:
+    if sample:
+        observations = Observation.query.filter_by(
+            chromosome=chromosome,
+            position=position,
+            reference=reference,
+            observed=observed).join(Variation).filter_by(
+            sample=sample).join(DataSource).filter(
+                DataSource.checksum != exclude_checksum).count()
+        if sample.coverage_profile:
+            coverage = Region.query.join(Coverage).filter(
+                Region.chromosome == chromosome,
+                Region.begin <= position,
+                Region.end >= end_position,
+                Region.bin.in_(bins),
+                Coverage.sample == sample).count()
+        else:
+            coverage = sample.pool_size
+        try:
+            frequency = observations / coverage
+        except ZeroDivisionError:
+            frequency = 0
+        return coverage, frequency, frequencies
+
+    else:
         # Frequency over entire database, except:
         #  - observations imported from data source with `exclude_checksum`
         #  - samples without coverage profile
@@ -344,31 +367,8 @@ def calculate_frequency(chromosome, position, reference, observed,
             Region.end >= end_position,
             Region.bin.in_(bins)).join(Sample).filter_by(
             active=True).count()
-        if coverage:
-            global_result = observations / coverage, [0.17, 0.02]
-        else:
-            global_result = 0, [0.17, 0.02]
-
-    for sample in sample_frequency:
-        observations = Observation.query.filter_by(
-            chromosome=chromosome,
-            position=position,
-            reference=reference,
-            observed=observed).join(Variation).filter_by(
-            sample=sample).join(DataSource).filter(
-                DataSource.checksum != exclude_checksum).count()
-        if sample.coverage_profile:
-            coverage = Region.query.join(Coverage).filter(
-                Region.chromosome == chromosome,
-                Region.begin <= position,
-                Region.end >= end_position,
-                Region.bin.in_(bins),
-                Coverage.sample == sample).count()
-        else:
-            coverage = sample.pool_size
-        if coverage:
-            sample_result.append( (observations / coverage, [0.17, 0.02]) )
-        else:
-            sample_result.append(0, [0.17, 0.02])
-
-    return global_result, sample_result
+        try:
+            frequency = observations / coverage
+        except ZeroDivisionError:
+            frequency = 0
+        return coverage, frequency, frequencies

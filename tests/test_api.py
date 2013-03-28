@@ -226,7 +226,7 @@ class TestApi():
 
         r = self.client.get(variant, headers=[auth_header(login='admin', password='test')])
         assert_equal(r.status_code, 200)
-        assert_equal(1.0, json.loads(r.data)['variant']['global_frequency'][0])
+        assert_equal(1.0, json.loads(r.data)['variant']['frequency'])
 
     def test_exome_subset(self):
         """

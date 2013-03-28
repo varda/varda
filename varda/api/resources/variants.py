@@ -36,17 +36,11 @@ class VariantsResource(Resource):
                                          'begin': {'type': 'integer', 'required': True},
                                          'end': {'type': 'integer', 'required': True}},
                               'required': True},
-                   'global_frequency': {'type': 'boolean'},
-                   'sample_frequency': {'type': 'list',
-                                        'maxlength': 20,
-                                        'schema': {'type': 'sample'}}}
+                   'sample': {'type': 'sample'}}
 
     get_ensure_conditions = [has_role('admin'), has_role('annotator')]
     get_ensure_options = {'satisfy': any}
-    get_schema = {'global_frequency': {'type': 'boolean'},
-                  'sample_frequency': {'type': 'list',
-                                       'maxlength': 20,
-                                       'schema': {'type': 'sample'}}}
+    get_schema = {'sample': {'type': 'sample'}}
 
     add_ensure_conditions = []
     add_schema = {'chromosome': {'type': 'string', 'required': True, 'maxlength': 30},
@@ -57,14 +51,11 @@ class VariantsResource(Resource):
     key_type = 'string'
 
     @classmethod
-    def list_view(cls, begin, count, region, global_frequency=True,
-                  sample_frequency=None):
+    def list_view(cls, begin, count, region, sample=None):
         """
         Get a collection of variants.
         """
-        sample_frequency = sample_frequency or []
-
-        for sample in sample_frequency:
+        if sample:
             if not (sample.public or
                     sample.user is g.user or
                     'admin' in g.user.roles):
@@ -90,12 +81,11 @@ class VariantsResource(Resource):
 
         return (observations.count(),
                 jsonify(variants=[cls.serialize((o.chromosome, o.position, o.reference, o.observed),
-                                                global_frequency=global_frequency,
-                                                sample_frequency=sample_frequency)
+                                                sample=sample)
                                   for o in observations.limit(count).offset(begin)]))
 
     @classmethod
-    def get_view(cls, variant, global_frequency=True, sample_frequency=None):
+    def get_view(cls, variant, sample=None):
         """
         Get frequency details for a variant.
 
@@ -113,18 +103,14 @@ class VariantsResource(Resource):
         * **hgvs** (`string`) - HGVS description.
         * **frequency** (`float`) - Frequency in database samples.
         """
-        sample_frequency = sample_frequency or []
-
-        for sample in sample_frequency:
+        if sample:
             if not (sample.public or
                     sample.user is g.user or
                     'admin' in g.user.roles):
                 # Todo: Meaningful error message.
                 abort(400)
 
-        return jsonify(variant=cls.serialize(variant,
-                                             global_frequency=global_frequency,
-                                             sample_frequency=sample_frequency))
+        return jsonify(variant=cls.serialize(variant, sample=sample))
 
     @classmethod
     def add_view(cls, chromosome, position, reference='', observed=''):
@@ -146,19 +132,17 @@ class VariantsResource(Resource):
         return '%s:%d%s>%s' % variant
 
     @classmethod
-    def serialize(cls, variant, global_frequency=True, sample_frequency=None):
-        sample_frequency = sample_frequency or []
-
+    def serialize(cls, variant, sample=None):
         chromosome, position, reference, observed = variant
 
-        global_frequency_result, sample_frequency_result = calculate_frequency(
-            chromosome, position, reference, observed, global_frequency,
-            sample_frequency)
+        coverage, frequency, frequencies = calculate_frequency(
+            chromosome, position, reference, observed, sample=sample)
 
         return {'uri': cls.instance_uri(variant),
                 'chromosome': chromosome,
                 'position': position,
                 'reference': reference,
                 'observed': observed,
-                'global_frequency': global_frequency_result,
-                'sample_frequency': sample_frequency_result}
+                'coverage': coverage,
+                'frequency': frequency,
+                'allele_frequencies': frequencies}
