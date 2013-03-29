@@ -58,6 +58,7 @@ def collection(rule):
             abort(404)
         end = min(end, total)
         # Todo: Use ContentRange object from Werkzeug to construct this value.
+        # Todo: Is this valid for empty collections?
         response.headers.add('Content-Range',
                              'items %d-%d/%d' % (begin, end - 1, total))
         return response
