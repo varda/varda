@@ -58,7 +58,7 @@ def collection(rule):
     @wraps(rule)
     def collection_rule(*args, **kwargs):
         # Note: As an alternative, we could use the following instead of a
-        #     missing Range header: `Range('items', [(0, 20)])`.
+        #     missing Range header: `Range('items', [(0, 500)])`.
         try:
             r = parse_range_header(request.headers['Range'])
         except KeyError:
@@ -66,8 +66,9 @@ def collection(rule):
         if r is None or r.units != 'items' or len(r.ranges) != 1:
             abort(416)
         begin, end = r.ranges[0]
-        if not 0 <= begin < end or end - begin > 500:
+        if not 0 <= begin < end:
             abort(416)
+        end = min(end, begin + 500)
         kwargs.update(begin=begin, count=end - begin)
         total, response = rule(*args, **kwargs)
         if begin > total - 1:
