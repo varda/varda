@@ -134,8 +134,8 @@ class TestApi():
         r = self.client.get(self.uri_users, headers=[auth_header(password='incorrect')])
         assert_equal(r.status_code, 401)
 
-        r = self.client.get(self.uri_users, headers=[auth_header()])
-        assert_equal(r.status_code, 200)
+        r = self.client.get(self.uri_users, headers=[auth_header(), ('Range', 'items=0-20')])
+        assert_equal(r.status_code, 206)
 
         r = self.client.get(self.uri_users, headers=[auth_header(login='user', password='test')])
         assert_equal(r.status_code, 403)

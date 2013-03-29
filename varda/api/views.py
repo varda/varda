@@ -75,6 +75,13 @@ def error_entity_too_large(error):
         'message': 'The request entity is too large'}), 413
 
 
+@api.errorhandler(416)
+def error_unsatisfiable_range(error):
+    return jsonify(error={
+        'code': 'unsatisfiable_range',
+        'message': 'Requested range bot satisfiable'}), 416
+
+
 # Note: It is currently not possible to register a 500 internal server error
 #     on a per-blueprint level in Flask, so we have no other choice than to
 #     register it on the application. The downside in our case is small, since

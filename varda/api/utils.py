@@ -11,7 +11,7 @@ from functools import wraps
 import urlparse
 
 from flask import abort, request
-from werkzeug.datastructures import Range
+from werkzeug.datastructures import ContentRange
 from werkzeug.exceptions import HTTPException
 from werkzeug.http import parse_range_header
 
@@ -40,28 +40,44 @@ def collection(rule):
                         jsonify(samples=[serialize(s) for s in
                                          samples.limit(count).offset(begin)]))
     """
-    # Todo: Should we return with status 206? But that's only allowed if the
-    #     request included a Range header. Maybe we could return 406 if there
-    #     was no Range header?
+    # To avoid unlimited response sizes we wouldn't like to respond with the
+    # entire collection if the request didn't include a Range header. There
+    # are two obvious solutions:
+    #
+    # - Act as if some default Range header value was included.
+    # - Return 400 Range Required.
+    #
+    # The first option violates HTTP since 206 is only allowed if the request
+    # included a Range header. The second option disables easy browsing of
+    # collections with a standard web browser.
+    #
+    # We choose the second option (but aren't too happy with it). See [1] for
+    # more discussion on this.
+    #
+    # [1] http://stackoverflow.com/questions/924472/paging-in-a-rest-collection
     @wraps(rule)
     def collection_rule(*args, **kwargs):
-        r = parse_range_header(request.headers.get('Range')) \
-            or Range('items', [(0, 20)])
-        if r.units != 'items' or len(r.ranges) != 1:
-            raise ValidationError('Invalid range')
+        # Note: As an alternative, we could use the following instead of a
+        #     missing Range header: `Range('items', [(0, 20)])`.
+        try:
+            r = parse_range_header(request.headers['Range'])
+        except KeyError:
+            raise ValidationError('Range required')
+        if r is None or r.units != 'items' or len(r.ranges) != 1:
+            abort(416)
         begin, end = r.ranges[0]
         if not 0 <= begin < end or end - begin > 500:
-            raise ValidationError('Invalid range')
+            abort(416)
         kwargs.update(begin=begin, count=end - begin)
         total, response = rule(*args, **kwargs)
-        if begin > max(total - 1, 0):
-            abort(404)
+        if begin > total - 1:
+            response.headers.add('Content-Range',
+                                 ContentRange('items', None, None, total))
+            abort(416)
         end = min(end, total)
-        # Todo: Use ContentRange object from Werkzeug to construct this value.
-        # Todo: Is this valid for empty collections?
         response.headers.add('Content-Range',
-                             'items %d-%d/%d' % (begin, end - 1, total))
-        return response
+                             ContentRange('items', begin, end, total))
+        return response, 206
     return collection_rule
 
 
