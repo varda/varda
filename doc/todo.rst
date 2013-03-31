@@ -101,3 +101,17 @@ Some use cases to be documented:
 * *Import public dataset: 1000 Genomes*
 
 * *Import public dataset: Genome of the Netherlands*
+
+
+Versioning
+----------
+
+Not sure how to implement versioning yet. We don't want to store it somewhere
+in the URL in my opinion. Perhaps, if/when we use Accept request headers, the
+client can say which API version it understands, e.g.::
+
+    GET /api/article/1234 HTTP/1.1
+    Accept: application/vnd.api.article+xml ; version: 1.0
+
+By the way, I don't think we should invent very specific media types, just
+``application/json`` will do.
