@@ -9,12 +9,14 @@ Various utilities for Varda.
 
 from __future__ import division
 
+import collections
 import hashlib
 import itertools
 
 from flask import current_app
+from sqlalchemy.sql import func
 
-from . import genome
+from . import db, genome
 from .models import Coverage, DataSource, Observation, Region, Sample, Variation
 from .region_binning import all_bins
 
@@ -315,23 +317,25 @@ def calculate_frequency(chromosome, position, reference, observed,
       - ratio of individuals with observed allele twice
       - etcetera...
     """
-    # Todo: Calculate frequency per known allele count, we currently use
-    #     dummy values 0.17 and 0.02 for 1 and 2 respectively.
-    frequencies = [0.17, 0.02]
-
     end_position = position + max(1, len(reference)) - 1
     bins = all_bins(position, end_position)
 
     # Todo: Double-check if we handle pooled samples correctly.
 
     if sample:
-        observations = Observation.query.filter_by(
-            chromosome=chromosome,
-            position=position,
-            reference=reference,
-            observed=observed).join(Variation).filter_by(
-            sample=sample).join(DataSource).filter(
-                DataSource.checksum != exclude_checksum).count()
+        observations = collections.Counter(dict(
+            db.session.query(Observation.alleles,
+                          func.sum(Observation.support)).
+            filter_by(chromosome=chromosome,
+                      position=position,
+                      reference=reference,
+                      observed=observed).
+            join(Variation).
+            filter_by(sample=sample).
+            join(DataSource).
+            filter(DataSource.checksum != exclude_checksum).
+            group_by(Observation.alleles)))
+
         if sample.coverage_profile:
             coverage = Region.query.join(Coverage).filter(
                 Region.chromosome == chromosome,
@@ -341,11 +345,6 @@ def calculate_frequency(chromosome, position, reference, observed,
                 Coverage.sample == sample).count()
         else:
             coverage = sample.pool_size
-        try:
-            frequency = observations / coverage
-        except ZeroDivisionError:
-            frequency = 0
-        return coverage, frequency, frequencies
 
     else:
         # Frequency over entire database, except:
@@ -354,21 +353,38 @@ def calculate_frequency(chromosome, position, reference, observed,
         #  - samples not activated
         # Todo: Filter on checksum below makes us ignore any data sources with
         #     no checksum if exclude_checksum=None.
-        observations = Observation.query.filter_by(
-            chromosome=chromosome,
-            position=position,
-            reference=reference,
-            observed=observed).join(Variation).join(Sample).filter_by(
-                active=True, coverage_profile=True).join(DataSource).filter(
-                DataSource.checksum != exclude_checksum).count()
+        observations = collections.Counter(dict(
+            db.session.query(Observation.alleles,
+                          func.sum(Observation.support)).
+            filter_by(chromosome=chromosome,
+                      position=position,
+                      reference=reference,
+                      observed=observed).
+            join(Variation).
+            join(Sample).
+            filter_by(active=True,
+                      coverage_profile=True).
+            join(DataSource).
+            filter(DataSource.checksum != exclude_checksum).
+            group_by(Observation.alleles)))
+
         coverage = Region.query.join(Coverage).filter(
             Region.chromosome == chromosome,
             Region.begin <= position,
             Region.end >= end_position,
             Region.bin.in_(bins)).join(Sample).filter_by(
             active=True).count()
-        try:
-            frequency = observations / coverage
-        except ZeroDivisionError:
-            frequency = 0
-        return coverage, frequency, frequencies
+
+    if not coverage:
+        return 0, 0, [0, 0]
+
+    frequency = sum(observations.values()) / coverage
+
+    # Todo: The `max(2, ...)` is used to make sure we always report at
+    #     least for 1 and 2 alleles, even if we have no observations for
+    #     them. When calling code is fixed to properly deal with any
+    #     number of alleles, this should be removed.
+    frequencies = [observations[alleles] / coverage for alleles in
+                   range(1, max(2, max(observations or [0])) + 1)]
+
+    return coverage, frequency, frequencies
