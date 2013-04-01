@@ -54,7 +54,7 @@ class DataSourcesResource(ModelResource):
     data_rule = '/<int:data_source>/data'
     data_ensure_conditions = [has_role('admin'), owns_data_source]
     data_ensure_options = {'satisfy': any}
-    data_schema = {'data_source': {'type': 'data_source'}}
+    data_schema = {'data_source': {'type': 'data_source', 'id': True}}
 
     def register_views(self):
         super(DataSourcesResource, self).register_views()
