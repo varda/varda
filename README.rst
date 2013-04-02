@@ -91,10 +91,11 @@ distributed task queue.
 Documentation
 -------------
 
-Until a hosted version of the documentation is available it can be built
-directly from the sources in the ``doc`` directory.
+The `latest documentation <http://wiggelen.readthedocs.org/>`_ and API
+reference is hosted at Read The Docs, or can be built directly from the
+sources in the ``doc`` directory.
 
-This also includes installation instructions.
+This includes installation instructions and REST server API documentation.
 
 
 Copyright
