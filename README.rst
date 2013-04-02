@@ -91,9 +91,9 @@ distributed task queue.
 Documentation
 -------------
 
-The `latest documentation <http://wiggelen.readthedocs.org/>`_ and API
-reference is hosted at Read The Docs, or can be built directly from the
-sources in the ``doc`` directory.
+The `latest documentation <https://varda.readthedocs.org/>`_ and API reference
+is hosted at Read The Docs, or can be built directly from the sources in the
+``doc`` directory.
 
 This includes installation instructions and REST server API documentation.
 
