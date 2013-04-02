@@ -310,6 +310,7 @@ def calculate_frequency(chromosome, position, reference, observed,
     Calculate frequency for a variant.
 
     Return a tuple of:
+
     - number of individuals (with coverage)
     - ratio of individuals with observed allele
     - list of:
