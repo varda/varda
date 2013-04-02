@@ -14,8 +14,9 @@ and annotated with their frequencies in previously imported datasets.
 Varda is implemented as a service exposing a RESTful HTTP interface. Two
 clients for this interface are under development:
 
-* **Manwë** - Python client library and command line interface to Varda.
-* **Aulë** - Web interface to Varda.
+* `Manwë <https://github.com/martijnvermaat/manwe>`_ - Python client library
+  and command line interface to Varda.
+* `Aulë <https://github.com/martijnvermaat/aule>`_ - Web interface to Varda.
 
 
 Contents
