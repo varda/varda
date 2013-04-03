@@ -467,6 +467,10 @@ def import_variation(variation_id):
     current_task.register_cleanup(current_task.request.id,
                                   delete_observations)
 
+    # In case we are retrying after a failed import, delete any existing
+    # observations for this variation.
+    delete_observations()
+
     try:
         data = data_source.data()
     except DataUnavailable as e:
@@ -576,6 +580,10 @@ def import_coverage(coverage_id):
         coverage.regions.delete()
         db.session.commit()
     current_task.register_cleanup(current_task.request.id, delete_regions)
+
+    # In case we are retrying after a failed import, delete any existing
+    # regions for this coverage.
+    delete_regions()
 
     try:
         data = data_source.data()
