@@ -479,6 +479,13 @@ def import_variation(variation_id):
     # Alternative solution might be to dump all observations to a file and
     # import from that. It would not have memory problems and is probably
     # faster, but really not portable.
+    # A better option is probably to bypass part of the ORM like discussed in
+    # this presentation:
+    #
+    # https://speakerdeck.com/rwarren/a-brief-intro-to-profiling-in-python
+    #
+    # Not sure if this would solve any memory problems, but it's probably a
+    # lot faster than what we do now.
 
     try:
         with data as observations:
@@ -501,6 +508,7 @@ def import_variation(variation_id):
                                           alleles=alleles, support=support)
                 db.session.add(observation)
                 if i % DB_BUFFER_SIZE == DB_BUFFER_SIZE - 1:
+                    db.session.flush()
                     db.session.commit()
                     # Todo: In principle I think calling session.flush() once
                     #     every N records should work perfectly. We could then
@@ -587,6 +595,7 @@ def import_coverage(coverage_id):
                     old_percentage = percentage
                 db.session.add(Region(coverage, chromosome, begin, end))
                 if i % DB_BUFFER_SIZE == DB_BUFFER_SIZE - 1:
+                    db.session.flush()
                     db.session.commit()
     except ReadError as e:
         raise TaskError('invalid_regions', str(e))
