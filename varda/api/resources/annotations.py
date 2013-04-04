@@ -14,7 +14,6 @@ from flask import abort, current_app, g, jsonify, url_for
 from ... import db
 from ...models import Annotation, DataSource, InvalidDataSource, Sample
 from ... import tasks
-from ..errors import ValidationError
 from ..security import has_role, owns_annotation, owns_data_source
 from .base import TaskedResource
 

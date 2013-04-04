@@ -13,8 +13,10 @@ from ...models import Observation
 from ...region_binning import all_bins
 from ...utils import (calculate_frequency, normalize_region, normalize_variant,
                       ReferenceMismatch)
+from ..errors import ValidationError
 from ..security import has_role
 from .base import Resource
+from .samples import SamplesResource
 
 
 class VariantsResource(Resource):
@@ -138,7 +140,13 @@ class VariantsResource(Resource):
         coverage, frequency = calculate_frequency(
             chromosome, position, reference, observed, sample=sample)
 
+        if sample is not None:
+            sample_uri = SamplesResource.instance_uri(sample)
+        else:
+            sample_uri = None
+
         return {'uri': cls.instance_uri(variant),
+                'sample_uri': sample_uri,
                 'chromosome': chromosome,
                 'position': position,
                 'reference': reference,
