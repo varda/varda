@@ -135,7 +135,7 @@ class VariantsResource(Resource):
     def serialize(cls, variant, sample=None):
         chromosome, position, reference, observed = variant
 
-        coverage, frequency, frequencies = calculate_frequency(
+        coverage, frequency = calculate_frequency(
             chromosome, position, reference, observed, sample=sample)
 
         return {'uri': cls.instance_uri(variant),
@@ -144,5 +144,6 @@ class VariantsResource(Resource):
                 'reference': reference,
                 'observed': observed,
                 'coverage': coverage,
-                'frequency': frequency,
-                'allele_frequencies': frequencies}
+                'frequency': sum(frequency.values()),
+                'frequency_het': frequency['heterozygous'],
+                'frequency_hom': frequency['homozygous']}

@@ -118,16 +118,16 @@ def annotate_variants(original_variants, annotated_variants,
       have this region covered.
     - ``GLOBAL_VF``: For each alternate allele, the observed frequency, i.e.,
       the ratio of individuals in which the allele was observed.
-    - ``GLOBAL_VF1``: For each alternate allele, the observed frequency of
-      allele count 1, i.e., the ratio of individuals in which the allele was
-      observed once.
-    - ``GLOBAL_VF2``: For each alternate allele, the observed frequency of
-      allele count 2, i.e., the ratio of individuals in which the allele was
-      observed twice.
+    - ``GLOBAL_VF_HET``: For each alternate allele, the observed heterozygous
+      frequency, i.e., the ratio of individuals in which the allele was
+      observed heterozygous.
+    - ``GLOBAL_VF_HOM``: For each alternate allele, the observed homozygous
+      frequency, i.e., the ratio of individuals in which the allele was
+      observed homozygous.
 
-    Note that the ``GLOBAL_VF*`` values for a particular alternate allele
-    might not add up to the ``GLOBAL_VF`` value, since there can be
-    observations where the exact genotype is unknown.
+    Note that the ``GLOBAL_VF_HET`` and ``GLOBAL_VF_HOM`` values for a
+    particular alternate allele might not add up to the ``GLOBAL_VF`` value,
+    since there can be observations where the exact genotype is unknown.
 
     For the per-sample frequencies, we use the following fields, where the
     ``S1`` prefix identifies the sample:
@@ -138,21 +138,18 @@ def annotate_variants(original_variants, annotated_variants,
       simply the number of individuals contained in the sample.
     - ``S1_VF``: For each alternate allele, the observed frequency, i.e., the
       ratio of individuals in which the allele was observed.
-    - ``S1_VF1``: For each alternate allele, the observed frequency of allele
-      count 1, i.e., the ratio of individuals in which the allele was observed
-      once.
-    - ``S1_VF2``: For each alternate allele, the observed frequency of allele
-      count 2, i.e., the ratio of individuals in which the allele was observed
-      twice.
+    - ``S1_VF_HET``: For each alternate allele, the observed heterozygous
+      frequency, i.e., the ratio of individuals in which the allele was
+      observed heterozygous.
+    - ``S1_VF_HOM``: For each alternate allele, the observed homozygous
+      frequency, i.e., the ratio of individuals in which the allele was
+      observed homozygous.
 
     Remember that in our model, `sample` is not the same as `individual`. A
     given sample might contain any number of individuals. For example, a
     population study such as 1KG can be modelled as one sample containing
     1092 individuals. As another example, to guarantee anonymity of clinical
     data, multiple individuals might be pooled into one sample.
-
-    .. todo:: Although not expected in human data, we should support the
-       frequencies of allele count 3 and up (``GLOBAL_VF3``).
     """
     # Todo: Here we should check again if the samples we use are active, since
     #     it could be a long time ago when this task was submitted.
@@ -178,12 +175,14 @@ def annotate_variants(original_variants, annotated_variants,
         reader.infos['GLOBAL_VF'] = VcfInfo(
             'GLOBAL_VF', vcf_field_counts['A'], 'Float',
             'Ratio of individuals in which the allele was observed.')
-        reader.infos['GLOBAL_VF1'] = VcfInfo(
-            'GLOBAL_VF1', vcf_field_counts['A'], 'Float',
-            'Ratio of individuals in which the allele was observed once.')
-        reader.infos['GLOBAL_VF2'] = VcfInfo(
-            'GLOBAL_VF2', vcf_field_counts['A'], 'Float',
-            'Ratio of individuals in which the allele was observed twice.')
+        reader.infos['GLOBAL_VF_HET'] = VcfInfo(
+            'GLOBAL_VF_HET', vcf_field_counts['A'], 'Float',
+            'Ratio of individuals in which the allele was observed as '
+            'heterozygous.')
+        reader.infos['GLOBAL_VF_HOM'] = VcfInfo(
+            'GLOBAL_VF_HOM', vcf_field_counts['A'], 'Float',
+            'Ratio of individuals in which the allele was observed as '
+            'homozygous.')
 
     # S1, S2, ... etcetera (one for each entry in `sample_frequency`).
     labels = ['S' + str(i + 1) for i, _ in enumerate(sample_frequency)]
@@ -202,13 +201,15 @@ def annotate_variants(original_variants, annotated_variants,
             'GLOBAL_VF', vcf_field_counts['A'], 'Float',
             'Ratio of individuals in %s in which the allele was observed.'
             % sample.name)
-        reader.infos['GLOBAL_VF1'] = VcfInfo(
-            'GLOBAL_VF1', vcf_field_counts['A'], 'Float',
-            'Ratio of individuals in %s in which the allele was observed once.'
+        reader.infos['GLOBAL_VF_HET'] = VcfInfo(
+            'GLOBAL_VF_HET', vcf_field_counts['A'], 'Float',
+            'Ratio of individuals in %s in which the allele was observed as '
+            'heterozygous.'
             % sample.name)
-        reader.infos['GLOBAL_VF2'] = VcfInfo(
-            'GLOBAL_VF2', vcf_field_counts['A'], 'Float',
-            'Ratio of individuals in %s in which the allele was observed twice.'
+        reader.infos['GLOBAL_VF_HOM'] = VcfInfo(
+            'GLOBAL_VF_HOM', vcf_field_counts['A'], 'Float',
+            'Ratio of individuals in %s in which the allele was observed as '
+            'homozygous.'
             % sample.name)
 
     writer = vcf.Writer(annotated_variants, reader, lineterminator='\n')
@@ -250,15 +251,15 @@ def annotate_variants(original_variants, annotated_variants,
                         sample=sample, exclude_checksum=exclude_checksum))
 
         if global_frequency:
-            record.add_info('GLOBAL_VN', [vn for vn, _, _ in global_result])
-            record.add_info('GLOBAL_VF', [vf for _, vf, _ in global_result])
-            record.add_info('GLOBAL_VF1', [vfn[0] for _, _, vfn in global_result])
-            record.add_info('GLOBAL_VF2', [vfn[1] for _, _, vfn in global_result])
+            record.add_info('GLOBAL_VN', [vn for vn, _ in global_result])
+            record.add_info('GLOBAL_VF', [sum(vf.values()) for _, vf in global_result])
+            record.add_info('GLOBAL_VF_HET', [vf['heterozygous'] for _, vf in global_result])
+            record.add_info('GLOBAL_VF_HOM', [vf['homozygous'] for _, vf in global_result])
         for sample_result, label in zip(sample_results, labels):
-            record.add_info(label + '_VN', [vn for vn, _, _ in sample_result])
-            record.add_info(label + '_VF', [vf for _, vf, _ in sample_result])
-            record.add_info(label + '_VF1', [vfn[0] for _, _, vfn in sample_result])
-            record.add_info(label + '_VF2', [vfn[1] for _, _, vfn in sample_result])
+            record.add_info(label + '_VN', [vn for vn, _ in sample_result])
+            record.add_info(label + '_VF', [sum(vf.values()) for _, vf in sample_result])
+            record.add_info(label + '_VF_HET', [vf['heterozygous'] for _, vf in sample_result])
+            record.add_info(label + '_VF_HOM', [vf['homozygous'] for _, vf in sample_result])
 
         writer.write_record(record)
 
@@ -275,15 +276,14 @@ def read_observations(observations, filetype='vcf', skip_filtered=True,
     :kwarg skip_filtered: Whether or not to skip variants annotated as being
         filtered.
     :type skip_filtered: bool
-    :kwarg use_genotypes: Whether or not to use genotypes (if available) for
-        allele counts.
+    :kwarg use_genotypes: Whether or not to use genotypes (if available).
     :type use_genotypes: bool
     :kwarg prefer_genotype_likelihoods: Whether or not to prefer deriving
         genotypes from likelihoods (if available).
     :type prefer_genotype_likelihoods: bool
 
     :return: Generator yielding tuples (current_record, chromosome, position,
-        reference, observed, alleles, support).
+        reference, observed, zygosity, support).
     """
     if filetype != 'vcf':
         raise ReadError('Data must be in VCF format')
@@ -318,21 +318,25 @@ def read_observations(observations, filetype='vcf', skip_filtered=True,
             # Example use of this type are large deletions in 1000 Genomes.
             continue
 
-        # For each ALT, store sample count per number of supporting alleles.
-        # This generalizes zygosity, but for diploid genomes this will be
-        # something like:
+        # For each ALT, store sample count per zygosity (het, hom, or unkown).
+        # For a diploid chromosome, the result will be something like:
         #
-        #     allele_support =
-        #         [{1: 327, 2: 7},     # First ALT, 327 het, 7 hom
-        #          {1: 73},            # Second ALT, 73 het, 0 hom
-        #          {1: 154, 2: 561}]   # Third ALT, 154 het, 561 hom
+        #     # - first alt: 327 het, 7 unknown
+        #     # - second alt: 73 het
+        #     # - third alt: 154 hom, 561 het
+        #     alt_support =
+        #         [{'heterozygous': 327, None: 7},
+        #          {'heterozygous': 73},
+        #          {'homozygous': 154, 'heterozygous': 561}]
         #
         # The None value is used for the unknown genotype.
-        allele_support = [Counter() for _ in record.ALT]
+        alt_support = [Counter() for _ in record.ALT]
+
+        # Todo: Use constants for zygosity, re-use them for a database enum.
 
         # In the case where we don't have genotypes or don't want to use them,
-        # we just count the number of samples and store an unknown number of
-        # alleles. But only if there is exactly one ALT.
+        # we just count the number of samples and store an unknown zygosity.
+        # But only if there is exactly one ALT.
 
         if use_genotypes and record.samples is not None:
             for call in record.samples:
@@ -342,19 +346,25 @@ def read_observations(observations, filetype='vcf', skip_filtered=True,
                     # Exception will be raised for all calls in this record,
                     # so we can define the aggregate result and break.
                     if len(record.ALT) == 1:
-                        allele_support = [{None: len(record.samples)}]
+                        alt_support = [{None: len(record.samples)}]
                     break
 
                 if genotype:
-                    counts = Counter(a - 1 for a in genotype if a > 0)
+                    counts = Counter(a for a in genotype)
+                    # Todo: Option to ignore zygosity.
+                    if len(counts) > 1:
+                        zygosity = 'heterozygous'
+                    else:
+                        zygosity = 'homozygous'
                     for index, count in counts.items():
-                        allele_support[index][count] += 1
+                        if index > 0:
+                            alt_support[index - 1][zygosity] += 1
 
         elif len(record.ALT) == 1:
             if record.samples is None:
-                allele_support = [{None: 1}]
+                alt_support = [{None: 1}]
             else:
-                allele_support = [{None: len(record.samples)}]
+                alt_support = [{None: len(record.samples)}]
 
         for index, allele in enumerate(record.ALT):
             try:
@@ -370,9 +380,9 @@ def read_observations(observations, filetype='vcf', skip_filtered=True,
             if len(reference) > 200 or len(observed) > 200:
                 continue
 
-            for alleles, support in allele_support[index].items():
+            for zygosity, support in alt_support[index].items():
                 yield (current_record, chromosome, position, reference,
-                       observed, alleles, support)
+                       observed, zygosity, support)
 
 
 def read_regions(regions, filetype='bed'):
@@ -494,7 +504,7 @@ def import_variation(variation_id):
     try:
         with data as observations:
             old_percentage = -1
-            for i, (record, chromosome, position, reference, observed, alleles, support) \
+            for i, (record, chromosome, position, reference, observed, zygosity, support) \
                     in enumerate(read_observations(observations,
                                                    filetype=data_source.filetype,
                                                    skip_filtered=variation.skip_filtered,
@@ -509,7 +519,7 @@ def import_variation(variation_id):
                     old_percentage = percentage
                 observation = Observation(variation, chromosome, position,
                                           reference, observed,
-                                          alleles=alleles, support=support)
+                                          zygosity=zygosity, support=support)
                 db.session.add(observation)
                 if i % DB_BUFFER_SIZE == DB_BUFFER_SIZE - 1:
                     db.session.flush()

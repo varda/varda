@@ -312,11 +312,8 @@ def calculate_frequency(chromosome, position, reference, observed,
     Return a tuple of:
 
     - number of individuals (with coverage)
-    - ratio of individuals with observed allele
-    - list of:
-      - ratio of individuals with observed allele once
-      - ratio of individuals with observed allele twice
-      - etcetera...
+    - dictionary of mappings:
+      zygosity -> ratio of individuals with observed allele and zygosity
     """
     end_position = position + max(1, len(reference)) - 1
     bins = all_bins(position, end_position)
@@ -325,7 +322,7 @@ def calculate_frequency(chromosome, position, reference, observed,
 
     if sample:
         observations = collections.Counter(dict(
-            db.session.query(Observation.alleles,
+            db.session.query(Observation.zygosity,
                           func.sum(Observation.support)).
             filter_by(chromosome=chromosome,
                       position=position,
@@ -335,7 +332,7 @@ def calculate_frequency(chromosome, position, reference, observed,
             filter_by(sample=sample).
             join(DataSource).
             filter(DataSource.checksum != exclude_checksum).
-            group_by(Observation.alleles)))
+            group_by(Observation.zygosity)))
 
         if sample.coverage_profile:
             coverage = Region.query.join(Coverage).filter(
@@ -355,7 +352,7 @@ def calculate_frequency(chromosome, position, reference, observed,
         # Todo: Filter on checksum below makes us ignore any data sources with
         #     no checksum if exclude_checksum=None.
         observations = collections.Counter(dict(
-            db.session.query(Observation.alleles,
+            db.session.query(Observation.zygosity,
                           func.sum(Observation.support)).
             filter_by(chromosome=chromosome,
                       position=position,
@@ -367,7 +364,7 @@ def calculate_frequency(chromosome, position, reference, observed,
                       coverage_profile=True).
             join(DataSource).
             filter(DataSource.checksum != exclude_checksum).
-            group_by(Observation.alleles)))
+            group_by(Observation.zygosity)))
 
         coverage = Region.query.join(Coverage).filter(
             Region.chromosome == chromosome,
@@ -376,16 +373,13 @@ def calculate_frequency(chromosome, position, reference, observed,
             Region.bin.in_(bins)).join(Sample).filter_by(
             active=True).count()
 
+    # Todo: Use constant definition for zygosity, probably shared with the
+    #     one used in the models.
     if not coverage:
-        return 0, 0, [0, 0]
+        return 0, {zygosity: 0
+                   for zygosity in (None, 'homozygous', 'heterozygous')}
 
-    frequency = sum(observations.values()) / coverage
+    frequency = {zygosity: observations[zygosity] / coverage
+                 for zygosity in (None, 'homozygous', 'heterozygous')}
 
-    # Todo: The `max(2, ...)` is used to make sure we always report at
-    #     least for 1 and 2 alleles, even if we have no observations for
-    #     them. When calling code is fixed to properly deal with any
-    #     number of alleles, this should be removed.
-    frequencies = [observations[alleles] / coverage for alleles in
-                   range(1, max(2, max(observations or [0])) + 1)]
-
-    return coverage, frequency, frequencies
+    return coverage, frequency

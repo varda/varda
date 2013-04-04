@@ -29,6 +29,8 @@ from .region_binning import assign_bin
 # Todo: Use the types for which we have validators.
 DATA_SOURCE_FILETYPES = ('bed', 'vcf')
 
+OBSERVATION_ZYGOSITIES = ('heterozygous', 'homozygous')
+
 # Note: Add new roles at the end.
 USER_ROLES = (
     'admin',       # Can do anything.
@@ -398,13 +400,9 @@ class Observation(db.Model):
     observed = db.Column(db.String(200))
     bin = db.Column(db.Integer)
 
-    # Number of supporting alleles. This can be used to derive zygosity, e.g.
-    # for a diploid chromosome 1=het, 2=hom, None=unknown.
-    # Note that this number is per individual, so if alleles=2 and support=2,
-    # there are two individuals, both having this variant in two alleles,
-    # meaning that they are both homozygous for this variant on a diploid
-    # chromosome.
-    alleles = db.Column(db.Integer)
+    # A zygosity of ``None`` means exact genotype is unknown, but the variant
+    # allele was observed.
+    zygosity = db.Column(db.Enum(*OBSERVATION_ZYGOSITIES, name='zygosity'))
 
     # Number of individuals.
     support = db.Column(db.Integer)
@@ -414,7 +412,7 @@ class Observation(db.Model):
                                                    lazy='dynamic'))
 
     def __init__(self, variation, chromosome, position, reference, observed,
-                 alleles=None, support=1):
+                 zygosity=None, support=1):
         self.variation = variation
         self.chromosome = chromosome
         self.position = position
@@ -424,7 +422,7 @@ class Observation(db.Model):
         # be the base next to it.
         self.bin = assign_bin(self.position,
                               self.position + max(1, len(self.reference)) - 1)
-        self.alleles = alleles
+        self.zygosity = zygosity
         self.support = support
 
     def __repr__(self):
