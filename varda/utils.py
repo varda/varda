@@ -351,6 +351,9 @@ def calculate_frequency(chromosome, position, reference, observed,
         #  - samples not activated
         # Todo: Filter on checksum below makes us ignore any data sources with
         #     no checksum if exclude_checksum=None.
+        # Todo: More seriously, also the corresponding region should be
+        #     excluded. I see no real other way to do this than by excluding
+        #     the entire sample.
         observations = collections.Counter(dict(
             db.session.query(Observation.zygosity,
                           func.sum(Observation.support)).
