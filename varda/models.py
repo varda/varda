@@ -463,6 +463,10 @@ class Region(db.Model):
     end = db.Column(db.Integer)
     bin = db.Column(db.Integer)
 
+    # Todo: Perhaps we might want to have a `support` column here similar to
+    #     the Observation model? It only makes sense if we accept BED files
+    #     with a `support` integer for each region.
+
     coverage = db.relationship(Coverage,
                                backref=db.backref('regions', lazy='dynamic'))
 
