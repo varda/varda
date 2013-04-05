@@ -392,7 +392,8 @@ class Observation(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    variation_id = db.Column(db.Integer, db.ForeignKey('variation.id'))
+    variation_id = db.Column(db.Integer, db.ForeignKey('variation.id'),
+                             index=True)
 
     chromosome = db.Column(db.String(30))
     position = db.Column(db.Integer)
@@ -455,7 +456,8 @@ class Region(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    coverage_id = db.Column(db.Integer, db.ForeignKey('coverage.id'))
+    coverage_id = db.Column(db.Integer, db.ForeignKey('coverage.id'),
+                            index=True)
     chromosome = db.Column(db.String(30))
     begin = db.Column(db.Integer)
     end = db.Column(db.Integer)
