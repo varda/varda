@@ -95,18 +95,3 @@ ignored in any frequency calculations.
 Importing data sources is only possible for inactive samples. A sample cannot
 be made active while any data source is being imported for that sample. Users
 can only make a sample active, not inactive.
-
-
-Trading observations
---------------------
-
-One use case of Varda is sharing variant observations between different
-parties where it undesirable that a certain party only uses the data for
-annotation without sharing its variant observations.
-
-In such a setup, the *trader* role can be used. This role permits annotating a
-data source, given it has been imported (and the sample it belongs to is
-active).
-
-Of course this mechanical barrier can be cheated in various ways, but it at
-least makes sure no party forgets to import its samples.

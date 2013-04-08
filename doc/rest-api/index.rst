@@ -1,7 +1,7 @@
 REST server API
 ===============
 
-.. Todo: Cleanup this intro.
+.. todo:: Rewrite this section.
 
 This page documents the REST server API exposed by Varda to client
 applications.

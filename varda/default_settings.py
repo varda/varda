@@ -38,22 +38,25 @@ REFERENCE_MISMATCH_ABORT = True
 #CELERYD_HIJACK_ROOT_LOGGER = False
 
 # Variant database
-#SQLALCHEMY_DATABASE_URI = 'sqlite://'
+SQLALCHEMY_DATABASE_URI = 'sqlite://'
 #SQLALCHEMY_DATABASE_URI = 'mysql://user:password@localhost/varda'
-SQLALCHEMY_DATABASE_URI = 'postgresql://user:password@localhost/varda'
+#SQLALCHEMY_DATABASE_URI = 'postgresql://user:password@localhost/varda'
 
 # Celery broker
+BROKER_URL = 'memory://'
+#BROKER_URL = 'redis://'
 #BROKER_TRANSPORT = 'sqlalchemy'
 #BROKER_HOST = 'mysql://user:password@localhost/vardacelery'
 #BROKER_HOST = 'postgresql://user:password@localhost/vardacelery'
 #BROKER_URL = 'amqp://user:password@localhost:5672/varda'
-BROKER_URL = 'redis://'
 
 # Celery results
+CELERY_RESULT_BACKEND = 'cache'
+CELERY_CACHE_BACKEND = 'memory'
+#CELERY_RESULT_BACKEND = 'redis://'
 #CELERY_RESULT_BACKEND = 'database'
 #CELERY_RESULT_DBURI = 'mysql://user:password@localhost/vardaresults'
 #CELERY_RESULT_DBURI = 'postgresql://user:password@localhost/vardaresults'
-CELERY_RESULT_BACKEND = 'redis://'
 
 # We are running the unit tests
 TESTING = False
