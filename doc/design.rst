@@ -80,6 +80,12 @@ Only take samples into account with covered regions (to rule out population
 studies).
 
 
+Binning of regions and observations
+-----------------------------------
+
+Todo. UCSC binning scheme.
+
+
 Sample state
 ------------
 

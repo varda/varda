@@ -401,6 +401,12 @@ class Observation(db.Model):
     observed = db.Column(db.String(200))
     bin = db.Column(db.Integer)
 
+    # Todo: Should we perhaps also store the end position? Would make it
+    #     easier to query for variants overlapping some position. Perhaps it's
+    #     enough to have a computed index for len(referenc)?
+    #     If we actually store begin-end, it's actually a range, and it would
+    #     be clearer how to store insertions unambiguously.
+
     # A zygosity of ``None`` means exact genotype is unknown, but the variant
     # allele was observed.
     zygosity = db.Column(db.Enum(*OBSERVATION_ZYGOSITIES, name='zygosity'))
