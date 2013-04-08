@@ -4,11 +4,13 @@ Todo list
 There are also a lot of todo notes in the source code, just ``grep`` for
 ``Todo``.
 
-* Other types of authentication (OAuth).
+* Other types of authentication (OAuth, API key, etc).
 * Better docs.
 * More strict validation of user input, especially file uploads (max file size
   and contents).
 * Use accept HTTP headers in the API.
+* Implement caching control headers.
+* Implement HEAD requests.
 * More comprehensive test suite.
 * Throtling.
 * Better rights/roles model.
@@ -17,7 +19,7 @@ There are also a lot of todo notes in the source code, just ``grep`` for
 * Attach tags (e.g. 'exome', 'illumina', 'cancer'). Not sure if they should be
   separate resources on their own, or just string arguments.
 * Possibility to contact submitter of an observation.
-* Have a maintenance and/or read-only mode.
+* Have a maintenance and/or read-only mode, probably with HTTP redirects.
 * Make checksums optional.
 * Store phasing info, for example by numbering each allele (uniquely within a
   sample) and store the allele number with observations.
@@ -31,6 +33,9 @@ There are also a lot of todo notes in the source code, just ``grep`` for
   (automatically or manually?) and activating can only be done if everything
   is ok (no duplicated imports, everything has been imported, etc).
 * Add email and notes fields to sample model.
+* Modify serialization format of resources. Have embedded resources in their
+  own object, even if only given their URI. Do the same in 200 responses. Also
+  add the URI to collections and store the members in a separate `items` list.
 
 
 Queries

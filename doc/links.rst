@@ -28,3 +28,4 @@ Some links to hopefully relevant resources on the web.
 * `Correctly use HTTP verbs <http://news.ycombinator.com/item?id=3514668>`_
 * `Thoughts on RESTful API Design <https://restful-api-design.readthedocs.org/en/latest/>`_
 * `Developing RESTful Web APIs with Python, Flask and MongoDB <http://www.slideshare.net/nicolaiarocci/developing-restful-web-apis-with-python-flask-and-mongodb>`_
+* `Design Beautiful REST + JSON APIs <http://www.slideshare.net/stormpath/rest-jsonapis>`_
