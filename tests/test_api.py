@@ -19,7 +19,7 @@ from varda.models import User
 
 TEST_SETTINGS = {
     'TESTING': True,
-    'FILES_DIR': tempfile.mkdtemp(),
+    'DATA_DIR': tempfile.mkdtemp(),
     'GENOME': 'tests/data/hg19.fa',
     'REFERENCE_MISMATCH_ABORT': True,
     'SQLALCHEMY_DATABASE_URI': 'sqlite://',

@@ -1,6 +1,8 @@
 API reference
 =============
 
+.. todo:: This is still kind of a mess.
+
 .. automodule:: varda
    :members: create_app
 
@@ -57,6 +59,13 @@ varda.api.views
    :members:
 
 
+varda.commands
+--------------
+
+.. automodule:: varda.commands
+   :members:
+
+
 varda.default_settings
 ----------------------
 
@@ -68,13 +77,6 @@ varda.genome
 ------------
 
 .. automodule:: varda.genome
-   :members:
-
-
-varda.manage
-------------
-
-.. automodule:: varda.manage
    :members:
 
 

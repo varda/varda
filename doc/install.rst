@@ -1,156 +1,121 @@
+.. _install:
+
 Installation
 ============
 
-.. note:: Following this guide will give you a running Varda server suitable
-    for a development environment. Deployment to a production server will
-    probably deviate on some points (but shoudn't be done anyway since this
-    is pre-alpha software).
+Varda depends on a database server, a message broker, a task result backend,
+`Python`_ 2.7, and several Python packages. This section walks you through
+installing Varda using `PostgreSQL`_ as database server and `Redis`_ as
+message broker and task result backend, which is the recommended setup.
 
-.. note:: This guide assumes installation on a `Debian <http://www.debian.org>`_
-    (testing, or *wheezy*) system with Python 2.7.
+.. note:: All operating system specific instructions assume installation on a
+   `Debian`_ (testing, or *wheezy*) system. You'll have to figure out the
+   necessary adjustements yourself if you're on another system.
 
-.. todo:: Have another look at broker and result backend choices. I gues the
-    most typical Celery setup is to have rabbitmq as a broker and redis as a
-    result backend. But since our tasks are not very high volume and rabbitmq
-    is a bit heavier-weight than redis, the most sensible for us might be to
-    just use redis for both. See also `this thread <http://stackoverflow.com/questions/9140716/whats-the-advantage-of-using-celery-with-rabbitmq-over-redis-mongodb-or-django>`_.
+.. warning:: Following this guide will give you a running Varda server suitable
+   for a development environment. Deployment to a production server will need
+   some additional security measures (but shoudn't be done anyway since this
+   is pre-alpha software).
 
-Getting Varda running consists of the following steps:
+The following steps will get Varda running on your system with the recommended
+setup:
 
-* `Installing a database server`_
-* `Installing a message broker`_
-* `Setting up a Python virtual environment`_
-* `Creating initial configuration`_
-* `Setting up the database`_
-* `Running Varda`_
+* :ref:`install-postgresql`
+* :ref:`install-redis`
+* :ref:`install-virtualenv`
+* :ref:`install-setup`
 
-
-.. _database:
-
-Installing a database server
-----------------------------
-
-The recommended database server is `PostreSQL <http://www.postgresql.org>`_,
-but `MySQL <http://www.mysql.com>`_ will also work. You might even get away
-with `SQLite <http://www.sqlite.org>`_. Choose one of the three.
-
-(In theory, any database supported by `SQLAlchemy <http://www.sqlalchemy.org>`_
-could work.)
+At the bottom of this page some :ref:`alternative setups
+<install-alternatives>` are documented.
 
 
-Option 1: PostgreSQL
-^^^^^^^^^^^^^^^^^^^^
+.. highlight:: bash
 
-Install PostgreSQL and add a user for Varda. Create two empty databases,
-``varda`` and ``vardaresults``, both owned by the new user. For example::
 
-    $ sudo aptitude install postgresql
+.. _install-quick:
+
+If you're in a hurry
+--------------------
+
+The impatient can install and run Varda without a database server and more
+such nonsense with the following steps::
+
+    $ pip install -r requirements.txt
+    $ python -m varda.commands debugserver --setup
+
+Don't use this for anything serious though.
+
+
+.. _install-postgresql:
+
+Database server: PostgreSQL
+---------------------------
+
+.. note:: See :ref:`install-mysql` and :ref:`install-sqlite` for
+   alternatives. In theory, any database supported by `SQLAlchemy`_ could
+   work.
+
+Install `PostgreSQL`_ and add a user for Varda. Create a database
+(e.g. ``varda``) owned by the new user. For example::
+
+    $ sudo apt-get install postgresql
     $ sudo -u postgres createuser --superuser $USER
     $ createuser --pwprompt --encrypted --no-adduser --no-createdb --no-createrole varda
     $ createdb --encoding=UNICODE --owner=varda varda
-    $ createdb --encoding=UNICODE --owner=varda vardaresults
 
-Also install some development libraries needed for building the psycopg2
-Python package::
+Also install some development libraries needed for building the ``psycopg2``
+Python package later::
 
-    $ sudo aptitude install python-dev libpq-dev
-
-
-Option 2: MySQL
-^^^^^^^^^^^^^^^
-
-Example installation and setup of MySQL::
-
-    $ sudo aptitude install mysql-server
-    $ mysql -h localhost -u root -p
-    > create database varda;
-    > create database vardaresults;
-    > grant all privileges on varda.* to varda@localhost identified by '*******';
-    > grant all privileges on vardaresults.* to varda@localhost identified by '*******';
-
-Install some development libraries needed for building the MySQL-python
-package::
-
-    $ sudo aptitutde install python-dev libmysqlclient-dev
-
-Substitute ``MySQL-python`` for ``psycopg2`` in the ``requirements.txt``
-before you use it in the :ref:`varda-virtualenv` section.
+    $ sudo apt-get install python-dev libpq-dev
 
 
-Option 3: SQLite
-^^^^^^^^^^^^^^^^
+.. _install-redis:
 
-I think you have all you need. You can remove the ``psycopg2`` line in
-``requirements.txt``.
+Message broker and task result backend: Redis
+---------------------------------------------
 
+.. note:: See :ref:`install-rabbitmq` for an alternative. It should be
+   possible to use `any message broker
+   <http://docs.celeryproject.org/en/latest/getting-started/brokers/index.html>`_
+   and `any task result backend
+   <http://docs.celeryproject.org/en/latest/configuration.html#task-result-backend-settings>`_
+   supported by Celery.
 
-.. _broker:
+Varda uses `Celery`_ for distributing long-running tasks. A message broker is
+needed for communication between the server process and worker
+processes. Simply install `Redis`_ and you're done. ::
 
-Installing a message broker
----------------------------
-
-A message broker is needed for communication between the server process and
-worker processes. The recommended message broker is `Redis <http://redis.io>`_::
-
-    $ sudo aptitude install redis-server
-
-Alternatively, `RabbitMQ <http://www.rabbitmq.com/>`_ can be used as message
-broker (prefarably add the APT repository `provided by RabbitMQ <http://www.rabbitmq.com/install-debian.html>`_).
-Example::
-
-    $ sudo aptitude install rabbitmq-server
-    $ sudo rabbitmqctl add_user varda varda
-    $ sudo rabbitmqctl add_vhost varda
-    $ sudo rabbitmqctl set_permissions -p varda varda '.*' '.*' '.*'
-
-The message broker is interfaced by `Celery <http://celeryproject.org>`_,
-so you should be able to use any broker `supported by Celery <http://docs.celeryproject.org/en/latest/getting-started/brokers/index.html>`_.
-Although not recommended, it can even be your database server.
+    $ sudo apt-get install redis-server
 
 
-.. _varda-virtualenv:
+.. _install-virtualenv:
 
-Setting up a Python virtual environment
----------------------------------------
+Python virtual environment
+--------------------------
 
 It is recommended to run Varda from a Python virtual environment, using
-`virtualenv <http://www.virtualenv.org/>`_. Managing virtual environments is
-easiest using `virtualenvwrapper <http://www.doughellmann.com/docs/virtualenvwrapper/>`_.
+`virtualenv`_. Installing virtualenv and creating virtual environment is not
+covered here. Hat tip: managing virtual environments is easiest using
+`virtualenvwrapper`_.
 
-Install `pip <http://www.pip-installer.org/en/latest/index.html>`_, virtualenv,
-and virtualenvwrapper::
+Assuming you created and activated a virtual environment for Varda, install
+all required Python packages::
 
-    $ sudo easy_install pip
-    $ sudo pip install virtualenv
-    $ sudo pip install virtualenvwrapper
-    $ mkdir ~/.virtualenvs
-
-Add the following to your ``~/.bashrc`` and start a new shell::
-
-    export WORKON_HOME=~/.virtualenvs
-    if [ -f /usr/local/bin/virtualenvwrapper.sh ]; then
-        source /usr/local/bin/virtualenvwrapper.sh
-    fi
-    export PIP_VIRTUALENV_BASE=$WORKON_HOME
-    export PIP_REQUIRE_VIRTUALENV=true
-    export PIP_RESPECT_VIRTUALENV=true
-
-Create the environment for Varda and install all required Python packages::
-
-    $ mkvirtualenv varda
     $ pip install -r requirements.txt
 
 Now might be a good idea to run the unit tests::
 
     $ nosetests -v
 
-The remainder of this guide assumes the virtual environment is activated.
+If everything's okay, install Varda::
+
+    $ python setup.py install
 
 
-.. _configuration:
+.. _install-setup:
 
-Creating initial configuration
-------------------------------
+Varda setup
+-----------
 
 Varda looks for its configuration in the file specified by the
 ``VARDA_SETTINGS`` environment variable. First create the file with your
@@ -158,57 +123,101 @@ configuration settings, for example::
 
     $ export VARDA_SETTINGS=~/varda/settings.py
     $ cat > $VARDA_SETTINGS
-    DATA_DIR = '/tmp/varda'
-    SQLALCHEMY_DATABASE_URI = 'postgresql://user:password@localhost/varda'
+    DATA_DIR = '/data/varda'
+    SQLALCHEMY_DATABASE_URI = 'postgresql://varda:*****@localhost/varda'
     BROKER_URL = 'redis://'
     CELERY_RESULT_BACKEND = 'redis://'
 
-Some example settings can be found in ``varda/default_settings.py``.
+.. note:: For more information on the available configuration settings, see
+   :ref:`config`.
 
-Make sure to always have the ``VARDA_SETTINGS`` environment variable set when
-invoking any component of Varda. One way of doing this is adding the above
-``export`` command to your ``~/.bashrc``. Another is prefixing your
-invocations with ``VARDA_SETTINGS=...``.
-
-Varda can use a reference genome to check and normalize variant descriptions.
-Specify the location to a FASTA file with the ``GENOME`` setting in the
-configuration file and flatten it in place::
-
-    $ cat >> $VARDA_SETTINGS
-    GENOME = '/usr/local/genomes/hg19.fa'
-    REFERENCE_MISMATCH_ABORT = True
-    $ pyfasta flatten hg19.fa
-
-
-.. _database-setup:
-
-Setting up the database
------------------------
+Make sure ``DATA_DIR`` refers to a directory that is writable for Varda. This
+is where Varda stores uploaded and generated files.
 
 A script is included to setup the database tables and add an administrator
 user::
 
-    $ python -m varda.commands setup
+    $ varda setup
+
+.. warning:: Running ``varda setup`` is destructive: it drops any database
+   tables already present. Only run it once (or twice when you're ready to
+   start over from scratch).
+
+You can now proceed to :ref:`run`.
 
 
-.. _running:
+.. _install-alternatives:
 
-Running Varda
--------------
+Alternative setups
+------------------
 
-Start a Celery worker node (only used for long-running tasks)::
+The remainder of this page documents some alternatives to the recommended
+setup documented above.
 
-    $ celery -A varda.worker.celery worker -l info --maxtasksperchild=4 --purge
 
-And start a local Varda testserver in debug mode::
+.. _install-mysql:
 
-    $ python -m varda.commands debugserver
+Database server: MySQL
+^^^^^^^^^^^^^^^^^^^^^^
 
-You can now point your webbrowser to the URL that is printed and see a json-
-encoded status page.
+.. note:: This is an alternative to the recommended setup (see
+   :ref:`install-postgresql`).
 
-There are many possibilities for deploying Varda server to a production
-server. Recommended is the `Gunicorn WSGI HTTP Server <http://gunicorn.org/>`_,
-which you could use like this::
+Install `MySQL`_ and create a database (e.g. ``varda``) with all privileges
+for the Varda user. For example::
 
-    $ gunicorn varda:create_app\(\) -w 4 -t 600 --max-requests=1000
+    $ sudo apt-get install mysql-server
+    $ mysql -h localhost -u root -p
+    > create database varda;
+    > grant all privileges on varda.* to varda@localhost identified by '*****';
+
+Also install some development libraries needed for building the
+``MySQL-python`` Python package later::
+
+    $ sudo aptitutde install python-dev libmysqlclient-dev
+
+Substitute ``MySQL-python`` for ``psycopg2`` in ``requirements.txt`` before
+you use it in the :ref:`install-virtualenv` section.
+
+
+.. _install-sqlite:
+
+Database server: SQLite
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. note:: This is an alternative to the recommended setup (see `Database
+   server: PostgreSQL`_).
+
+You probably already have all you need for using `SQLite`_. You can remove the
+``psycopg2`` line in ``requirements.txt`` before you use it in the
+:ref:`install-virtualenv` section.
+
+
+.. _install-rabbitmq:
+
+Message broker: RabbitMQ
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. note:: This is an alternative to the recommended setup (see
+   :ref:`install-redis`).
+
+Preferably install `RabbitMQ`_ from the APT repository `provided by RabbitMQ
+<http://www.rabbitmq.com/install-debian.html>`_. Example::
+
+    $ sudo apt-get install rabbitmq-server
+    $ sudo rabbitmqctl add_user varda varda
+    $ sudo rabbitmqctl add_vhost varda
+    $ sudo rabbitmqctl set_permissions -p varda varda '.*' '.*' '.*'
+
+
+.. _Celery: http://celeryproject.org/
+.. _Debian: http://www.debian.org/
+.. _MySQL: http://www.mysql.com/
+.. _PostgreSQL: http://www.postgresql.org/
+.. _Python: http://python.org/
+.. _RabbitMQ: http://www.rabbitmq.com/
+.. _Redis: http://redis.io/
+.. _SQLAlchemy: http://www.sqlalchemy.org/
+.. _SQLite: http://www.sqlite.org/
+.. _virtualenv: http://www.virtualenv.org/
+.. _virtualenvwrapper: http://www.doughellmann.com/docs/virtualenvwrapper/

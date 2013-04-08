@@ -12,15 +12,14 @@ Description
 Varda is an application for storing genomic variation data obtained from
 next-generation sequencing experiments, such as full-genome or exome
 sequencing of individuals or populations. Variants can be imported from
-standard formats such as `VCF files <http://www.1000genomes.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-41>`_,
-and annotated with their frequencies in previously imported datasets.
+standard formats such as `VCF`_ files and annotated with their frequencies in
+previously imported datasets.
 
 Varda is implemented as a service exposing a RESTful HTTP interface. Two
 clients for this interface are under development:
 
-* `Manwë <https://github.com/martijnvermaat/manwe>`_ - Python client library
-  and command line interface to Varda.
-* `Aulë <https://github.com/martijnvermaat/aule>`_ - Web interface to Varda.
+* `Manwë`_ - Python client library and command line interface to Varda.
+* `Aulë`_ - Web interface to Varda.
 
 
 Use cases
@@ -32,17 +31,16 @@ Before describing some use cases for Varda, let's first consider what Varda is
 * *Sharing and browsing genomic variants*
 
   Varda is focussed on sharing variant frequencies only, and as such is not
-  designed for direct browsing. Other systems, such as `LOVD
-  <http://lovd.nl/>`_, are much more suitable for sharing and browsing genomic
-  variants and additionally store phenotypes and other metadata.
+  designed for direct browsing. Other systems, such as `LOVD`_, are much more
+  suitable for sharing and browsing genomic variants and additionally store
+  phenotypes and other metadata.
 
 * *Ad-hoc exploration of genomic variation*
 
   Again, Varda is focussed on sharing variant frequencies only, and does not
   store additional metadata nor does it allow for effective exploration of
   variants. If you have variation data from a disease or population study
-  which you want to analyse in a flexible way, have a look at `gemini
-  <https://github.com/arq5x/gemini>`_.
+  which you want to analyse in a flexible way, have a look at `gemini`_.
 
 We now describe some use cases Varda is designed to support.
 
@@ -76,15 +74,14 @@ We now describe some use cases Varda is designed to support.
 Implementation
 --------------
 
-The server is implemented in Python using the `Flask <http://flask.pocoo.org/>`_
-framework and directly interfaces the `PostgreSQL <http://www.postgresql.org>`_
-(or `MySQL <http://www.mysql.com>`_) database backend using `SQLAlchemy <http://www.sqlalchemy.org/>`_.
-It exposes a `RESTful <http://en.wikipedia.org/wiki/Representational_state_transfer>`_
-API over HTTP where response payloads are (currently only) JSON-encoded. A
-future version may use other encodings, depending on the value of the
-``Accept-Encoding`` header sent by the client.
+The server is implemented in Python using the `Flask`_ framework and directly
+interfaces the `PostgreSQL`_ (or `MySQL`_) database backend using
+`SQLAlchemy`_. It exposes a `RESTful <REST>`_ API over HTTP where response
+payloads are (currently only) JSON-encoded. A future version may use other
+encodings, depending on the value of the ``Accept-Encoding`` header sent by
+the client.
 
-Long-running actions are executed asynchonously through the `Celery <http://celeryproject.org/>`_
+Long-running actions are executed asynchonously through the `Celery`_
 distributed task queue.
 
 
@@ -101,5 +98,18 @@ This includes installation instructions and REST server API documentation.
 Copyright
 ---------
 
-Varda is licensed under the MIT License, see the LICENSE file for details.
-See the AUTHORS file for a list of authors.
+Varda is licensed under the MIT License, see the LICENSE file for details. See
+the AUTHORS file for a list of authors.
+
+
+.. _Aulë: https://github.com/martijnvermaat/aule
+.. _Celery: http://celeryproject.org/
+.. _FlasK: http://flask.pocoo.org/
+.. _gemini: https://github.com/arq5x/gemini
+.. _LOVD: http://lovd.nl/
+.. _Manwë: https://github.com/martijnvermaat/manwe
+.. _MySQL: http://www.mysql.com/
+.. _PostgreSQL: http://www.postgresql.org
+.. _REST: http://en.wikipedia.org/wiki/Representational_state_transfer
+.. _SQLAlchemy: http://www.sqlalchemy.org/
+.. _VCF: http://www.1000genomes.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-41

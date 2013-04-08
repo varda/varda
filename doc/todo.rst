@@ -1,6 +1,9 @@
 Todo list
 =========
 
+There are also a lot of todo notes in the source code, just ``grep`` for
+``Todo``.
+
 * Other types of authentication (OAuth).
 * Better docs.
 * More strict validation of user input, especially file uploads (max file size
@@ -20,6 +23,14 @@ Todo list
   sample) and store the allele number with observations.
 * Delete resources (have to think about cascading or not).
 * Get error from failed task and a way to retry.
+* Support bigBed format.
+* What to do for variants where we have more observations than coverage? We
+  could have a check in sample activation, but would we really like to
+  enforce this?
+* Enforce active property of sample. Changing anything means deactivating
+  (automatically or manually?) and activating can only be done if everything
+  is ok (no duplicated imports, everything has been imported, etc).
+* Add email and notes fields to sample model.
 
 
 Queries
@@ -74,34 +85,6 @@ Some example query specifications::
             exclude-tags: ['cancer']
         }
     ]
-
-
-Document use cases
-------------------
-
-Some use cases to be documented:
-
-* *Scenario: private database for a sequencing lab*
-
-  Import and annotate variants from all sequencing experiments at an
-  institution. The database should also contain public datasets from
-  population studies (e.g. 1KG, GoNL).
-
-  Authentication and authorization scheme is probably simple.
-
-* *Scenario: shared database between several groups*
-
-  All groups import variants from their own sequencing experiments and
-  annotation is only possible for previously imported data. Data can only be
-  used anonymized by other groups (just overall frequencies in the database)
-  and to accomodate even stricter anonymity, samples can be imported after
-  pooling.
-
-  Authentication and authorization scheme is more complex.
-
-* *Import public dataset: 1000 Genomes*
-
-* *Import public dataset: Genome of the Netherlands*
 
 
 Versioning
