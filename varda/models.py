@@ -79,14 +79,16 @@ class User(db.Model):
     name = db.Column(db.String(200))
     login = db.Column(db.String(40), index=True, unique=True)
     password_hash = db.Column(db.String(100))
+    email = db.Column(db.String(200))
     roles_bitstring = db.Column(db.Integer)
     added = db.Column(db.DateTime)
 
-    def __init__(self, name, login, password, roles=None):
+    def __init__(self, name, login, password, email=None, roles=None):
         roles = roles or []
         self.name = name
         self.login = login
         self.password_hash = bcrypt.hashpw(password, bcrypt.gensalt())
+        self.email = email
         self.roles_bitstring = sum(pow(2, i) for i, role
                                    in enumerate(USER_ROLES) if role in roles)
         self.added = datetime.now()
@@ -125,18 +127,20 @@ class Sample(db.Model):
     active = db.Column(db.Boolean, default=False)
     coverage_profile = db.Column(db.Boolean)
     public = db.Column(db.Boolean)
+    notes = db.Column(db.Text)
 
     user = db.relationship(User,
                            backref=db.backref('samples', lazy='dynamic'))
 
     def __init__(self, user, name, pool_size=1, coverage_profile=True,
-                 public=False):
+                 public=False, notes=None):
         self.user = user
         self.name = name
         self.pool_size = pool_size
         self.added = datetime.now()
         self.coverage_profile = coverage_profile
         self.public = public
+        self.notes = notes
 
     def __repr__(self):
         return '<Sample "%s" of %d individuals added %s>' % (self.name,

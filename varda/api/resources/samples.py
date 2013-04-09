@@ -43,7 +43,8 @@ class SamplesResource(ModelResource):
     add_schema = {'name': {'type': 'string', 'required': True, 'maxlength': 200},
                   'pool_size': {'type': 'integer'},
                   'coverage_profile': {'type': 'boolean'},
-                  'public': {'type': 'boolean'}}
+                  'public': {'type': 'boolean'},
+                  'notes': {'type': 'string', 'maxlength': 10000}}
 
     edit_ensure_conditions = [has_role('admin'), owns_sample]
     edit_ensure_options = {'satisfy': any}
@@ -51,7 +52,8 @@ class SamplesResource(ModelResource):
                    'name': {'type': 'string', 'maxlength': 200},
                    'pool_size': {'type': 'integer'},
                    'coverage_profile': {'type': 'boolean'},
-                   'public': {'type': 'boolean'}}
+                   'public': {'type': 'boolean'},
+                   'notes': {'type': 'string', 'maxlength': 10000}}
 
     @classmethod
     def list_view(cls, *args, **kwargs):
@@ -264,5 +266,6 @@ class SamplesResource(ModelResource):
                              pool_size=instance.pool_size,
                              public=instance.public,
                              active=instance.active,
+                             notes=instance.notes,
                              added=str(instance.added.isoformat()))
         return serialization
