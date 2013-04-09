@@ -86,6 +86,12 @@ Binning of regions and observations
 Todo. UCSC binning scheme.
 
 
+Security
+--------
+
+Authentication via HTTP Basic Authentication, so only use with SSL.
+
+
 Sample state
 ------------
 

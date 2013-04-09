@@ -29,3 +29,4 @@ Some links to hopefully relevant resources on the web.
 * `Thoughts on RESTful API Design <https://restful-api-design.readthedocs.org/en/latest/>`_
 * `Developing RESTful Web APIs with Python, Flask and MongoDB <http://www.slideshare.net/nicolaiarocci/developing-restful-web-apis-with-python-flask-and-mongodb>`_
 * `Design Beautiful REST + JSON APIs <http://www.slideshare.net/stormpath/rest-jsonapis>`_
+* `GenomeSpace: RESTful Access to Data Manager <http://www.genomespace.org/support/api/restful-access-to-dm>`_

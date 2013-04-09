@@ -31,6 +31,19 @@ Sample activation
 Todo.
 
 
+.. _guide-checksums:
+
+Duplication of data
+-------------------
+
+Todo.
+
+Calculating checksums of all imported data is used as a measure to prevent the
+same data to be imported twice. Of course, this is quite a weak measure in
+that it can easily be circumvented, so its main value lies in preventing
+accidental duplicate imports.
+
+
 .. _guide-trading:
 
 A model for trading data
