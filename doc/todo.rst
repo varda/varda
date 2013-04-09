@@ -32,7 +32,6 @@ There are also a lot of todo notes in the source code, just ``grep`` for
 * Enforce active property of sample. Changing anything means deactivating
   (automatically or manually?) and activating can only be done if everything
   is ok (no duplicated imports, everything has been imported, etc).
-* Add email and notes fields to sample model.
 * Modify serialization format of resources. Have embedded resources in their
   own object, even if only given their URI. Do the same in 200 responses. Also
   add the URI to collections and store the members in a separate `items` list.

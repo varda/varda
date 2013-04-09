@@ -35,10 +35,12 @@ class UsersResource(ModelResource):
                             'safe': True, 'required': True},
                   'name': {'type': 'string', 'maxlength': 200},
                   'password': {'type': 'string', 'required': True, 'maxlength': 500},
+                  'email': {'type': 'string', 'maxlength': 200},
                   'roles': {'type': 'list', 'allowed': USER_ROLES}}
 
     edit_schema = {'name': {'type': 'string', 'maxlength': 200},
                    'password': {'type': 'string', 'maxlength': 500},
+                   'email': {'type': 'string', 'maxlength': 200},
                    'roles': {'type': 'list', 'allowed': USER_ROLES}}
 
     @classmethod
@@ -226,6 +228,7 @@ class UsersResource(ModelResource):
         serialization = super(UsersResource, cls).serialize(instance, embed=embed)
         serialization.update(name=instance.name,
                              login=instance.login,
+                             email=instance.email,
                              roles=list(instance.roles),
                              added=str(instance.added.isoformat()))
         return serialization
