@@ -12,6 +12,7 @@ from flask import g, url_for
 from ...models import Sample
 from ..security import is_user, has_role, owns_sample, true
 from .base import ModelResource
+from .users import UsersResource
 
 
 class SamplesResource(ModelResource):
@@ -29,6 +30,7 @@ class SamplesResource(ModelResource):
     instance_name = 'sample'
     instance_type = 'sample'
 
+    embeddable = {'user': UsersResource}
     filterable = {'public': 'boolean',
                   'user': 'user'}
 
@@ -261,8 +263,7 @@ class SamplesResource(ModelResource):
     @classmethod
     def serialize(cls, instance, embed=None):
         serialization = super(SamplesResource, cls).serialize(instance, embed=embed)
-        serialization.update(user_uri=url_for('.user_get', user=instance.user.id),
-                             name=instance.name,
+        serialization.update(name=instance.name,
                              pool_size=instance.pool_size,
                              public=instance.public,
                              active=instance.active,

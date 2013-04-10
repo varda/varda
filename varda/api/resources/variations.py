@@ -175,7 +175,5 @@ class VariationsResource(TaskedResource):
     @classmethod
     def serialize(cls, instance, embed=None):
         serialization = super(VariationsResource, cls).serialize(instance, embed=embed)
-        serialization.update(sample_uri=url_for('.sample_get', sample=instance.sample_id),
-                             data_source_uri=url_for('.data_source_get', data_source=instance.data_source_id),
-                             imported=instance.task_done)
+        serialization.update(imported=instance.task_done)
         return serialization

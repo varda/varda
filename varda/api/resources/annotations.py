@@ -16,6 +16,7 @@ from ...models import Annotation, DataSource, InvalidDataSource, Sample
 from ... import tasks
 from ..security import has_role, owns_annotation, owns_data_source
 from .base import TaskedResource
+from .data_sources import DataSourcesResource
 
 
 class AnnotationsResource(TaskedResource):
@@ -35,6 +36,10 @@ class AnnotationsResource(TaskedResource):
 
     views = ['list', 'get', 'add']
 
+    embeddable = {'original_data_source': DataSourcesResource,
+                  'annotated_data_source': DataSourcesResource}
+    # Todo: I don't think this filterable definition is correct, there is no
+    #     `data_source` attribute on an `Annotation`??
     filterable = {'data_source': 'data_source'}
 
     list_ensure_conditions = [has_role('admin'), owns_data_source]
@@ -184,15 +189,12 @@ class AnnotationsResource(TaskedResource):
 
         result = tasks.write_annotation.delay(annotation.id)
         current_app.logger.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
-        uri = url_for('.annotation_get', annotation=annotation.id)
-        response = jsonify(annotation_uri=uri)
-        response.location = uri
+        response = jsonify(annotation=cls.serialize(annotation))
+        response.location = cls.instance_uri(annotation)
         return response, 202
 
     @classmethod
     def serialize(cls, instance, embed=None):
         serialization = super(AnnotationsResource, cls).serialize(instance, embed=embed)
-        serialization.update(original_data_source_uri=url_for('.data_source_get', data_source=instance.original_data_source_id),
-                             annotated_data_source_uri=url_for('.data_source_get', data_source=instance.annotated_data_source_id),
-                             written=instance.task_done)
+        serialization.update(written=instance.task_done)
         return serialization

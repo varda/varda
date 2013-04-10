@@ -77,37 +77,37 @@ class TestApi():
     @property
     def uri_users(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['users_uri']
+        return json.loads(r.data)['user_collection']['uri']
 
     @property
     def uri_samples(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['samples_uri']
+        return json.loads(r.data)['sample_collection']['uri']
 
     @property
     def uri_variations(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['variations_uri']
+        return json.loads(r.data)['variation_collection']['uri']
 
     @property
     def uri_coverages(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['coverages_uri']
+        return json.loads(r.data)['coverage_collection']['uri']
 
     @property
     def uri_data_sources(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['data_sources_uri']
+        return json.loads(r.data)['data_source_collection']['uri']
 
     @property
     def uri_annotations(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['annotations_uri']
+        return json.loads(r.data)['annotation_collection']['uri']
 
     @property
     def uri_variants(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['variants_uri']
+        return json.loads(r.data)['variant_collection']['uri']
 
     def test_root(self):
         """
@@ -201,7 +201,7 @@ class TestApi():
         # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotated_data_source, headers=[auth_header()])
         assert_equal(r.status_code, 200)
-        annotated_data_source_data = json.loads(r.data)['data_source']['data_uri']
+        annotated_data_source_data = json.loads(r.data)['data_source']['data']['uri']
         r = self.client.get(annotated_data_source_data, headers=[auth_header()])
         assert_equal(r.status_code, 200)
         assert_equal(r.content_type, 'application/x-gzip')
@@ -222,7 +222,7 @@ class TestApi():
                 'observed': 'C'}
         r = self.client.post(self.uri_variants, data=data, headers=[auth_header(login='admin', password='test')])
         assert_equal(r.status_code, 201)
-        variant = json.loads(r.data)['variant_uri']
+        variant = json.loads(r.data)['variant']['uri']
 
         r = self.client.get(variant, headers=[auth_header(login='admin', password='test')])
         assert_equal(r.status_code, 200)
@@ -242,7 +242,7 @@ class TestApi():
         # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotated_data_source, headers=[auth_header()])
         assert_equal(r.status_code, 200)
-        annotated_data_source_data = json.loads(r.data)['data_source']['data_uri']
+        annotated_data_source_data = json.loads(r.data)['data_source']['data']['uri']
         r = self.client.get(annotated_data_source_data, headers=[auth_header()])
         assert_equal(r.status_code, 200)
         assert_equal(r.content_type, 'application/x-gzip')
@@ -264,7 +264,7 @@ class TestApi():
         # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotated_data_source, headers=[auth_header()])
         assert_equal(r.status_code, 200)
-        annotated_data_source_data = json.loads(r.data)['data_source']['data_uri']
+        annotated_data_source_data = json.loads(r.data)['data_source']['data']['uri']
         r = self.client.get(annotated_data_source_data, headers=[auth_header()])
         assert_equal(r.status_code, 200)
         assert_equal(r.content_type, 'application/x-gzip')
@@ -294,7 +294,7 @@ class TestApi():
                 'pool_size': 1}
         r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 201)
-        sample = json.loads(r.data)['sample_uri']
+        sample = json.loads(r.data)['sample']['uri']
 
         # Upload VCF
         data = {'name': 'Test observations',
@@ -310,12 +310,12 @@ class TestApi():
                 'data_source': vcf_data_source}
         r = self.client.post(self.uri_variations, data=data, headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 202)
-        variation = json.loads(r.data)['variation_uri']
+        variation = json.loads(r.data)['variation']['uri']
 
         # Get variation without data source embedded
         r = self.client.get(variation, headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 200)
-        assert 'data_source' not in json.loads(r.data)['variation']
+        assert 'name' not in json.loads(r.data)['variation']['data_source']
 
         # Get variation with data source embedded
         # Todo: http://stackoverflow.com/questions/4293460/how-to-add-custom-parameters-to-an-url-query-string-with-python
@@ -332,7 +332,7 @@ class TestApi():
                 'pool_size': 1}
         r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 201)
-        sample = json.loads(r.data)['sample_uri']
+        sample = json.loads(r.data)['sample']['uri']
 
         # Upload VCF
         data = {'name': 'Test observations',
@@ -353,7 +353,7 @@ class TestApi():
                 'data_source': vcf_data_source}
         r = self.client.post(self.uri_variations, data=data, headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 202)
-        variation = json.loads(r.data)['variation_uri']
+        variation = json.loads(r.data)['variation']['uri']
 
         # Wait for importing
         # Note: Bogus since during testing tasks return synchronously
@@ -393,7 +393,7 @@ class TestApi():
                 'sample_frequency': sample_frequency}
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 202)
-        annotation = json.loads(r.data)['annotation_uri']
+        annotation = json.loads(r.data)['annotation']['uri']
 
         # Wait for writing
         # Note: Bogus since during testing tasks return synchronously
@@ -410,7 +410,7 @@ class TestApi():
         # Get annotated data source URI
         r = self.client.get(annotation, headers=[auth_header()])
         assert_equal(r.status_code, 200)
-        return json.loads(r.data)['annotation']['annotated_data_source_uri']
+        return json.loads(r.data)['annotation']['annotated_data_source']['uri']
 
     def _import(self, name, vcf_file, bed_file=None, pool_size=1):
         """
@@ -423,7 +423,7 @@ class TestApi():
                 'pool_size': pool_size}
         r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 201)
-        sample = json.loads(r.data)['sample_uri']
+        sample = json.loads(r.data)['sample']['uri']
 
         # Upload VCF
         data = {'name': '%s observations' % name,
@@ -451,7 +451,7 @@ class TestApi():
                 'data_source': vcf_data_source}
         r = self.client.post(self.uri_variations, data=data, headers=[auth_header()])
         assert_equal(r.status_code, 202)
-        variation = json.loads(r.data)['variation_uri']
+        variation = json.loads(r.data)['variation']['uri']
 
         # Wait for importing
         # Note: Bogus since during testing tasks return synchronously
@@ -471,7 +471,7 @@ class TestApi():
                     'data_source': bed_data_source}
             r = self.client.post(self.uri_coverages, data=data, headers=[auth_header()])
             assert_equal(r.status_code, 202)
-            coverage = json.loads(r.data)['coverage_uri']
+            coverage = json.loads(r.data)['coverage']['uri']
 
             # Wait for importing
             # Note: Bogus since during testing tasks return synchronously
@@ -503,7 +503,7 @@ class TestApi():
                 'pool_size': 1092}
         r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 201)
-        sample = json.loads(r.data)['sample_uri']
+        sample = json.loads(r.data)['sample']['uri']
 
         # Upload VCF
         data = {'name': 'Some variants',

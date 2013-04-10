@@ -12,6 +12,7 @@ from flask import current_app, g, request, send_from_directory, url_for
 from ...models import DataSource, DATA_SOURCE_FILETYPES
 from ..security import is_user, has_role, owns_data_source
 from .base import ModelResource
+from .users import UsersResource
 
 
 class DataSourcesResource(ModelResource):
@@ -32,6 +33,7 @@ class DataSourcesResource(ModelResource):
 
     views = ['list', 'get', 'add', 'edit', 'data']
 
+    embeddable = {'user': UsersResource}
     filterable = {'user': 'user'}
 
     list_ensure_conditions = [has_role('admin'), is_user]
@@ -282,8 +284,8 @@ class DataSourcesResource(ModelResource):
     @classmethod
     def serialize(cls, instance, embed=None):
         serialization = super(DataSourcesResource, cls).serialize(instance, embed=embed)
-        serialization.update(user_uri=url_for('.user_get', user=instance.user.id),
-                             data_uri=url_for('.data_source_data', data_source=instance.id),
+        serialization.update(data={'uri': url_for('.data_source_data',
+                                                  data_source=instance.id)},
                              name=instance.name,
                              filetype=instance.filetype,
                              gzipped=instance.gzipped,

@@ -81,10 +81,13 @@ class VariantsResource(Resource):
             Observation.position <= end_position,
             Observation.bin.in_(bins))
 
+        items = [cls.serialize((o.chromosome, o.position, o.reference, o.observed),
+                               sample=sample)
+                 for o in observations.limit(count).offset(begin)]
         return (observations.count(),
-                jsonify(variants=[cls.serialize((o.chromosome, o.position, o.reference, o.observed),
-                                                sample=sample)
-                                  for o in observations.limit(count).offset(begin)]))
+                jsonify(collection={'uri': cls.collection_uri(),
+                                    'items': items}))
+
 
     @classmethod
     def get_view(cls, variant, sample=None):
@@ -125,7 +128,11 @@ class VariantsResource(Resource):
         except ReferenceMismatch as e:
             raise ValidationError(str(e))
         uri = cls.instance_uri(variant)
-        response = jsonify({'variant_uri': uri})
+        # Note: It doesn't really make sense to calculate global frequencies
+        #     here (the client might only be interested in frequencies for
+        #     some specific sample), so we only return the URI instead of a
+        #     full serialization.
+        response = jsonify(variant={'uri': uri})
         response.location = uri
         return response, 201
 

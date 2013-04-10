@@ -153,14 +153,16 @@ def apiroot():
     api = {'status':             'ok',
            'version':            API_VERSION,
            'genome':             genome.keys(),
-           'authentication_uri': url_for('.authentication'),
-           'users_uri':          url_for('.user_list'),
-           'samples_uri':        url_for('.sample_list'),
-           'variations_uri':     url_for('.variation_list'),
-           'coverages_uri':      url_for('.coverage_list'),
-           'data_sources_uri':   url_for('.data_source_list'),
-           'annotations_uri':    url_for('.annotation_list'),
-           'variants_uri':       url_for('.variant_list')}
+           'authentication':     {'uri': url_for('.authentication')}}
+    api.update({resource.instance_name + '_collection':
+                    {'uri': resource.collection_uri()}
+                for resource in (annotations_resource,
+                                 coverages_resource,
+                                 data_sources_resource,
+                                 samples_resource,
+                                 users_resource,
+                                 variants_resource,
+                                 variations_resource)})
     return jsonify(api)
 
 

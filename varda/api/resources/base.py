@@ -136,20 +136,45 @@ class Resource(object):
 
     @classmethod
     def instance_key(cls, instance):
-        # Should return something of type `cls.key_type`.
+        """
+        To be implemented by a subclass. Should return something of type
+        `cls.key_type`.
+        """
         raise NotImplementedError
 
     @classmethod
+    def collection_uri(cls):
+        return url_for('.%s_list' % cls.instance_type)
+
+    @classmethod
     def instance_uri(cls, instance):
+        return cls.instance_uri_by_key(cls.instance_key(instance))
+
+    @classmethod
+    def instance_uri_by_key(cls, key):
         return url_for('.%s_get' % cls.instance_type,
-                       **{cls.instance_name: cls.instance_key(instance)})
+                       **{cls.instance_name: key})
 
     @classmethod
     def serialize(cls, instance, embed=None):
         embed = embed or []
         serialization = {'uri': cls.instance_uri(instance)}
-        serialization.update({field: cls.embeddable[field].serialize(getattr(instance, field))
-                              for field in embed})
+        for field, resource in cls.embeddable.items():
+            if field in embed:
+                s = resource.serialize(getattr(instance, field))
+            else:
+                # Note: By default (i.e., without embedding), we don't want
+                #     to have an extra query for the embedded resource, which
+                #     is what happens if we would write `instance.field.id`.
+                #     So we make sure we really write `instance.field_id`.
+                # Todo: Only do this in `ModelResource`.
+                # Note: We rely on the convention that relationships in our
+                #     models are defined such that the foreign key field is
+                #     the relationship name with ``_id`` suffix.
+                key = field + '_id'
+                s = {'uri': resource.instance_uri_by_key(getattr(instance,
+                                                                 key))}
+            serialization.update({field: s})
         return serialization
 
 
@@ -190,11 +215,11 @@ class ModelResource(Resource):
         instances = cls.model.query
         if filter:
             instances = instances.filter_by(**filter)
-        # Todo: Just appending 's' to the result key to get plural here is
-        #     very ugly.
+        items = [cls.serialize(r, embed=embed)
+                 for r in instances.limit(count).offset(begin)]
         return (instances.count(),
-                jsonify({cls.instance_name + 's': [cls.serialize(r, embed=embed) for r in
-                                                   instances.limit(count).offset(begin)]}))
+                jsonify(collection={'uri': cls.collection_uri(),
+                                    'items': items}))
 
     @classmethod
     def add_view(cls, *args, **kwargs):
@@ -203,13 +228,14 @@ class ModelResource(Resource):
         db.session.add(instance)
         db.session.commit()
         current_app.logger.info('Added %s: %r', cls.instance_name, instance)
-        uri = cls.instance_uri(instance)
-        response = jsonify({'%s_uri' % cls.instance_name: uri})
-        response.location = uri
+        response = jsonify({cls.instance_name: cls.serialize(instance)})
+        response.location = cls.instance_uri(instance)
         return response, 201
 
     @classmethod
     def edit_view(cls, *args, **kwargs):
+        # Todo: Is 200 the proper response code for a PATCH request? Should we
+        #     add a `location` header, like in `add_view`?
         instance = kwargs.pop(cls.instance_name)
         for field, value in kwargs.items():
             setattr(instance, field, value)
@@ -244,7 +270,12 @@ class TaskedResource(ModelResource):
                 pass
             if result.state == 'PROGRESS':
                 progress = result.info['percentage']
+        # Todo: This needs some restructuring, I think the progress should be
+        #     part of the instance serialization.
         return jsonify({cls.instance_name: cls.serialize(instance, embed=embed), 'progress': progress})
+
+    # Todo: Retrying the task should be possible for admins using PATCH with
+    #     `imported: True` or similar.
 
     @classmethod
     def add_view(cls, *args, **kwargs):
@@ -254,9 +285,8 @@ class TaskedResource(ModelResource):
         current_app.logger.info('Added %s: %r', cls.instance_name, instance)
         result = cls.task.delay(instance.id)
         current_app.logger.info('Called task: %s(%d) %s', cls.task.__name__, instance.id, result.task_id)
-        uri = cls.instance_uri(instance)
-        response = jsonify({'%s_uri' % cls.instance_name: uri})
-        response.location = uri
+        response = jsonify({cls.instance_name: cls.serialize(instance)})
+        response.location = cls.instance_uri(instance)
         # Todo: The resourse is created, only it is not imported yet, so I
         #     this isn't a reall asynchronous request and we can just return
         #     the 201 status code.
