@@ -410,8 +410,10 @@ class Observation(db.Model):
     #     enough to have a computed index for len(referenc)?
     #     If we actually store begin-end, it's actually a range, and it would
     #     be clearer how to store insertions unambiguously.
+    #     Also, if we store the end position we don't really need the
+    #     reference sequence, especially if there is a genome configured.
 
-    # A zygosity of ``None`` means exact genotype is unknown, but the variant
+    # A zygosity of `None` means exact genotype is unknown, but the variant
     # allele was observed.
     zygosity = db.Column(db.Enum(*OBSERVATION_ZYGOSITIES, name='zygosity'))
 
