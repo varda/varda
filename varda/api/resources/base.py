@@ -125,7 +125,7 @@ class Resource(object):
             return view_func(*args, **kwargs)
 
         self.blueprint.add_url_rule('%s%s' % (self.url_prefix or '/', getattr(self, '%s_rule' % endpoint)),
-                                    '%s_%s' % (self.instance_type, endpoint),
+                                    '%s_%s' % (self.instance_name, endpoint),
                                     view,
                                     **kwargs)
 
@@ -144,7 +144,7 @@ class Resource(object):
 
     @classmethod
     def collection_uri(cls):
-        return url_for('.%s_list' % cls.instance_type)
+        return url_for('.%s_list' % cls.instance_name)
 
     @classmethod
     def instance_uri(cls, instance):
@@ -152,7 +152,7 @@ class Resource(object):
 
     @classmethod
     def instance_uri_by_key(cls, key):
-        return url_for('.%s_get' % cls.instance_type,
+        return url_for('.%s_get' % cls.instance_name,
                        **{cls.instance_name: key})
 
     @classmethod
