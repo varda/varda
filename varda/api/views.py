@@ -130,7 +130,7 @@ variants_resource = VariantsResource(api, url_prefix='/variants')
 
 
 @api.route('/')
-def apiroot():
+def root_get():
     """
     Varda server status information.
 
@@ -152,8 +152,8 @@ def apiroot():
     # Todo: Genome could be expanded into a separate resource.
     api = {'status':             'ok',
            'version':            API_VERSION,
-           'genome':             genome.keys(),
-           'authentication':     {'uri': url_for('.authentication')}}
+           'genome':             {'uri': url_for('.genome_get')},
+           'authentication':     {'uri': url_for('.authentication_get')}}
     api.update({resource.instance_name + '_collection':
                     {'uri': resource.collection_uri()}
                 for resource in (annotations_resource,
@@ -166,8 +166,20 @@ def apiroot():
     return jsonify(api)
 
 
+@api.route('/genome')
+def genome_get():
+    """
+    Genome info.
+    """
+    if not genome:
+        abort(404)
+    # Todo: Also configure a genome name (assembly) to report here.
+    return jsonify(genome={'uri':         url_for('.genome_get'),
+                           'chromosomes': genome.keys()})
+
+
 @api.route('/authentication')
-def authentication():
+def authentication_get():
     """
     Authentication state (for this very request).
 
@@ -199,7 +211,9 @@ def authentication():
             }
         }
     """
-    authentication = {'authenticated': False}
+    authentication = {'uri':           url_for('.authentication_get'),
+                      'authenticated': False,
+                      'user':          None}
     if g.user is not None:
         authentication.update(authenticated=True,
                               user=users_resource.serialize(g.user))
