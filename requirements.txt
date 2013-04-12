@@ -13,3 +13,4 @@ pyfasta==0.4.5
 -e git+https://github.com/martijnvermaat/sphinxcontrib-httpdomain.git@varda#egg=sphinxcontrib-httpdomain
 Cerberus==0.1.0
 alembic==0.4.2
+semantic-version==2.2.0

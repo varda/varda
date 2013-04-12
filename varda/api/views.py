@@ -9,21 +9,37 @@ REST API views.
 
 
 from flask import Blueprint, current_app, g, jsonify, request, url_for
+import semantic_version
 
 from .. import genome
 from .. import tasks
 from ..models import InvalidDataSource
-from .errors import ActivationFailure, ValidationError
+from .errors import AcceptError, ActivationFailure, ValidationError
 from .resources import (AnnotationsResource, CoveragesResource,
                         DataSourcesResource, SamplesResource, UsersResource,
                         VariantsResource, VariationsResource)
 from .utils import user_by_login
 
 
-API_VERSION = 1
+# Todo: Send this in a header on each response.
+API_VERSION = semantic_version.Version('0.1.0-dev')
 
 
 api = Blueprint('api', 'api')
+
+
+@api.before_request
+def check_accept_api_version():
+    """
+    Clients can ask for specific versions of our API with a `semver <http://semver.org/>`_
+    specification in the `Accept-Version` header. If no `Accept-Version`
+    header is present, a value of ``>=0.1`` (matching any current or future
+    version) is assumed.
+    """
+    accept = request.headers.get('Accept-Version', type=semantic_version.Spec)
+    if accept and not API_VERSION in accept:
+        raise AcceptError('no_acceptable_version', 'No acceptable version of '
+                          'the API is available (only %s)' % API_VERSION)
 
 
 @api.before_request
@@ -120,6 +136,12 @@ def error_(error):
                           'message': error.message}), 400
 
 
+@api.errorhandler(AcceptError)
+def error_(error):
+    return jsonify(error={'code': error.code,
+                          'message': error.message}), 406
+
+
 users_resource = UsersResource(api, url_prefix='/users')
 samples_resource = SamplesResource(api, url_prefix='/samples')
 variations_resource = VariationsResource(api, url_prefix='/variations')
@@ -151,7 +173,7 @@ def root_get():
     """
     # Todo: Genome could be expanded into a separate resource.
     api = {'status':             'ok',
-           'version':            API_VERSION,
+           'version':            str(API_VERSION),
            'genome':             {'uri': url_for('.genome_get')},
            'authentication':     {'uri': url_for('.authentication_get')}}
     api.update({resource.instance_name + '_collection':
