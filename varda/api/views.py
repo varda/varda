@@ -21,7 +21,6 @@ from .resources import (AnnotationsResource, CoveragesResource,
 from .utils import user_by_login
 
 
-# Todo: Send this in a header on each response.
 API_VERSION = semantic_version.Version('0.1.0-dev')
 
 
@@ -35,11 +34,32 @@ def check_accept_api_version():
     specification in the `Accept-Version` header. If no `Accept-Version`
     header is present, a value of ``>=0.1`` (matching any current or future
     version) is assumed.
+
+    In the future, we could use this to make changes in a backwards compatible
+    way. One extreme would be to route to different installations of Varda,
+    based on the `Accept-Version` header. Smaller changes could be implemented
+    by supporting different API versions on specific endpoints.
+
+    For now, we have one static version for the entire API and just check if
+    it matches `Accept-Version`, so no negotiation on version really. Anyway,
+    it's important that the mechanism is in place such that it can be used by
+    clients, in anticipation of future requirements.
     """
     accept = request.headers.get('Accept-Version', type=semantic_version.Spec)
     if accept and not API_VERSION in accept:
         raise AcceptError('no_acceptable_version', 'No acceptable version of '
                           'the API is available (only %s)' % API_VERSION)
+
+
+@api.after_request
+def add_api_version(response):
+    """
+    Add a header `Api-Version` with the API version. If in the future we start
+    doing version negotiation, the chosen version could be stored on the `g`
+    global and read from there.
+    """
+    response.headers.add('Api-Version', str(API_VERSION))
+    return response
 
 
 @api.before_request
