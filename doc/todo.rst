@@ -4,7 +4,10 @@ Todo list
 There are also a lot of todo notes in the source code, just ``grep`` for
 ``Todo``.
 
-* Other types of authentication (OAuth, API key, etc).
+* Authentication using single-purpose issued tokens in addition to
+  login/password. Have a notice in the docs to only deploy on HTTPS and close
+  port 80 entirely (to prevent any requests with credentials being sent)
+  instead of redirecting to HTTPS.
 * Better docs.
 * More strict validation of user input, especially file uploads (max file size
   and contents).
