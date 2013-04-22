@@ -188,13 +188,9 @@ class AnnotationsResource(TaskedResource):
         current_app.logger.info('Added annotation: %r', annotation)
 
         result = tasks.write_annotation.delay(annotation.id)
+        annotation.task_uuid = result.task_id
+        db.session.commit()
         current_app.logger.info('Called task: write_annotation(%d) %s', annotation.id, result.task_id)
         response = jsonify(annotation=cls.serialize(annotation))
         response.location = cls.instance_uri(annotation)
-        return response, 202
-
-    @classmethod
-    def serialize(cls, instance, embed=None):
-        serialization = super(AnnotationsResource, cls).serialize(instance, embed=embed)
-        serialization.update(written=instance.task_done)
-        return serialization
+        return response, 201

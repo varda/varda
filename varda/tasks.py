@@ -420,35 +420,9 @@ def import_variation(variation_id):
     if variation.task_done:
         raise TaskError('variation_imported', 'Variation already imported')
 
-    if variation.task_uuid:
-        # Note: This check if the importing task is still running is perhaps
-        #     not waterproof.
-        #     It can be the case that the task was aborted. In that case, the
-        #     uuid is still set (needed to retrieve the error state), but a
-        #     new import task can be started.
-        #     Note that for non-existing tasks, PENDING state is reported.
-        #     See also: http://stackoverflow.com/questions/9824172/find-out-whether-celery-task-exists
-        #     Or: https://github.com/PolicyStat/jobtastic
-        result = import_variation.AsyncResult(variation.task_uuid)
-        if result.state in ('STARTED', 'PROGRESS'):
-            raise TaskError('variation_importing',
-                            'Variation is being imported')
-        # I think we cannot really differentiate here. What we could do, is to
-        # always refuse to run if there is already a task_uuid (so without
-        # checking task state), but also have the possibility to re-run the
-        # task, thereby first revoking a possible pending task. Re-running
-        # should not be allowed if there is one in state STARTED or PROGRESS.
-        raise TaskError('variation_double_import', 'Variation is already '
-                        'imported, or about to be imported')
-
-    # Todo: This has a possible race condition, but I'm not bothered to fix it
-    #     at the moment. Reading and setting import_task_uuid should be an
-    #     atomic action.
-    #     An alternative would be to use real atomic locking, e.g. using redis
-    #     like in this example:
-    #     http://ask.github.com/celery/cookbook/tasks.html#ensuring-a-task-is-only-executed-one-at-a-time
-    variation.task_uuid = current_task.request.id
-    db.session.commit()
+    if variation.task_uuid and variation.task_uuid != current_task.request.id:
+        raise TaskError('variation_importing', 'Variation is being imported '
+                        'by another task instance')
 
     data_source = variation.data_source
 
@@ -560,16 +534,9 @@ def import_coverage(coverage_id):
     if coverage.task_done:
         raise TaskError('coverage_imported', 'Coverage already imported')
 
-    if coverage.task_uuid:
-        result = import_coverage.AsyncResult(coverage.task_uuid)
-        if result.state in ('STARTED', 'PROGRESS'):
-            raise TaskError('coverage_importing',
-                            'Coverage is being imported')
-        raise TaskError('coverage_double_import', 'Coverage is already '
-                        'imported, or about to be imported')
-
-    coverage.task_uuid = current_task.request.id
-    db.session.commit()
+    if coverage.task_uuid and coverage.task_uuid != current_task.request.id:
+        raise TaskError('coverage_importing', 'Coverage is being imported '
+                        'by another task instance')
 
     data_source = coverage.data_source
 
@@ -642,16 +609,9 @@ def write_annotation(annotation_id):
     if annotation.task_done:
         raise TaskError('annotation_written', 'Annotation already written')
 
-    if annotation.task_uuid:
-        result = write_annotation.AsyncResult(annotation.task_uuid)
-        if result.state in ('STARTED', 'PROGRESS'):
-            raise TaskError('annotation_writing',
-                            'Annotation is being written')
-        raise TaskError('annotation_double_import', 'Annotation is already '
-                        'imported, or about to be imported')
-
-    annotation.task_uuid = current_task.request.id
-    db.session.commit()
+    if annotation.task_uuid and annotation.task_uuid != current_task.request.id:
+        raise TaskError('annotation_writing', 'Annotation is being written '
+                        'by another task instance')
 
     original_data_source = annotation.original_data_source
     annotated_data_source = annotation.annotated_data_source
@@ -693,7 +653,7 @@ def write_annotation(annotation_id):
 @celery.task
 def ping():
     """
-    Ping-pong task usefull for testing purposes.
+    Ping-pong task useful for testing purposes.
     """
     logger.info('Started task: ping')
     logger.info('Finished task: ping')
