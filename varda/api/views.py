@@ -191,7 +191,7 @@ def root_get():
     * **data_sources_uri** (`string`) - URI for the :ref:`data sources
       resource <api_data_sources>`.
     """
-    # Todo: Genome could be expanded into a separate resource.
+    # Todo: Option to embed genome and/or authentication resources.
     api = {'status':             'ok',
            'version':            str(API_VERSION),
            'genome':             {'uri': url_for('.genome_get')},

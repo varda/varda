@@ -17,6 +17,17 @@ class ActivationFailure(Exception):
         super(ActivationFailure, self).__init__(code, message)
 
 
+class AcceptError(Exception):
+    """
+    Exception thrown on incompatiblity with acceptable response
+    characteristics.
+    """
+    def __init__(self, code, message):
+        self.code = code
+        self.message = message
+        super(AcceptError, self).__init__(code, message)
+
+
 class ValidationError(Exception):
     """
     Exception thrown on unsuccessful data validation.
@@ -24,13 +35,3 @@ class ValidationError(Exception):
     def __init__(self, message):
         self.message = message
         super(ValidationError, self).__init__(message)
-
-
-class AcceptError(Exception):
-    """
-    Exception thrown on incompatiblity with acceptable response
-    characteristics.
-    """
-    def __init__(self, message):
-        self.message = message
-        super(AcceptError, self).__init__(message)

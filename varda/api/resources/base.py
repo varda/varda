@@ -73,8 +73,9 @@ class Resource(object):
     edit_ensure_options = {}
     edit_schema = {}
 
-    # Can be one of `string`, `int`, `float`, `path`.
-    # http://flask.pocoo.org/docs/api/#url-route-registrations
+    #: Can be one of `string`, `int`, `float`, `path`. See `URL Route
+    #: Registrations in Flask
+    #: <http://flask.pocoo.org/docs/api/#url-route-registrations>`_.
     key_type = 'int'
 
     def __new__(cls, *args, **kwargs):
@@ -224,7 +225,6 @@ class ModelResource(Resource):
 
     @classmethod
     def add_view(cls, *args, **kwargs):
-        # Todo: Way to provide default values?
         instance = cls.model(**kwargs)
         db.session.add(instance)
         db.session.commit()
@@ -235,8 +235,6 @@ class ModelResource(Resource):
 
     @classmethod
     def edit_view(cls, *args, **kwargs):
-        # Todo: Is 200 the proper response code for a PATCH request? Should we
-        #     add a `location` header, like in `add_view`?
         instance = kwargs.pop(cls.instance_name)
         for field, value in kwargs.items():
             setattr(instance, field, value)
