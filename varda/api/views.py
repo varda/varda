@@ -21,7 +21,7 @@ from .resources import (AnnotationsResource, CoveragesResource,
 from .utils import user_by_login
 
 
-API_VERSION = semantic_version.Version('0.1.0-dev')
+API_VERSION = semantic_version.Version('0.2.0')
 
 
 api = Blueprint('api', 'api')
