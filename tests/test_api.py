@@ -309,7 +309,7 @@ class TestApi():
         data = {'sample': sample,
                 'data_source': vcf_data_source}
         r = self.client.post(self.uri_variations, data=data, headers=[auth_header(login='trader', password='test')])
-        assert_equal(r.status_code, 202)
+        assert_equal(r.status_code, 201)
         variation = json.loads(r.data)['variation']['uri']
 
         # Get variation without data source embedded
@@ -352,7 +352,7 @@ class TestApi():
         data = {'sample': sample,
                 'data_source': vcf_data_source}
         r = self.client.post(self.uri_variations, data=data, headers=[auth_header(login='trader', password='test')])
-        assert_equal(r.status_code, 202)
+        assert_equal(r.status_code, 201)
         variation = json.loads(r.data)['variation']['uri']
 
         # Wait for importing
@@ -360,8 +360,7 @@ class TestApi():
         for _ in range(5):
             r = self.client.get(variation, headers=[auth_header(login='trader', password='test')])
             assert_equal(r.status_code, 200)
-            imported = json.loads(r.data)['variation']['imported']
-            if imported:
+            if json.loads(r.data)['variation']['task']['done']:
                 break
             time.sleep(1)
         else:
@@ -380,7 +379,7 @@ class TestApi():
         # Annotate observations
         data = {'data_source': vcf_data_source}
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
-        assert_equal(r.status_code, 202)
+        assert_equal(r.status_code, 201)
 
     def _annotate(self, vcf_data_source, sample_frequency=None):
         """
@@ -392,7 +391,7 @@ class TestApi():
         data = {'data_source': vcf_data_source,
                 'sample_frequency': sample_frequency}
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
-        assert_equal(r.status_code, 202)
+        assert_equal(r.status_code, 201)
         annotation = json.loads(r.data)['annotation']['uri']
 
         # Wait for writing
@@ -400,8 +399,7 @@ class TestApi():
         for _ in range(5):
             r = self.client.get(annotation, headers=[auth_header()])
             assert_equal(r.status_code, 200)
-            written = json.loads(r.data)['annotation']['written']
-            if written:
+            if json.loads(r.data)['annotation']['task']['done']:
                 break
             time.sleep(1)
         else:
@@ -450,7 +448,7 @@ class TestApi():
         data = {'sample': sample,
                 'data_source': vcf_data_source}
         r = self.client.post(self.uri_variations, data=data, headers=[auth_header()])
-        assert_equal(r.status_code, 202)
+        assert_equal(r.status_code, 201)
         variation = json.loads(r.data)['variation']['uri']
 
         # Wait for importing
@@ -458,8 +456,7 @@ class TestApi():
         for _ in range(5):
             r = self.client.get(variation, headers=[auth_header()])
             assert_equal(r.status_code, 200)
-            imported = json.loads(r.data)['variation']['imported']
-            if imported:
+            if json.loads(r.data)['variation']['task']['done']:
                 break
             time.sleep(1)
         else:
@@ -470,7 +467,7 @@ class TestApi():
             data = {'sample': sample,
                     'data_source': bed_data_source}
             r = self.client.post(self.uri_coverages, data=data, headers=[auth_header()])
-            assert_equal(r.status_code, 202)
+            assert_equal(r.status_code, 201)
             coverage = json.loads(r.data)['coverage']['uri']
 
             # Wait for importing
@@ -478,8 +475,7 @@ class TestApi():
             for _ in range(5):
                 r = self.client.get(coverage, headers=[auth_header()])
                 assert_equal(r.status_code, 200)
-                imported = json.loads(r.data)['coverage']['imported']
-                if imported:
+                if json.loads(r.data)['coverage']['task']['done']:
                     break
                 time.sleep(1)
             else:
@@ -518,7 +514,7 @@ class TestApi():
         data = {'sample': sample,
                 'data_source': data_source}
         r = self.client.post(self.uri_variations, data=data, headers=[auth_header()])
-        assert_equal(r.status_code, 202)
+        assert_equal(r.status_code, 201)
         wait = json.loads(r.data)['wait']
 
         # Check success

@@ -25,7 +25,6 @@ There are also a lot of todo notes in the source code, just ``grep`` for
 * Store phasing info, for example by numbering each allele (uniquely within a
   sample) and store the allele number with observations.
 * Delete resources (have to think about cascading or not).
-* Get error from failed task and a way to retry.
 * Support bigBed format.
 * What to do for variants where we have more observations than coverage? We
   could have a check in sample activation, but would we really like to

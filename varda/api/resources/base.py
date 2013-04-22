@@ -27,6 +27,7 @@ import celery.exceptions
 from flask import current_app, jsonify, url_for
 
 from ... import db
+from ... import tasks
 from ..data import data
 from ..security import ensure, has_role, require_user
 from ..utils import collection
@@ -256,26 +257,28 @@ class TaskedResource(ModelResource):
     task = None
 
     @classmethod
-    def get_view(cls, embed=None, **kwargs):
-        instance = kwargs.get(cls.instance_name)
-        progress = None
-        if not instance.task_done and instance.task_uuid:
-            result = cls.task.AsyncResult(instance.task_uuid)
-            try:
-                # This re-raises a possible TaskError, handled by error_task_error
-                # above.
-                # Todo: Re-raising doesn't seem to work at the moment...
-                result.get(timeout=3)
-            except celery.exceptions.TimeoutError:
-                pass
-            if result.state == 'PROGRESS':
-                progress = result.info['percentage']
-        # Todo: This needs some restructuring, I think the progress should be
-        #     part of the instance serialization.
-        return jsonify({cls.instance_name: cls.serialize(instance, embed=embed), 'progress': progress})
-
-    # Todo: Retrying the task should be possible for admins using PATCH with
-    #     `imported: True` or similar.
+    def edit_view(cls, *args, **kwargs):
+        if kwargs.pop('task', None) == {}:
+            if not 'admin' in g.user.roles:
+                # Todo: Better error message.
+                abort(403)
+            instance = kwargs[cls.instance_name]
+            # Todo: This has a possible race condition, but I'm not bothered
+            #     to fix it at the moment. Reading and setting task_uuid
+            #     should be an atomic action.
+            #     An alternative would be to use real atomic locking, e.g.
+            #     using redis [1].
+            # [1] http://ask.github.com/celery/cookbook/tasks.html#ensuring-a-task-is-only-executed-one-at-a-time
+            if instance.task_uuid:
+                result = cls.task.AsyncResult(instance.task_uuid)
+                if result.state in ('STARTED', 'PROGRESS'):
+                    abort(403)
+                result.revoke()
+            instance.task_done = False
+            result = cls.task.delay(instance.id)
+            instance.task_uuid = result.task_id
+            db.session.commit()
+        return super(TaskedResource, cls).edit_view(*args, **kwargs)
 
     @classmethod
     def add_view(cls, *args, **kwargs):
@@ -283,15 +286,30 @@ class TaskedResource(ModelResource):
         db.session.add(instance)
         db.session.commit()
         current_app.logger.info('Added %s: %r', cls.instance_name, instance)
+
+        # Note: We have to store the task id at the caller side, since we want
+        #     it available also while the task is not running yet. I.e., we
+        #     cannot set `instance.task_uuid` from within the task itself.
         result = cls.task.delay(instance.id)
+        instance.task_uuid = result.task_id
+        db.session.commit()
         current_app.logger.info('Called task: %s(%d) %s', cls.task.__name__, instance.id, result.task_id)
+
         response = jsonify({cls.instance_name: cls.serialize(instance)})
         response.location = cls.instance_uri(instance)
-        # Todo: The resourse is created, only it is not imported yet, so I
-        #     this isn't a reall asynchronous request and we can just return
-        #     the 201 status code.
-        #     In case of a real asynchronous request, we should point to a
-        #     temporary status monitor (the real resource cannot be polled
-        #     since it does not yet exist). But we don't have such a case
-        #     I believe.
-        return response, 202
+        return response, 201
+
+    @classmethod
+    def serialize(cls, instance, embed=None):
+        serialization = super(TaskedResource, cls).serialize(instance, embed=embed)
+        task = {'done': instance.task_done}
+        if instance.task_uuid:
+            result = cls.task.AsyncResult(instance.task_uuid)
+            task.update(state=result.state.lower())
+            if result.state == 'PROGRESS':
+                task.update(progress=result.info.get('percentage'))
+            if result.state == 'FAILURE' and isinstance(result.result, tasks.TaskError):
+                task.update(error={'code': result.result.code,
+                                   'message': result.result.message})
+        serialization.update(task=task)
+        return serialization
