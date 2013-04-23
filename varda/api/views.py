@@ -45,6 +45,8 @@ def check_accept_api_version():
     it's important that the mechanism is in place such that it can be used by
     clients, in anticipation of future requirements.
     """
+    # Todo: Should return error if Accept-Version is set but not a valid
+    #     version specification (currently ignore silently).
     accept = request.headers.get('Accept-Version', type=semantic_version.Spec)
     if accept and not API_VERSION in accept:
         raise AcceptError('no_acceptable_version', 'No acceptable version of '
