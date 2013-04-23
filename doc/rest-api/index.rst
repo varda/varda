@@ -67,7 +67,7 @@ Special endpoints
 -----------------
 
 .. autoflask:: varda:create_app()
-   :endpoints: api.apiroot, api.authentication
+   :endpoints: api.root_get, api.authentication_get
 
 
 .. _api_exceptions:
