@@ -19,24 +19,7 @@ clients for this interface are under development:
 Use cases
 ---------
 
-Before describing some use cases for Varda, let's first consider what Varda is
-*not* designed to do.
-
-* *Sharing and browsing genomic variants*
-
-  Varda is focussed on sharing variant frequencies only, and as such is not
-  designed for direct browsing. Other systems, such as `LOVD`_, are much more
-  suitable for sharing and browsing genomic variants and additionally store
-  phenotypes and other metadata.
-
-* *Ad-hoc exploration of genomic variation*
-
-  Again, Varda is focussed on sharing variant frequencies only, and does not
-  store additional metadata nor does it allow for effective exploration of
-  variants. If you have variation data from a disease or population study
-  which you want to analyse in a flexible way, have a look at `gemini`_.
-
-We now describe some use cases Varda is designed to support.
+The following are some example use cases which Varda is designed to support.
 
 * *Private exome variant database for a sequencing lab*
 
@@ -65,6 +48,23 @@ We now describe some use cases Varda is designed to support.
   Variation data from a population study can be imported in a Varda
   installation accessible over the internet such that others can annotate
   their data with frequencies in the study.
+
+For contrast, consider the following examples of what Varda is *not* designed
+to do.
+
+* *Sharing and browsing genomic variants*
+
+  Varda is focussed on sharing variant frequencies only, and as such is not
+  designed for direct browsing. Other systems, such as `LOVD`_, are much more
+  suitable for sharing and browsing genomic variants and additionally store
+  phenotypes and other metadata.
+
+* *Ad-hoc exploration of genomic variation*
+
+  Again, Varda is focussed on sharing variant frequencies only, and does not
+  store additional metadata nor does it allow for effective exploration of
+  variants. If you have variation data from a disease or population study
+  which you want to analyse in a flexible way, have a look at `gemini`_.
 
 
 Implementation
