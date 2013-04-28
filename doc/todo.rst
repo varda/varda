@@ -32,3 +32,4 @@ There are also a lot of todo notes in the source code, just ``grep`` for
 * Enforce active property of sample. Changing anything means deactivating
   (automatically or manually?) and activating can only be done if everything
   is ok (no duplicated imports, everything has been imported, etc).
+* Move region binning to its own package.
