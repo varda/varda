@@ -49,6 +49,10 @@ def ensure(*conditions, **options):
     ``satisfy=any`` uses the standard library function `any` to ensure that at
     least one of the conditions is met.
 
+    When the condition scheme is not satisfied, the request is aborted with a
+    401 status if there is no user authenticated or with a 403 status
+    otherwise.
+
     Typical conditions may depend on the authorized user. In that case, use
     the `require_user` decorator first, for example::
 
@@ -147,7 +151,7 @@ def ensure(*conditions, **options):
                                     for name, value in kwargs.items()}
             if not satisfy(c(*condition_args, **condition_kwargs)
                            for c in conditions):
-                abort(403)
+                abort(401 if g.user is None else 403)
             return rule(*rule_args, **rule_kwargs)
         return ensured_rule
 
@@ -175,7 +179,7 @@ def has_role(role):
     return condition
 
 
-def owns_sample(sample, **_):
+def owns_sample(sample=None, **_):
     """
     Condition that is satisfied if the view argument `sample` is owned by the
     currently authenticated user.
@@ -183,7 +187,7 @@ def owns_sample(sample, **_):
     return sample is not None and sample.user is g.user
 
 
-def owns_variation(variation, **_):
+def owns_variation(variation=None, **_):
     """
     Condition that is satisfied if the view argument `variation_id` is in a
     sample owned by the currently authenticated user.
@@ -194,7 +198,7 @@ def owns_variation(variation, **_):
         return False
 
 
-def owns_coverage(coverage, **_):
+def owns_coverage(coverage=None, **_):
     """
     Condition that is satisfied if the view argument `coverage` is in a sample
     owned by the currently authenticated user.
@@ -205,7 +209,7 @@ def owns_coverage(coverage, **_):
         return False
 
 
-def owns_annotation(annotation, **_):
+def owns_annotation(annotation=None, **_):
     """
     Condition that is satisfied if the view argument `annotation` is in a
     data_source owned by the currently authenticated user.
@@ -216,7 +220,7 @@ def owns_annotation(annotation, **_):
         return False
 
 
-def owns_data_source(data_source, **_):
+def owns_data_source(data_source=None, **_):
     """
     Condition that is satisfied if the view argument `data_source` is owned by
     the currently authenticated user.
@@ -224,7 +228,7 @@ def owns_data_source(data_source, **_):
     return data_source is not None and data_source.user is g.user
 
 
-def is_user(user, **_):
+def is_user(user=None, **_):
     """
     Condition that is satisfied if the view argument `user` is equal to the
     currently authenticated user.

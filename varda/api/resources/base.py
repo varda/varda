@@ -29,7 +29,7 @@ from flask import current_app, jsonify, url_for
 from ... import db
 from ... import tasks
 from ..data import data
-from ..security import ensure, has_role, require_user
+from ..security import ensure, has_role
 from ..utils import collection
 
 
@@ -118,7 +118,6 @@ class Resource(object):
         view_func = getattr(self, '%s_view' % endpoint)
 
         @wraps(view_func)
-        @require_user
         @data(**getattr(self, '%s_schema' % endpoint))
         @ensure(*getattr(self, '%s_ensure_conditions' % endpoint),
                 **getattr(self, '%s_ensure_options' % endpoint))

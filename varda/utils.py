@@ -324,6 +324,7 @@ def calculate_frequency(chromosome, position, reference, observed,
         observations = collections.Counter(dict(
             db.session.query(Observation.zygosity,
                           func.sum(Observation.support)).
+            filter(Observation.bin.in_(bins)).
             filter_by(chromosome=chromosome,
                       position=position,
                       reference=reference,
@@ -357,6 +358,7 @@ def calculate_frequency(chromosome, position, reference, observed,
         observations = collections.Counter(dict(
             db.session.query(Observation.zygosity,
                           func.sum(Observation.support)).
+            filter(Observation.bin.in_(bins)).
             filter_by(chromosome=chromosome,
                       position=position,
                       reference=reference,
