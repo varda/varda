@@ -33,3 +33,7 @@ There are also a lot of todo notes in the source code, just ``grep`` for
   (automatically or manually?) and activating can only be done if everything
   is ok (no duplicated imports, everything has been imported, etc).
 * Move region binning to its own package.
+* Fallback modes to accomodate browsing the API with a standard web browser,
+  e.g., query string alternative to pagination with Accept-Range headers.
+  Perhaps this can be optional and implemented by patching the Request object
+  before it reaches the API code.
