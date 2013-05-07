@@ -117,7 +117,7 @@ def error_entity_too_large(error):
 def error_unsatisfiable_range(error):
     return jsonify(error={
         'code': 'unsatisfiable_range',
-        'message': 'Requested range bot satisfiable'}), 416
+        'message': 'Requested range not satisfiable'}), 416
 
 
 # Note: It is currently not possible to register a 500 internal server error
