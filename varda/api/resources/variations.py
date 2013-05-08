@@ -11,7 +11,7 @@ from flask import url_for
 
 from ...models import Variation
 from ... import tasks
-from ..security import has_role, owns_sample, owns_variation
+from ..security import has_role, owns_sample, owns_variation, public_sample
 from .base import TaskedResource
 from .data_sources import DataSourcesResource
 from .samples import SamplesResource
@@ -37,7 +37,7 @@ class VariationsResource(TaskedResource):
     embeddable = {'data_source': DataSourcesResource, 'sample': SamplesResource}
     filterable = {'sample': 'sample'}
 
-    list_ensure_conditions = [has_role('admin'), owns_sample]
+    list_ensure_conditions = [has_role('admin'), owns_sample, public_sample]
     list_ensure_options = {'satisfy': any}
 
     get_ensure_conditions = [has_role('admin'), owns_variation]

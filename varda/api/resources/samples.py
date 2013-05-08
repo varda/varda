@@ -10,7 +10,7 @@ REST API samples model resource.
 from flask import g, url_for
 
 from ...models import Sample
-from ..security import is_user, has_role, owns_sample, true
+from ..security import is_user, has_role, owns_sample, public_sample, true
 from .base import ModelResource
 from .users import UsersResource
 
@@ -37,7 +37,7 @@ class SamplesResource(ModelResource):
     list_ensure_conditions = [has_role('admin'), is_user, true('public')]
     list_ensure_options = {'satisfy': any}
 
-    get_ensure_conditions = [has_role('admin'), owns_sample]
+    get_ensure_conditions = [has_role('admin'), owns_sample, public_sample]
     get_ensure_options = {'satisfy': any}
 
     add_ensure_conditions = [has_role('admin'), has_role('importer')]

@@ -179,6 +179,13 @@ def has_role(role):
     return condition
 
 
+def public_sample(sample=None, **_):
+    """
+    Condition that is satisfied if the view argument `sample` is public.
+    """
+    return sample is not None and sample.public
+
+
 def owns_sample(sample=None, **_):
     """
     Condition that is satisfied if the view argument `sample` is owned by the
