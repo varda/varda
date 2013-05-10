@@ -37,3 +37,5 @@ There are also a lot of todo notes in the source code, just ``grep`` for
   e.g., query string alternative to pagination with Accept-Range headers.
   Perhaps this can be optional and implemented by patching the Request object
   before it reaches the API code.
+* Implement Cross-origin resource sharing (CORS) to enable serving Aulë from
+  another domain.
