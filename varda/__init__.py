@@ -15,23 +15,19 @@ from flask.ext.sqlalchemy import SQLAlchemy
 from .genome import Genome
 
 
-# On the event of a new release, we update the __version_info__ and __date__
-# package globals and set RELEASE to True.
-# Before a release, a development version is denoted by a __version_info__
-# ending with a 'dev' item. Also, RELEASE is set to False (indicating that
-# the __date__ value is to be ignored).
-#
 # We follow a versioning scheme compatible with setuptools [1] where the
-# __version_info__ variable always contains the version of the upcomming
-# release (and not that of the previous release), post-fixed with a 'dev'
-# item. Only in a release commit, this 'dev' item is removed (and added
-# again in the next commit).
+# package version is always that of the upcoming release (and not that of the
+# previous release), post-fixed with ``.dev``. Only in a release commit, the
+# ``.dev`` is removed (and added again in the next commit).
+#
+# Note that this scheme is not 100% compatible with SemVer [2] which would
+# require ``-dev`` instead of ``.dev``.
 #
 # [1] http://peak.telecommunity.com/DevCenter/setuptools#specifying-your-project-s-version
+# [2] http://semver.org/
 
-RELEASE = False
 
-__version_info__ = ('0', '1', 'dev')
+__version_info__ = ('0', '1', '0', 'dev')
 __date__ = '10 Feb Nov 2012'
 
 

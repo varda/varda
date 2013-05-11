@@ -1,7 +1,7 @@
 REST server API
 ===============
 
-.. todo:: Rewrite this section.
+.. todo:: Rewrite this entire section.
 
 This page documents the REST server API exposed by Varda to client
 applications.

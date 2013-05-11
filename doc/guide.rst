@@ -1,7 +1,7 @@
 .. _guide:
 
-User's guide
-============
+User guide
+==========
 
 .. todo:: Structure this guide, it's an incomplete random collection of
    paragraphs.

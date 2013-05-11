@@ -1,8 +1,8 @@
 Todo list
 =========
 
-There are also a lot of todo notes in the source code, just ``grep`` for
-``Todo``.
+These are some general todo notes. More specific notes can be found by
+grepping the source code for ``Todo``.
 
 * Authentication using single-purpose issued tokens in addition to
   login/password. Have a notice in the docs to only deploy on HTTPS and close

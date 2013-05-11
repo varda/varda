@@ -1,8 +1,6 @@
 Varda
 =====
 
-A database for genomic variation frequencies.
-
 .. warning:: This is a work in progress, probably not yet ready for use!
 
 Varda is an application for storing genomic variation data obtained from
@@ -18,8 +16,8 @@ clients for this interface are under development:
 * `Aulë`_ - Web interface to Varda.
 
 
-Documentation for users
------------------------
+User documentation
+------------------
 
 This section of the documentation aims to guide users through working with
 Varda. Users range from API client developers to end users working with Varda
@@ -33,8 +31,8 @@ through a web client.
    rest-api/index
 
 
-Documentation for administrators
---------------------------------
+Administrating Varda
+--------------------
 
 Start here if you're responsible for getting Varda running on a system.
 
@@ -42,21 +40,24 @@ Start here if you're responsible for getting Varda running on a system.
    :maxdepth: 2
 
    install
+   upgrade
    config
    run
 
 
-Documentation for developers
-----------------------------
+Additional notes
+----------------
 
-This part is for developers working on Varda. It needs work, sorry about
-that.
+This part contains some notes for developers and other random notes. It needs
+work, sorry about that.
 
 .. toctree::
    :maxdepth: 1
 
    design
    todo
+   changelog
+   copyright
    links
    api/index
 

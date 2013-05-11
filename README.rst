@@ -1,13 +1,7 @@
 Varda
 =====
 
-A database for genomic variation frequencies.
-
 **Warning:** This is a work in progress, probably not yet ready for use!
-
-
-Description
------------
 
 Varda is an application for storing genomic variation data obtained from
 next-generation sequencing experiments, such as full-genome or exome
