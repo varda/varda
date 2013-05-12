@@ -89,6 +89,8 @@ Todo. UCSC binning scheme.
 Security
 --------
 
+Todo: Add a page on security to the Managing Varda section.
+
 Authentication via HTTP Basic Authentication, so only use with SSL.
 
 

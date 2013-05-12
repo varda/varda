@@ -8,12 +8,12 @@ grepping the source code for ``Todo``.
   login/password. Have a notice in the docs to only deploy on HTTPS and close
   port 80 entirely (to prevent any requests with credentials being sent)
   instead of redirecting to HTTPS.
-* Better docs.
+* Complete docs, including REST API docs.
 * More strict validation of user input, especially file uploads (max file size
   and contents).
 * Implement caching control headers.
 * Implement HEAD requests.
-* More comprehensive test suite.
+* Better organised and more comprehensive test suite.
 * Throtling.
 * Better rights/roles model.
 * Support input in BCF2 format.

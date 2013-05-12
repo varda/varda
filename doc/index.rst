@@ -20,19 +20,17 @@ User documentation
 ------------------
 
 This section of the documentation aims to guide users through working with
-Varda. Users range from API client developers to end users working with Varda
-through a web client.
+Varda.
 
 .. toctree::
    :maxdepth: 2
 
    intro
    guide
-   rest-api/index
 
 
-Administrating Varda
---------------------
+Managing Varda
+--------------
 
 Start here if you're responsible for getting Varda running on a system.
 
@@ -45,6 +43,19 @@ Start here if you're responsible for getting Varda running on a system.
    run
 
 
+REST API documentation
+----------------------
+
+Developers of client applications can read how to communicate with the Varda
+REST API in this section.
+
+.. toctree::
+   :maxdepth: 2
+
+   rest-api/overview
+   rest-api/reference
+
+
 Additional notes
 ----------------
 
@@ -52,7 +63,7 @@ This part contains some notes for developers and other random notes. It needs
 work, sorry about that.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    design
    todo

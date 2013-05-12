@@ -3,6 +3,8 @@ API reference
 
 .. todo:: This is still kind of a mess.
 
+.. todo:: Get entire API reference into one api.rst file.
+
 .. automodule:: varda
    :members: create_app
 

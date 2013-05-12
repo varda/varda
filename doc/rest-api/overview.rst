@@ -1,5 +1,5 @@
-REST server API
-===============
+Overview of the REST API
+========================
 
 .. todo:: Rewrite this entire section.
 
@@ -39,72 +39,3 @@ Response content is always in JSON format.
 If a request requires user authentication, it should be performed using
 `HTTP Basic Authentication <http://en.wikipedia.org/wiki/Basic_access_authentication>`_.
 Authentication state can be checked on the :http:get:`authentication endpoint </authentication>`.
-
-
-.. _api_resources:
-
-Resources
----------
-
-Several resources are exposes through the API. They are documented on the
-following pages.
-
-.. toctree::
-   :maxdepth: 1
-
-   users
-   samples
-   data_sources
-   variations
-   coverages
-   annotations
-   variants
-
-
-.. _api_misc:
-
-Special endpoints
------------------
-
-.. autoflask:: varda:create_app()
-   :endpoints: api.root_get, api.authentication_get
-
-
-.. _api_exceptions:
-
-Errors
-------
-
-Errors are represented as objects with the following fields:
-
-* **code** (`string`) - Error code (todo: document error codes).
-* **message** (`string`) - Human readable error message.
-
-If an error occurs, the server responds with an error object as `error` and an
-appropriate status code.
-
-Example request:
-
-.. sourcecode:: http
-
-    PATCH /samples/3 HTTP/1.1
-    Content-Type: application/json
-
-    {
-      "active": true
-    }
-
-Example response:
-
-.. sourcecode:: http
-
-    HTTP/1.1 400 Bad Request
-    Content-Type: application/json
-
-    {
-      "error":
-        {
-          "code": "activation_failure",
-          "message": "Sample could not be activated for some reason"
-        }
-    }

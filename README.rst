@@ -80,11 +80,13 @@ distributed task queue.
 Documentation
 -------------
 
-The `latest documentation <https://varda.readthedocs.org/>`_ and API reference
-is hosted at Read The Docs, or can be built directly from the sources in the
-``doc`` directory.
+The `latest documentation <https://varda.readthedocs.org/>`_ with installation
+instructions, user guide and REST server API reference, is hosted at Read The
+Docs.
 
-This includes installation instructions and REST server API documentation.
+You can also compile the documentation directly from the source code by
+running ``make html`` from the ``doc/`` subdirectory. This requires `Sphinx`_
+to be installed.
 
 
 Copyright
@@ -103,5 +105,6 @@ the AUTHORS file for a list of authors.
 .. _MySQL: http://www.mysql.com/
 .. _PostgreSQL: http://www.postgresql.org
 .. _REST: http://en.wikipedia.org/wiki/Representational_state_transfer
+.. _Sphinx: http://sphinx-doc.org/
 .. _SQLAlchemy: http://www.sqlalchemy.org/
 .. _VCF: http://www.1000genomes.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-41
