@@ -71,9 +71,7 @@ Implementation
 The server is implemented in Python using the `Flask`_ framework and directly
 interfaces the `PostgreSQL`_ (or `MySQL`_) database backend using
 `SQLAlchemy`_. It exposes a `RESTful <REST>`_ API over HTTP where response
-payloads are (currently only) JSON-encoded. A future version may use other
-encodings, depending on the value of the ``Accept-Encoding`` header sent by
-the client.
+payloads are JSON-encoded.
 
 Long-running actions are executed asynchonously through the `Celery`_
 distributed task queue.
