@@ -70,7 +70,6 @@ work, sorry about that.
    changelog
    copyright
    links
-   api/index
 
 
 Indices and tables
