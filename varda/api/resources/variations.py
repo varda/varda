@@ -32,7 +32,7 @@ class VariationsResource(TaskedResource):
 
     task = tasks.import_variation
 
-    views = ['list', 'get', 'add']
+    views = ['list', 'get', 'add', 'edit']
 
     embeddable = {'data_source': DataSourcesResource, 'sample': SamplesResource}
     filterable = {'sample': 'sample'}

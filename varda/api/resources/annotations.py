@@ -34,7 +34,7 @@ class AnnotationsResource(TaskedResource):
 
     task = tasks.write_annotation
 
-    views = ['list', 'get', 'add']
+    views = ['list', 'get', 'add', 'edit']
 
     embeddable = {'original_data_source': DataSourcesResource,
                   'annotated_data_source': DataSourcesResource}

@@ -24,7 +24,7 @@ information about the state of the task.
 from functools import wraps
 
 import celery.exceptions
-from flask import current_app, jsonify, url_for
+from flask import current_app, g, jsonify, url_for
 
 from ... import db
 from ... import tasks
@@ -252,6 +252,11 @@ class TaskedResource(ModelResource):
     where creating a model instance is followed by running a Celery task.
     """
     task = None
+
+    def __new__(cls, *args, **kwargs):
+        task_schema = {'task': {'type': 'dict', 'schema': {}}}
+        cls.edit_schema.update(task_schema)
+        return super(ModelResource, cls).__new__(cls, *args, **kwargs)
 
     @classmethod
     def edit_view(cls, *args, **kwargs):
