@@ -167,9 +167,3 @@ class CoveragesResource(TaskedResource):
             }
         """
         return super(CoveragesResource, cls).add_view(*args, **kwargs)
-
-    @classmethod
-    def serialize(cls, instance, embed=None):
-        serialization = super(CoveragesResource, cls).serialize(instance, embed=embed)
-        serialization.update(imported=instance.task_done)
-        return serialization

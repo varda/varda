@@ -171,9 +171,3 @@ class VariationsResource(TaskedResource):
             }
         """
         return super(VariationsResource, cls).add_view(*args, **kwargs)
-
-    @classmethod
-    def serialize(cls, instance, embed=None):
-        serialization = super(VariationsResource, cls).serialize(instance, embed=embed)
-        serialization.update(imported=instance.task_done)
-        return serialization
