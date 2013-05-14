@@ -43,6 +43,10 @@ same data to be imported twice. Of course, this is quite a weak measure in
 that it can easily be circumvented, so its main value lies in preventing
 accidental duplicate imports.
 
+.. note:: There is a high chance of checksum collision with empty files (e.g.,
+   no variants were called). A solution is to always have something unique to
+   the sample in the header of the file.
+
 
 .. _guide-trading:
 
