@@ -275,7 +275,8 @@ class TaskedResource(ModelResource):
                 result = cls.task.AsyncResult(instance.task_uuid)
                 if result.state in ('STARTED', 'PROGRESS'):
                     abort(403)
-                result.revoke()
+                # Todo: Implement http://docs.celeryproject.org/en/latest/userguide/workers.html#persistent-revokes
+                result.revoke(terminate=True)
             instance.task_done = False
             result = cls.task.delay(instance.id)
             instance.task_uuid = result.task_id

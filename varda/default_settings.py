@@ -60,3 +60,7 @@ CELERY_CACHE_BACKEND = 'memory'
 
 # We are running the unit tests
 TESTING = False
+
+# Todo: Add documentation on the following two settings.
+BROKER_TRANSPORT_OPTIONS = {'visibility_timeout': 60 * 60 * 24 * 7}
+DEBUG = False
