@@ -91,12 +91,20 @@ def _cast_list(values, definition):
     return values
 
 
-def _cast_dict(value, definition):
-    if isinstance(value, dict):
+def _cast_dict(values, definition):
+    if isinstance(values, basestring):
+        if values:
+            try:
+                values = dict(value.split(':') for value in values.split(','))
+            except ValueError:
+                pass
+        else:
+            values = {}
+    if isinstance(values, dict):
         schema = definition.get('schema')
         if schema and isinstance(schema, dict):
-            return cast(value, schema)
-    return value
+            return cast(values, schema)
+    return values
 
 
 def _cast_integer(value, definition):
