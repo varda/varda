@@ -84,9 +84,14 @@ class VariantsResource(Resource):
             observations = observations \
                 .join(Variation).filter_by(sample=sample)
         else:
-            obserations = observations \
+            observations = observations \
                 .join(Variation).join(Sample).filter_by(active=True,
                                                         coverage_profile=True)
+
+        observations = observations.distinct(Observation.chromosome,
+                                             Observation.position,
+                                             Observation.reference,
+                                             Observation.observed)
 
         items = [cls.serialize((o.chromosome, o.position, o.reference, o.observed),
                                sample=sample)
