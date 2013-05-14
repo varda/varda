@@ -9,7 +9,7 @@ REST API variants resource.
 
 from flask import jsonify
 
-from ...models import Observation
+from ...models import Observation, Sample, Variation
 from ...region_binning import all_bins
 from ...utils import (calculate_frequency, normalize_region, normalize_variant,
                       ReferenceMismatch)
@@ -72,14 +72,21 @@ class VariantsResource(Resource):
         except ReferenceMismatch as e:
             raise ValidationError(str(e))
 
-        # Todo: Only report variants that have positive frequency in the
-        #     calculation for this view?
         bins = all_bins(begin_position, end_position)
         observations = Observation.query.filter(
             Observation.chromosome == chromosome,
             Observation.position >= begin_position,
             Observation.position <= end_position,
             Observation.bin.in_(bins))
+
+        # Filter by sample, or by samples with coverage profile otherwise.
+        if sample:
+            observations = observations \
+                .join(Variation).filter_by(sample=sample)
+        else:
+            obserations = observations \
+                .join(Variation).join(Sample).filter_by(active=True,
+                                                        coverage_profile=True)
 
         items = [cls.serialize((o.chromosome, o.position, o.reference, o.observed),
                                sample=sample)
