@@ -75,9 +75,24 @@ class TestApi():
         return (self.app.config['API_URL_PREFIX'] or '') + '/'
 
     @property
+    def uri_genome(self):
+        r = self.client.get(self.uri_root)
+        return json.loads(r.data)['genome']['uri']
+
+    @property
+    def uri_authentication(self):
+        r = self.client.get(self.uri_root)
+        return json.loads(r.data)['authentication']['uri']
+
+    @property
     def uri_users(self):
         r = self.client.get(self.uri_root)
         return json.loads(r.data)['user_collection']['uri']
+
+    @property
+    def uri_tokens(self):
+        r = self.client.get(self.uri_root)
+        return json.loads(r.data)['token_collection']['uri']
 
     @property
     def uri_samples(self):
@@ -128,16 +143,16 @@ class TestApi():
         """
         Test authentication stuff.
         """
-        r = self.client.get(self.uri_users)
+        r = self.client.get(self.uri_users, headers=[('Range', 'items=0-20')])
         assert_equal(r.status_code, 401)
 
-        r = self.client.get(self.uri_users, headers=[auth_header(password='incorrect')])
+        r = self.client.get(self.uri_users, headers=[auth_header(password='incorrect'), ('Range', 'items=0-20')])
         assert_equal(r.status_code, 401)
 
         r = self.client.get(self.uri_users, headers=[auth_header(), ('Range', 'items=0-20')])
         assert_equal(r.status_code, 206)
 
-        r = self.client.get(self.uri_users, headers=[auth_header(login='user', password='test')])
+        r = self.client.get(self.uri_users, headers=[auth_header(login='user', password='test'), ('Range', 'items=0-20')])
         assert_equal(r.status_code, 403)
 
         r = self.client.get(self.uri_root)
@@ -145,6 +160,47 @@ class TestApi():
 
         r = self.client.get(self.uri_root, headers=[auth_header(login='user', password='test')])
         assert_equal(r.status_code, 200)
+
+    def test_token_authentication(self):
+        """
+        Test authentication by token.
+        """
+        r = self.client.get(self.uri_users, headers=[('Range', 'items=0-20')])
+        assert_equal(r.status_code, 401)
+
+        r = self.client.get(self.uri_authentication)
+        assert_equal(r.status_code, 200)
+        assert_equal(None, json.loads(r.data)['user'])
+
+        r = self.client.get(self.uri_authentication, headers=[auth_header()])
+        assert_equal(r.status_code, 200)
+        user = json.loads(r.data)['user']['uri']
+
+        data = {'name': 'test token',
+                'user': user}
+        r = self.client.post(self.uri_tokens, data=data, headers=[auth_header()])
+        assert_equal(r.status_code, 201)
+        key = json.loads(r.data)['token']['key']
+
+        token_header = ('AUTHORIZATION', 'Token ' + key)
+
+        r = self.client.get(self.uri_authentication, headers=[token_header])
+        assert_equal(r.status_code, 200)
+        assert_equal(user, json.loads(r.data)['user']['uri'])
+
+        r = self.client.get(self.uri_users, headers=[token_header, ('Range', 'items=0-20')])
+        assert_equal(r.status_code, 206)
+
+        data = {'name': 'test token',
+                'user': user}
+        r = self.client.post(self.uri_tokens, data=data, headers=[token_header])
+        assert_equal(r.status_code, 400)
+
+        token_header = ('AUTHORIZATION', 'Token boguskey')
+
+        r = self.client.get(self.uri_users, headers=[token_header, ('Range', 'items=0-20')])
+        assert_equal(r.status_code, 401)
+
 
     def test_user_formdata(self):
         """

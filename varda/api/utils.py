@@ -15,7 +15,8 @@ from werkzeug.datastructures import ContentRange
 from werkzeug.exceptions import HTTPException
 from werkzeug.http import parse_range_header
 
-from ..models import Annotation, Coverage, DataSource, Sample, User, Variation
+from ..models import (Annotation, Coverage, DataSource, Sample, Token, User,
+                      Variation)
 from .errors import ValidationError
 
 
@@ -172,3 +173,11 @@ def user_by_login(login, password):
     user = User.query.filter_by(login=login).first()
     if user is not None and user.check_password(password):
         return user
+
+
+def user_by_token(token):
+    """
+    Check if token belongs to a user and return the user if so, else return
+    ``None``.
+    """
+    return User.query.join(Token).filter_by(key=token).first()

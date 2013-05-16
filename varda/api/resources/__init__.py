@@ -11,6 +11,7 @@ from .annotations import AnnotationsResource
 from .coverages import CoveragesResource
 from .data_sources import DataSourcesResource
 from .samples import SamplesResource
+from .tokens import TokensResource
 from .users import UsersResource
 from .variants import VariantsResource
 from .variations import VariationsResource

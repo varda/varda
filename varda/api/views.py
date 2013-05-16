@@ -16,9 +16,9 @@ from .. import tasks
 from ..models import InvalidDataSource
 from .errors import AcceptError, ActivationFailure, ValidationError
 from .resources import (AnnotationsResource, CoveragesResource,
-                        DataSourcesResource, SamplesResource, UsersResource,
-                        VariantsResource, VariationsResource)
-from .utils import user_by_login
+                        DataSourcesResource, SamplesResource, TokensResource,
+                        UsersResource, VariantsResource, VariationsResource)
+from .utils import user_by_login, user_by_token
 
 
 API_VERSION = semantic_version.Version('0.2.0')
@@ -69,12 +69,33 @@ def register_user():
     """
     Make sure we add a :class:`.User` instance to the global objects if we
     have authentication.
+
+    Authentication can be achieved either by HTTP Basic Authentication using
+    login and password, or by token authentication.
     """
+    user = None
+    auth_method = None
+
     auth = request.authorization
-    g.user = user_by_login(auth.username, auth.password) if auth else None
-    if auth and g.user is None:
-        current_app.logger.warning('Unsuccessful authentication with '
-                                   'username "%s"', auth.username)
+    if auth:
+        user = user_by_login(auth.username, auth.password)
+        if user is None:
+            current_app.logger.warning('Unsuccessful authentication with '
+                                       'username "%s"', auth.username)
+        else:
+            auth_method = 'basic-auth'
+    else:
+        auth = request.headers.get('Authorization', '').split()
+        if len(auth) == 2 and auth[0] == 'Token':
+            user = user_by_token(auth[1])
+            if user is None:
+                current_app.logger.warning('Unsuccessful authentication with '
+                                           'token "%s"', auth[1])
+            else:
+                auth_method = 'token'
+
+    g.user = user
+    g.auth_method = auth_method
 
 
 @api.errorhandler(400)
@@ -165,6 +186,7 @@ def error_(error):
 
 
 users_resource = UsersResource(api, url_prefix='/users')
+tokens_resource = TokensResource(api, url_prefix='/tokens')
 samples_resource = SamplesResource(api, url_prefix='/samples')
 variations_resource = VariationsResource(api, url_prefix='/variations')
 coverages_resource = CoveragesResource(api, url_prefix='/coverages')
@@ -204,6 +226,7 @@ def root_get():
                                  coverages_resource,
                                  data_sources_resource,
                                  samples_resource,
+                                 tokens_resource,
                                  users_resource,
                                  variants_resource,
                                  variations_resource)})

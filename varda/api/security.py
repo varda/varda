@@ -179,6 +179,14 @@ def has_role(role):
     return condition
 
 
+def owns_token(token=None, **_):
+    """
+    Condition that is satisfied if the view argument `token` is owned by the
+    currently authenticated user.
+    """
+    return token is not None and token.user is g.user
+
+
 def public_sample(sample=None, **_):
     """
     Condition that is satisfied if the view argument `sample` is public.

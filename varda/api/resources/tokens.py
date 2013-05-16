@@ -1,0 +1,82 @@
+"""
+REST API tokens model resource.
+
+.. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
+
+.. Licensed under the MIT license, see the LICENSE file.
+"""
+
+
+from flask import g
+
+from ...models import Token
+from ..errors import ValidationError
+from ..security import has_role, is_user, owns_token
+from .base import ModelResource
+from .users import UsersResource
+
+
+class TokensResource(ModelResource):
+    """
+    Authentication tokens for users.
+    """
+    model = Token
+    instance_name = 'token'
+    instance_type = 'token'
+
+    embeddable = {'user': UsersResource}
+    filterable = {'user': 'user'}
+
+    list_ensure_conditions = [has_role('admin'), is_user]
+    list_ensure_options = {'satisfy': any}
+
+    get_ensure_conditions = [has_role('admin'), owns_token]
+    get_ensure_options = {'satisfy': any}
+
+    add_ensure_conditions = [has_role('admin'), is_user]
+    add_ensure_options = {'satisfy': any}
+    add_schema = {'user': {'type': 'user', 'required': True},
+                  'name': {'type': 'string', 'maxlength': 200, 'required': True}}
+
+    edit_ensure_conditions = [has_role('admin'), owns_token]
+    edit_ensure_options = {'satisfy': any}
+    edit_schema = {'name': {'type': 'string', 'maxlength': 200}}
+
+    @classmethod
+    def list_view(cls, *args, **kwargs):
+        """
+        Get a collection of tokens.
+        """
+        return super(TokensResource, cls).list_view(*args, **kwargs)
+
+    @classmethod
+    def get_view(cls, *args, **kwargs):
+        """
+        Get token details.
+        """
+        return super(TokensResource, cls).get_view(*args, **kwargs)
+
+    @classmethod
+    def add_view(cls, **kwargs):
+        """
+        Create a token.
+        """
+        if g.auth_method != 'basic-auth':
+            raise ValidationError('Creating a token is only possible if '
+                                  'authenticated with login and password')
+        return super(TokensResource, cls).add_view(**kwargs)
+
+    @classmethod
+    def edit_view(cls, *args, **kwargs):
+        """
+        Update a token.
+        """
+        return super(TokensResource, cls).edit_view(*args, **kwargs)
+
+    @classmethod
+    def serialize(cls, instance, embed=None):
+        serialization = super(TokensResource, cls).serialize(instance, embed=embed)
+        serialization.update(name=instance.name,
+                             key=instance.key,
+                             added=str(instance.added.isoformat()))
+        return serialization

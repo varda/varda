@@ -13,6 +13,8 @@ Note that all genomic positions in this module are one-based and inclusive.
 
 from datetime import datetime
 import gzip
+from hashlib import sha1
+import hmac
 import os
 import uuid
 
@@ -105,6 +107,33 @@ class User(db.Model):
     def roles(self):
         return {role for i, role in enumerate(USER_ROLES)
                 if self.roles_bitstring & pow(2, i)}
+
+
+class Token(db.Model):
+    """
+    User token for authentication.
+    """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    name = db.Column(db.String(200))
+    key = db.Column(db.String(40), index=True, unique=True)
+    added = db.Column(db.DateTime)
+
+    user = db.relationship(User,
+                           backref=db.backref('tokens', lazy='dynamic'))
+
+    def __init__(self, user, name):
+        self.user = user
+        self.name = name
+        self.added = datetime.now()
+
+        # Method to generate key taken from Django REST framework.
+        self.key = hmac.new(uuid.uuid4().bytes, digestmod=sha1).hexdigest()
+
+    def __repr__(self):
+        return 'Token(%r)' % self.name
 
 
 class Sample(db.Model):
