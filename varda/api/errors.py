@@ -28,6 +28,13 @@ class AcceptError(Exception):
         super(AcceptError, self).__init__(code, message)
 
 
+class BasicAuthRequiredError(Exception):
+    """
+    Exception thrown on required authentication using login/password.
+    """
+    pass
+
+
 class ValidationError(Exception):
     """
     Exception thrown on unsuccessful data validation.

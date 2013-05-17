@@ -10,8 +10,7 @@ REST API tokens model resource.
 from flask import g
 
 from ...models import Token
-from ..errors import ValidationError
-from ..security import has_role, is_user, owns_token
+from ..security import has_role, is_user, owns_token, require_basic_auth
 from .base import ModelResource
 from .users import UsersResource
 
@@ -43,6 +42,7 @@ class TokensResource(ModelResource):
     edit_schema = {'name': {'type': 'string', 'maxlength': 200}}
 
     @classmethod
+    @require_basic_auth
     def list_view(cls, *args, **kwargs):
         """
         Get a collection of tokens.
@@ -50,6 +50,7 @@ class TokensResource(ModelResource):
         return super(TokensResource, cls).list_view(*args, **kwargs)
 
     @classmethod
+    @require_basic_auth
     def get_view(cls, *args, **kwargs):
         """
         Get token details.
@@ -57,16 +58,15 @@ class TokensResource(ModelResource):
         return super(TokensResource, cls).get_view(*args, **kwargs)
 
     @classmethod
+    @require_basic_auth
     def add_view(cls, **kwargs):
         """
         Create a token.
         """
-        if g.auth_method != 'basic-auth':
-            raise ValidationError('Creating a token is only possible if '
-                                  'authenticated with login and password')
         return super(TokensResource, cls).add_view(**kwargs)
 
     @classmethod
+    @require_basic_auth
     def edit_view(cls, *args, **kwargs):
         """
         Update a token.

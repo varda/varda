@@ -14,7 +14,8 @@ import semantic_version
 from .. import genome
 from .. import tasks
 from ..models import InvalidDataSource
-from .errors import AcceptError, ActivationFailure, ValidationError
+from .errors import (AcceptError, ActivationFailure, BasicAuthRequiredError,
+                     ValidationError)
 from .resources import (AnnotationsResource, CoveragesResource,
                         DataSourcesResource, SamplesResource, TokensResource,
                         UsersResource, VariantsResource, VariationsResource)
@@ -107,6 +108,13 @@ def error_bad_request(error):
 
 @api.errorhandler(401)
 def error_unauthorized(error):
+    # Todo: To quote the HTTP specification: "The response MUST include a
+    #     WWW-Authenticate header field (section 14.47) containing a challenge
+    #     applicable to the requested resource."
+    #     We don't do that at the moment. A browser will automatically come up
+    #     with a authentication popup, and if this is also the case for Ajax
+    #     requests it breaks Aulë (it has its own authentication form). Need
+    #     to test this accross browsers.
     return jsonify(error={
         'code': 'unauthorized',
         'message': 'The request requires user authentication'}), 401
@@ -177,6 +185,12 @@ def error_(error):
 def error_(error):
     return jsonify(error={'code': 'bad_request',
                           'message': error.message}), 400
+
+
+@api.errorhandler(BasicAuthRequiredError)
+def error_(error):
+    return jsonify(error={'code': 'basic_auth_required',
+                          'message': 'The request requires login/password authentication'}), 401
 
 
 @api.errorhandler(AcceptError)

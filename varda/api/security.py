@@ -13,6 +13,7 @@ from functools import wraps
 from flask import abort, g
 
 from ..models import Coverage, DataSource, Sample, Variation
+from .errors import BasicAuthRequiredError
 
 
 def require_user(rule):
@@ -38,6 +39,30 @@ def require_user(rule):
     return secure_rule
 
 
+def require_basic_auth(rule):
+    """
+    Decorator for user authentication using login/password (as opposed to
+    token authentication.
+
+    The app.route decorator should always be first, for example::
+
+        >>> @app.route('/samples/<sample_id>', methods=['GET'])
+        >>> @require_basic_auth
+        >>> def get_sample(sample_id):
+        ...     return 'sample'
+
+    If authentication was successful, the authenticated user instance can be
+    accessed through `g.user`. Otherwise, the request is aborted and a ``401``
+    response code is generated with an appropriate error code and message.
+    """
+    @wraps(rule)
+    def secure_rule(*args, **kwargs):
+        if g.user is None or g.auth_method != 'basic-auth':
+            raise BasicAuthRequiredError()
+        return rule(*args, **kwargs)
+    return secure_rule
+
+
 def ensure(*conditions, **options):
     """
     Decorator to ensure some given conditions are met.
@@ -53,24 +78,24 @@ def ensure(*conditions, **options):
     401 status if there is no user authenticated or with a 403 status
     otherwise.
 
-    Typical conditions may depend on the authorized user. In that case, use
-    the `require_user` decorator first, for example::
+    .. todo::
+
+        Add an `auth_helps` boolean argument defaulting to `True` that, if set
+        to `False`, causes the request to be aborted with a 403 status
+        regardless of the authentication state.
+
+        This would be useful for conditions independent from authentication.
+
+    Typical conditions may depend on the roles of an authorized user, for
+    examples::
 
         >>> def is_admin():
         ...     return 'admin' in g.user.roles
         ...
         >>> @app.route('/samples', methods=['GET'])
-        >>> @require_user
         >>> @ensure(is_admin)
         >>> def list_variants():
         ...     return []
-
-    .. note:: While the `is_admin` condition could be made more robust by
-        first checking if `g.user` is not ``None``, it is still a good idea
-        to have the check preceded by `require_user`. This makes sure a HTTP
-        ``401`` response code is generated if there is no user authenticated,
-        and a ``403`` response code is only generated if there is a user
-        authenticated but certain conditions are not met.
 
     To specify which keyword arguments to pass to the condition functions as
     positional and keyword arguments, use the `args` and `kwargs` keyword
@@ -84,7 +109,6 @@ def ensure(*conditions, **options):
         ...     return True
         ...
         >>> @app.route('/samples/<sample_id>/variants/<variant_id>', methods=['GET'])
-        >>> @require_user
         >>> @ensure(owns_variant, args=['variant_id'])
         >>> def get_variant(sample_id, variant_id):
         ...     return 'variant'
@@ -98,7 +122,6 @@ def ensure(*conditions, **options):
         ...     return True
         ...
         >>> @app.route('/samples/<sample_id>/variants/<variant_id>', methods=['GET'])
-        >>> @require_user
         >>> @ensure(owns_sample_and_variant, kwargs={'sample': 'sample_id', 'variant': 'variant_id'})
         >>> def get_variant(sample_id, variant_id):
         ...     return 'variant'
@@ -112,7 +135,6 @@ def ensure(*conditions, **options):
         ...     return True
         ...
         >>> @app.route('/samples/<sample_id>/variants/<variant_id>', methods=['GET'])
-        >>> @require_user
         >>> @ensure(owns_variant)
         >>> def get_variant(sample_id, variant_id):
         ...     return 'variant'
@@ -127,7 +149,6 @@ def ensure(*conditions, **options):
     must be met::
 
         >>> @app.route('/samples/<sample_id>', methods=['GET'])
-        >>> @require_user
         >>> @ensure(is_admin, owns_sample, satisfy=any)
         >>> def get_samples(sample_id):
         ...     return 'variant'
@@ -166,7 +187,6 @@ def has_role(role):
     Example::
 
         >>> @app.route('/samples', methods=['GET'])
-        >>> @require_user
         >>> @ensure(has_role('admin'))
         >>> def list_variants():
         ...     return []

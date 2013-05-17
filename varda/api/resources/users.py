@@ -9,7 +9,7 @@ REST API users model resource.
 
 from ...models import User, USER_ROLES
 from ..errors import ValidationError
-from ..security import is_user, has_role
+from ..security import is_user, has_role, require_basic_auth
 from .base import ModelResource
 
 
@@ -126,6 +126,7 @@ class UsersResource(ModelResource):
         return super(UsersResource, cls).get_view(*args, **kwargs)
 
     @classmethod
+    @require_basic_auth
     def add_view(cls, **kwargs):
         """
         Create a user.
@@ -176,6 +177,7 @@ class UsersResource(ModelResource):
 
     # Todo: Document that all fields are optional.
     @classmethod
+    @require_basic_auth
     def edit_view(cls, *args, **kwargs):
         """
         Update a user.

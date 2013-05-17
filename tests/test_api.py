@@ -194,7 +194,8 @@ class TestApi():
         data = {'name': 'test token',
                 'user': user}
         r = self.client.post(self.uri_tokens, data=data, headers=[token_header])
-        assert_equal(r.status_code, 400)
+        assert_equal(r.status_code, 401)
+        assert_equal('basic_auth_required', json.loads(r.data)['error']['code'])
 
         token_header = ('AUTHORIZATION', 'Token boguskey')
 
