@@ -121,6 +121,17 @@ def sample_by_uri(app, uri):
     return Sample.query.get(args['sample'])
 
 
+def token_by_uri(app, uri):
+    """
+    Get a token from its URI.
+    """
+    try:
+        args = parse_args(app, 'api.token_get', uri)
+    except ValueError:
+        return None
+    return Token.query.get(args['token'])
+
+
 def variation_by_uri(app, uri):
     """
     Get a variation from its URI.

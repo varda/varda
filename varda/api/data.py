@@ -16,10 +16,11 @@ from cerberus import ValidationError as CerberusValidationError, Validator
 import cerberus.errors
 from flask import abort, current_app, g, request
 
-from ..models import Annotation, Coverage, DataSource, Sample, User, Variation
+from ..models import (Annotation, Coverage, DataSource, Sample, Token, User,
+                      Variation)
 from .errors import ValidationError
 from .utils import (annotation_by_uri, coverage_by_uri, data_source_by_uri,
-                    sample_by_uri, user_by_uri, variation_by_uri)
+                    sample_by_uri, token_by_uri, user_by_uri, variation_by_uri)
 
 
 # Todo: Rename cast to coerce.
@@ -58,6 +59,7 @@ def cast(document, schema):
                'coverage':    _cast_coverage,
                'data_source': _cast_data_source,
                'sample':      _cast_sample,
+               'token':       _cast_token,
                'user':        _cast_user,
                'variant':     _cast_variant,
                'variation':   _cast_variation}
@@ -160,6 +162,14 @@ def _cast_sample(value, definition):
     return value
 
 
+def _cast_token(value, definition):
+    if isinstance(value, int):
+        return Token.query.get(value)
+    elif isinstance(value, basestring):
+        return token_by_uri(current_app, value)
+    return value
+
+
 def _cast_user(value, definition):
     if isinstance(value, int):
         return User.query.get(value)
@@ -229,6 +239,10 @@ class ApiValidator(Validator):
     def _validate_type_sample(self, field, value):
         if not isinstance(self.document[field], Sample):
             self._error(cerberus.errors.ERROR_BAD_TYPE % (field, 'sample'))
+
+    def _validate_type_token(self, field, value):
+        if not isinstance(self.document[field], Token):
+            self._error(cerberus.errors.ERROR_BAD_TYPE % (field, 'token'))
 
     def _validate_type_user(self, field, value):
         if not isinstance(self.document[field], User):
