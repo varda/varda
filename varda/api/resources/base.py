@@ -42,6 +42,9 @@ from ..utils import collection
 #
 # [1] https://github.com/mcdonc/apidesign/blob/master/presentation.rst#4-composinginheriting
 
+# Todo: Make sure we're not short-cutting authorization with embedded
+#     resources. For example, if a user is allowed to view a but not b, it
+#     should not be possible for this user to embed b in the view of a.
 
 class Resource(object):
     """
