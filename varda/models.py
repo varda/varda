@@ -108,6 +108,11 @@ class User(db.Model):
         return {role for i, role in enumerate(USER_ROLES)
                 if self.roles_bitstring & pow(2, i)}
 
+    @roles.setter
+    def roles(self, roles):
+        self.roles_bitstring = sum(pow(2, i) for i, role
+                                   in enumerate(USER_ROLES) if role in roles)
+
 
 class Token(db.Model):
     """
