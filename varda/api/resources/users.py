@@ -7,6 +7,8 @@ REST API users model resource.
 """
 
 
+from flask import abort, g
+
 from ...models import User, USER_ROLES
 from ..errors import ValidationError
 from ..security import is_user, has_role, require_basic_auth
@@ -38,6 +40,8 @@ class UsersResource(ModelResource):
                   'email': {'type': 'string', 'maxlength': 200},
                   'roles': {'type': 'list', 'allowed': USER_ROLES}}
 
+    edit_ensure_conditions = [has_role('admin'), is_user]
+    edit_ensure_options = {'satisfy': any}
     edit_schema = {'name': {'type': 'string', 'maxlength': 200},
                    'password': {'type': 'string', 'maxlength': 500},
                    'email': {'type': 'string', 'maxlength': 200},
@@ -223,6 +227,10 @@ class UsersResource(ModelResource):
                 }
             }
         """
+        if 'roles' in kwargs and 'admin' not in g.user.roles:
+            # Of course we don't allow any user to change their own roles,
+            # only admins can do that.
+            abort(403)
         return super(UsersResource, cls).edit_view(*args, **kwargs)
 
     @classmethod
