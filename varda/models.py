@@ -89,19 +89,31 @@ class User(db.Model):
         roles = roles or []
         self.name = name
         self.login = login
-        self.password_hash = bcrypt.hashpw(password, bcrypt.gensalt())
         self.email = email
-        self.roles_bitstring = sum(pow(2, i) for i, role
-                                   in enumerate(USER_ROLES) if role in roles)
         self.added = datetime.now()
+        self.password_hash = self._hash_password(password)
+        self.roles_bitstring = self._encode_roles(roles)
 
     def __repr__(self):
         return 'User(%r, %r, %r, %r)' % (self.name, self.login, '***',
                                          list(self.roles))
 
-    def check_password(self, password):
-        return (bcrypt.hashpw(password, self.password_hash) ==
-                self.password_hash)
+    @staticmethod
+    def _hash_password(password):
+        return bcrypt.hashpw(password, bcrypt.gensalt())
+
+    @staticmethod
+    def _encode_roles(roles):
+        return sum(pow(2, i) for i, role
+                   in enumerate(USER_ROLES) if role in roles)
+
+    @property
+    def password(self):
+        return None
+
+    @password.setter
+    def password(self, password):
+        self.password_hash = self._hash_password(password)
 
     @property
     def roles(self):
@@ -110,8 +122,11 @@ class User(db.Model):
 
     @roles.setter
     def roles(self, roles):
-        self.roles_bitstring = sum(pow(2, i) for i, role
-                                   in enumerate(USER_ROLES) if role in roles)
+        self.roles_bitstring = self._encode_roles(roles)
+
+    def check_password(self, password):
+        return (bcrypt.hashpw(password, self.password_hash) ==
+                self.password_hash)
 
 
 class Token(db.Model):
