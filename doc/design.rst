@@ -91,7 +91,8 @@ Security
 
 Todo: Add a page on security to the Managing Varda section.
 
-Authentication via HTTP Basic Authentication, so only use with SSL.
+Authentication via HTTP Basic Authentication, or API tokens, so only use with
+SSL.
 
 
 Sample state
