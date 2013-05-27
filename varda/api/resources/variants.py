@@ -7,7 +7,7 @@ REST API variants resource.
 """
 
 
-from flask import jsonify
+from flask import g, jsonify
 
 from ...models import Observation, Sample, Variation
 from ...region_binning import all_bins
