@@ -12,6 +12,7 @@ Note that all genomic positions in this module are one-based and inclusive.
 
 
 from datetime import datetime
+from functools import wraps
 import gzip
 from hashlib import sha1
 import hmac
@@ -40,6 +41,29 @@ USER_ROLES = (
     'annotator',   # Can annotate samples.
     'trader'       # Can annotate samples if they are also imported.
 )
+
+
+def detached_session_fix(method):
+    """
+    Decorator providing a workaround for a possible bug in Celery.
+
+    If `CELERY_ALWAYS_EAGER=True`, the worker can end up with a detached
+    session when printing its log after an error. This causes an exception,
+    but with this decorator it is ignored and the method returns `None`.
+
+    We use this on the `__repr__` methods of the SQLAlchemy models since they
+    tend to be called when the log is printed, making debugging a pain.
+
+    This is a hacky workaround and I think it's something that could be fixed
+    in Celery itself.
+    """
+    @wraps(method)
+    def fixed_method(*args, **kwargs):
+        try:
+            return method(*args, **kwargs)
+        except DetachedInstanceError:
+            return None
+    return fixed_method
 
 
 class InvalidDataSource(Exception):
@@ -71,9 +95,6 @@ class User(db.Model):
     For the roles column we use a bitstring where the leftmost role in the
     :data:`USER_ROLES` tuple is defined by the least-significant bit.
     Essentially, this creates a set of roles.
-
-    .. todo:: The bitstring encoding/decoding can probably be implemented more
-        efficiently.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
@@ -94,9 +115,9 @@ class User(db.Model):
         self.password_hash = self._hash_password(password)
         self.roles_bitstring = self._encode_roles(roles)
 
+    @detached_session_fix
     def __repr__(self):
-        return 'User(%r, %r, %r, %r)' % (self.name, self.login, '***',
-                                         list(self.roles))
+        return '<User %r>' % self.login
 
     @staticmethod
     def _hash_password(password):
@@ -152,8 +173,9 @@ class Token(db.Model):
         # Method to generate key taken from Django REST framework.
         self.key = hmac.new(uuid.uuid4().bytes, digestmod=sha1).hexdigest()
 
+    @detached_session_fix
     def __repr__(self):
-        return 'Token(%r)' % self.name
+        return '<Token %r>' % self.name
 
 
 class Sample(db.Model):
@@ -165,8 +187,6 @@ class Sample(db.Model):
     we should not store it, but have it as a calculated property).
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
-
-    # Todo: Should we have a unique constraint on (user_id, name)?
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -191,10 +211,10 @@ class Sample(db.Model):
         self.public = public
         self.notes = notes
 
+    @detached_session_fix
     def __repr__(self):
-        return '<Sample "%s" of %d individuals added %s>' % (self.name,
-                                                             self.pool_size,
-                                                             str(self.added))
+        return '<Sample %r, pool_size=%r, active=%r, public=%r>' \
+            % (self.name, self.pool_size, self.active, self.public)
 
 
 class DataSource(db.Model):
@@ -265,19 +285,10 @@ class DataSource(db.Model):
         elif not empty:
             raise InvalidDataSource('invalid_data', 'No data supplied')
 
+    @detached_session_fix
     def __repr__(self):
-        # Todo: If CELERY_ALWAYS_EAGER=True, the worker can end up with a
-        #     detached session when printing its log after an error. This
-        #     is a hacky workaround, we might implement it as a decorator
-        #     on the __repr__ method or the model itself, but it will still
-        #     be a hack. I think this is something that could be fixed in
-        #     celery itself.
-        try:
-            return '<DataSource "%s" as %s added %s>' % (self.name,
-                                                         self.filetype,
-                                                         str(self.added))
-        except DetachedInstanceError:
-            return '<DataSource ...>'
+        return '<DataSource %r, filename=%r, filetype=%r, records=%r>' \
+            % (self.name, self.filename, self.filetype, self.records)
 
     def data(self):
         """
@@ -358,10 +369,10 @@ class Variation(db.Model):
         self.use_genotypes = use_genotypes
         self.prefer_genotype_likelihoods = prefer_genotype_likelihoods
 
+    @detached_session_fix
     def __repr__(self):
-        return '<Variation>'
-        #return '<Variation "%d", %simported>' % (
-        #    self.id, '' if self.task_done else 'not ')
+        return '<Variation task_done=%r, task_uuid=%r>' % (self.task_done,
+                                                           self.task_uuid)
 
 
 class Coverage(db.Model):
@@ -386,9 +397,10 @@ class Coverage(db.Model):
         self.sample = sample
         self.data_source = data_source
 
+    @detached_session_fix
     def __repr__(self):
-        return '<Coverage "%d", %simported>' % (
-            self.id, '' if self.task_done else 'not ')
+        return '<Coverage task_done=%r, task_uuid=%r>' % (self.task_done,
+                                                          self.task_uuid)
 
 
 sample_frequency = db.Table(
@@ -432,10 +444,10 @@ class Annotation(db.Model):
         self.global_frequency = global_frequency
         self.sample_frequency = sample_frequency
 
-    # Todo: Never use self.id in the repr, we might not have it yet.
+    @detached_session_fix
     def __repr__(self):
-        return '<Annotation "%d", %swritten>' % (
-            self.id, '' if self.task_done else 'not ')
+        return '<Annotation task_done=%r, task_uuid=%r>' % (self.task_done,
+                                                            self.task_uuid)
 
 
 class Observation(db.Model):
@@ -487,9 +499,12 @@ class Observation(db.Model):
         self.zygosity = zygosity
         self.support = support
 
+    @detached_session_fix
     def __repr__(self):
-        return 'Observation<%r, %r, %r, %r>' % (
-            self.chromosome, self.position, self.reference, self.observed)
+        return '<Observation chromosome=%r, position=%r, reference=%r, ' \
+            'observed=%r, zygosity=%r, support=%r>' \
+            % (self.chromosome, self.position, self.reference, self.observed,
+               self.zygosity, self.support)
 
     def is_deletion(self):
         return self.observed == ''
@@ -538,9 +553,10 @@ class Region(db.Model):
         self.end = end
         self.bin = assign_bin(self.begin, self.end)
 
+    @detached_session_fix
     def __repr__(self):
-        return '<Region chr%s:%i-%i>' % (self.chromosome, self.begin,
-                                         self.end)
+        return '<Region chromosome=%r, begin=%r, end=%r>' \
+            % (self.chromosome, self.begin, self.end)
 
 
 Index('region_location',
