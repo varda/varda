@@ -17,11 +17,13 @@ import gzip
 from hashlib import sha1
 import hmac
 import os
+import sqlite3
 import uuid
 
 import bcrypt
 from flask import current_app
-from sqlalchemy import Index
+from sqlalchemy import event, Index
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm.exc import DetachedInstanceError
 import werkzeug
 
@@ -41,6 +43,21 @@ USER_ROLES = (
     'annotator',   # Can annotate samples.
     'trader'       # Can annotate samples if they are also imported.
 )
+
+
+@event.listens_for(Engine, 'connect')
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    """
+    We use foreign keys (and ``ON DELETE CASCADE`` on some of these), but in
+    SQLite these are only enforced if ``PRAGMA foreign_keys=ON`` is executed
+    on all connections before use.
+
+    [1] http://docs.sqlalchemy.org/en/latest/dialects/sqlite.html#foreign-key-support
+    """
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute('PRAGMA foreign_keys=ON')
+        cursor.close()
 
 
 def detached_session_fix(method):
