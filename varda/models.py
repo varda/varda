@@ -210,7 +210,7 @@ class Sample(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     name = db.Column(db.String(200))
     pool_size = db.Column(db.Integer)
     added = db.Column(db.DateTime)
@@ -250,7 +250,7 @@ class DataSource(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     name = db.Column(db.String(200))
     filename = db.Column(db.String(50))
     filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES, name='filetype'))
@@ -368,8 +368,10 @@ class Variation(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
-    data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
+    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'),
+                          nullable=False)
+    data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'),
+                               nullable=False)
     task_done = db.Column(db.Boolean, default=False)
     task_uuid = db.Column(db.String(36))
     skip_filtered = db.Column(db.Boolean)
@@ -403,8 +405,10 @@ class Coverage(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'))
-    data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'))
+    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'),
+                          nullable=False)
+    data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'),
+                               nullable=False)
     task_done = db.Column(db.Boolean, default=False)
     task_uuid = db.Column(db.String(36))
 
@@ -426,8 +430,10 @@ class Coverage(db.Model):
 
 sample_frequency = db.Table(
     'sample_frequency', db.Model.metadata,
-    db.Column('annotation_id', db.Integer, db.ForeignKey('annotation.id')),
-    db.Column('sample_id', db.Integer, db.ForeignKey('sample.id')))
+    db.Column('annotation_id', db.Integer, db.ForeignKey('annotation.id'),
+              nullable=False),
+    db.Column('sample_id', db.Integer, db.ForeignKey('sample.id'),
+              nullable=False))
 
 
 class Annotation(db.Model):
@@ -438,9 +444,11 @@ class Annotation(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     original_data_source_id = db.Column(db.Integer,
-                                        db.ForeignKey('data_source.id'))
+                                        db.ForeignKey('data_source.id'),
+                                        nullable=False)
     annotated_data_source_id = db.Column(db.Integer,
-                                         db.ForeignKey('data_source.id'))
+                                         db.ForeignKey('data_source.id'),
+                                         nullable=False)
     task_done = db.Column(db.Boolean, default=False)
     task_uuid = db.Column(db.String(36))
     global_frequency = db.Column(db.Boolean)
@@ -479,7 +487,7 @@ class Observation(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     variation_id = db.Column(db.Integer, db.ForeignKey('variation.id'),
-                             index=True)
+                             index=True, nullable=False)
 
     chromosome = db.Column(db.String(30))
     position = db.Column(db.Integer)
@@ -554,7 +562,7 @@ class Region(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     coverage_id = db.Column(db.Integer, db.ForeignKey('coverage.id'),
-                            index=True)
+                            index=True, nullable=False)
     chromosome = db.Column(db.String(30))
     begin = db.Column(db.Integer)
     end = db.Column(db.Integer)
