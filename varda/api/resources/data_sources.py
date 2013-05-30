@@ -31,7 +31,7 @@ class DataSourcesResource(ModelResource):
     instance_name = 'data_source'
     instance_type = 'data_source'
 
-    views = ['list', 'get', 'add', 'edit', 'data']
+    views = ['list', 'get', 'add', 'edit', 'delete', 'data']
 
     embeddable = {'user': UsersResource}
     filterable = {'user': 'user'}
