@@ -29,6 +29,8 @@ class UsersResource(ModelResource):
     instance_name = 'user'
     instance_type = 'user'
 
+    views = ['list', 'get', 'add', 'edit', 'delete']
+
     get_ensure_conditions = [has_role('admin'), is_user]
     get_ensure_options = {'satisfy': any}
 
@@ -46,6 +48,9 @@ class UsersResource(ModelResource):
                    'password': {'type': 'string', 'maxlength': 500},
                    'email': {'type': 'string', 'maxlength': 200},
                    'roles': {'type': 'list', 'allowed': USER_ROLES}}
+
+    delete_ensure_conditions = [has_role('admin'), is_user]
+    delete_ensure_options = {'satisfy': any}
 
     @classmethod
     def list_view(cls, *args, **kwargs):
@@ -232,6 +237,17 @@ class UsersResource(ModelResource):
             # only admins can do that.
             abort(403)
         return super(UsersResource, cls).edit_view(*args, **kwargs)
+
+    @classmethod
+    @require_basic_auth
+    def delete_view(cls, *args, **kwargs):
+        """
+        Delete a user.
+
+        .. todo:: Document that we cascade the delete to tokens, but not to
+            samples and data sources.
+        """
+        return super(UsersResource, cls).delete_view(*args, **kwargs)
 
     @classmethod
     def serialize(cls, instance, embed=None):

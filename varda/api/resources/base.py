@@ -24,11 +24,13 @@ information about the state of the task.
 from functools import wraps
 
 import celery.exceptions
-from flask import current_app, g, jsonify, url_for
+from flask import current_app, g, jsonify, Response, url_for
+import sqlalchemy.exc
 
 from ... import db
 from ... import tasks
 from ..data import data
+from ..errors import IntegrityError
 from ..security import ensure, has_role
 from ..utils import collection
 
@@ -45,6 +47,7 @@ from ..utils import collection
 # Todo: Make sure we're not short-cutting authorization with embedded
 #     resources. For example, if a user is allowed to view a but not b, it
 #     should not be possible for this user to embed b in the view of a.
+
 
 class Resource(object):
     """
@@ -76,6 +79,10 @@ class Resource(object):
     edit_ensure_options = {}
     edit_schema = {}
 
+    delete_ensure_conditions = [has_role('admin')]
+    delete_ensure_options = {}
+    delete_schema = {}
+
     #: Can be one of `string`, `int`, `float`, `path`. See `URL Route
     #: Registrations in Flask
     #: <http://flask.pocoo.org/docs/api/#url-route-registrations>`_.
@@ -86,10 +93,12 @@ class Resource(object):
         cls.get_rule = '/<%s:%s>' % (cls.key_type, cls.instance_name)
         cls.add_rule = '/'
         cls.edit_rule = '/<%s:%s>' % (cls.key_type, cls.instance_name)
+        cls.delete_rule = '/<%s:%s>' % (cls.key_type, cls.instance_name)
 
         id_schema = {cls.instance_name: {'type': cls.instance_type, 'id': True}}
         cls.get_schema.update(id_schema)
         cls.edit_schema.update(id_schema)
+        cls.delete_schema.update(id_schema)
         if cls.embeddable:
             embed_schema = {'embed': {'type': 'list', 'allowed': cls.embeddable.keys()}}
             cls.list_schema.update(embed_schema)
@@ -113,6 +122,8 @@ class Resource(object):
             self.register_view('add', methods=['POST'])
         if 'edit' in self.views:
             self.register_view('edit', methods=['PATCH'])
+        if 'delete' in self.views:
+            self.register_view('delete', methods=['DELETE'])
 
     def register_view(self, endpoint, wrapper=None, **kwargs):
         if wrapper is None:
@@ -193,10 +204,11 @@ class ModelResource(Resource):
     * **get** - Get details for a model instance.
     * **add** - Add a model instance.
     * **edit** - Update a model instance.
+    * **delete** - Delete a model instance.
     """
     model = None
 
-    views = ['list', 'get', 'add', 'edit']
+    views = ['list', 'get', 'add', 'edit', 'delete']
 
     @classmethod
     def list_view(cls, begin, count, embed=None, **filter):
@@ -243,6 +255,20 @@ class ModelResource(Resource):
         db.session.commit()
         current_app.logger.info('Updated %s: %r', cls.instance_name, instance)
         return jsonify({cls.instance_name: cls.serialize(instance)})
+
+    @classmethod
+    def delete_view(cls, *args, **kwargs):
+        instance = kwargs.pop(cls.instance_name)
+        try:
+            db.session.delete(instance)
+            db.session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            raise IntegrityError('Cannot delete resource because linked '
+                                 'resources exist')
+        current_app.logger.info('Deleted %s: %r', cls.instance_name, instance)
+        response = Response(status=204)
+        response.headers.pop('Content-Type', None)
+        return response
 
     @classmethod
     def instance_key(cls, instance):

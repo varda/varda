@@ -41,6 +41,9 @@ class TokensResource(ModelResource):
     edit_ensure_options = {'satisfy': any}
     edit_schema = {'name': {'type': 'string', 'maxlength': 200}}
 
+    delete_ensure_conditions = [has_role('admin'), owns_token]
+    delete_ensure_options = {'satisfy': any}
+
     @classmethod
     @require_basic_auth
     def list_view(cls, *args, **kwargs):
@@ -72,6 +75,13 @@ class TokensResource(ModelResource):
         Update a token.
         """
         return super(TokensResource, cls).edit_view(*args, **kwargs)
+
+    @classmethod
+    def delete_view(cls, *args, **kwargs):
+        """
+        Delete a token.
+        """
+        return super(TokensResource, cls).delete_view(*args, **kwargs)
 
     @classmethod
     def serialize(cls, instance, embed=None):

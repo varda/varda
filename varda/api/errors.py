@@ -35,6 +35,15 @@ class BasicAuthRequiredError(Exception):
     pass
 
 
+class IntegrityError(Exception):
+    """
+    Exception thrown on resource integrity error.
+    """
+    def __init__(self, message):
+        self.message = message
+        super(IntegrityError, self).__init__(message)
+
+
 class ValidationError(Exception):
     """
     Exception thrown on unsuccessful data validation.

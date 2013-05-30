@@ -30,6 +30,8 @@ class SamplesResource(ModelResource):
     instance_name = 'sample'
     instance_type = 'sample'
 
+    views = ['list', 'get', 'add', 'edit']
+
     embeddable = {'user': UsersResource}
     filterable = {'public': 'boolean',
                   'user': 'user'}

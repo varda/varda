@@ -174,13 +174,17 @@ class Token(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user_id = db.Column(db.Integer,
+                        db.ForeignKey('user.id', ondelete='CASCADE'),
+                        nullable=False)
     name = db.Column(db.String(200))
     key = db.Column(db.String(40), index=True, unique=True)
     added = db.Column(db.DateTime)
 
     user = db.relationship(User,
-                           backref=db.backref('tokens', lazy='dynamic'))
+                           backref=db.backref('tokens', lazy='dynamic',
+                                              cascade='all, delete-orphan',
+                                              passive_deletes=True))
 
     def __init__(self, user, name):
         self.user = user

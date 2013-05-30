@@ -15,7 +15,7 @@ from .. import genome
 from .. import tasks
 from ..models import InvalidDataSource
 from .errors import (AcceptError, ActivationFailure, BasicAuthRequiredError,
-                     ValidationError)
+                     IntegrityError, ValidationError)
 from .resources import (AnnotationsResource, CoveragesResource,
                         DataSourcesResource, SamplesResource, TokensResource,
                         UsersResource, VariantsResource, VariationsResource)
@@ -197,6 +197,12 @@ def error_(error):
 def error_(error):
     return jsonify(error={'code': error.code,
                           'message': error.message}), 406
+
+
+@api.errorhandler(IntegrityError)
+def error_(error):
+    return jsonify(error={'code': 'integrity_conflict',
+                          'message': error.message}), 409
 
 
 users_resource = UsersResource(api, url_prefix='/users')
