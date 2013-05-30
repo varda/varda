@@ -32,7 +32,7 @@ class CoveragesResource(TaskedResource):
 
     task = tasks.import_coverage
 
-    views = ['list', 'get', 'add', 'edit']
+    views = ['list', 'get', 'add', 'edit', 'delete']
 
     embeddable = {'data_source': DataSourcesResource, 'sample': SamplesResource}
     filterable = {'sample': 'sample'}
@@ -47,6 +47,9 @@ class CoveragesResource(TaskedResource):
     add_ensure_options = {'satisfy': any}
     add_schema = {'sample': {'type': 'sample', 'required': True},
                   'data_source': {'type': 'data_source', 'required': True}}
+
+    delete_ensure_conditions = [has_role('admin'), owns_coverage]
+    delete_ensure_options = {'satisfy': any}
 
     @classmethod
     def list_view(cls, *args, **kwargs):

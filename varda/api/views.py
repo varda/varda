@@ -22,7 +22,7 @@ from .resources import (AnnotationsResource, CoveragesResource,
 from .utils import user_by_login, user_by_token
 
 
-API_VERSION = semantic_version.Version('0.2.0')
+API_VERSION = semantic_version.Version('0.2.1')
 
 
 api = Blueprint('api', 'api')
@@ -174,6 +174,7 @@ def error_task_error(error):
                           'message': error.message}), 500
 
 
+# Tody: This probably shouldn't be 400. Perhaps 409, like IntegrityError?
 @api.errorhandler(ActivationFailure)
 @api.errorhandler(InvalidDataSource)
 def error_(error):

@@ -32,7 +32,7 @@ class VariationsResource(TaskedResource):
 
     task = tasks.import_variation
 
-    views = ['list', 'get', 'add', 'edit']
+    views = ['list', 'get', 'add', 'edit', 'delete']
 
     embeddable = {'data_source': DataSourcesResource, 'sample': SamplesResource}
     filterable = {'sample': 'sample'}
@@ -50,6 +50,9 @@ class VariationsResource(TaskedResource):
                   'skip_filtered': {'type': 'boolean'},
                   'use_genotypes': {'type': 'boolean'},
                   'prefer_genotype_likelihoods': {'type': 'boolean'}}
+
+    delete_ensure_conditions = [has_role('admin'), owns_variation]
+    delete_ensure_options = {'satisfy': any}
 
     @classmethod
     def list_view(cls, *args, **kwargs):

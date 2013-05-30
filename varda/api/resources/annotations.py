@@ -34,7 +34,7 @@ class AnnotationsResource(TaskedResource):
 
     task = tasks.write_annotation
 
-    views = ['list', 'get', 'add', 'edit']
+    views = ['list', 'get', 'add', 'edit', 'delete']
 
     embeddable = {'original_data_source': DataSourcesResource,
                   'annotated_data_source': DataSourcesResource}
@@ -56,6 +56,9 @@ class AnnotationsResource(TaskedResource):
                   'sample_frequency': {'type': 'list',
                                        'maxlength': 30,
                                        'schema': {'type': 'sample'}}}
+
+    delete_ensure_conditions = [has_role('admin'), owns_annotation]
+    delete_ensure_options = {'satisfy': any}
 
     @classmethod
     def list_view(cls, *args, **kwargs):

@@ -258,7 +258,7 @@ class ModelResource(Resource):
 
     @classmethod
     def delete_view(cls, *args, **kwargs):
-        instance = kwargs.pop(cls.instance_name)
+        instance = kwargs.get(cls.instance_name)
         try:
             db.session.delete(instance)
             db.session.commit()
@@ -303,7 +303,8 @@ class TaskedResource(ModelResource):
             if instance.task_uuid:
                 result = cls.task.AsyncResult(instance.task_uuid)
                 if result.state in ('STARTED', 'PROGRESS'):
-                    abort(403)
+                    raise IntegrityError('Cannot start task because a linked '
+                                         'task is running')
                 # Todo: Implement http://docs.celeryproject.org/en/latest/userguide/workers.html#persistent-revokes
                 result.revoke(terminate=True)
             instance.task_done = False
@@ -311,6 +312,17 @@ class TaskedResource(ModelResource):
             instance.task_uuid = result.task_id
             db.session.commit()
         return super(TaskedResource, cls).edit_view(*args, **kwargs)
+
+    @classmethod
+    def delete_view(cls, *args, **kwargs):
+        instance = kwargs.get(cls.instance_name)
+        if instance.task_uuid:
+            result = cls.task.AsyncResult(instance.task_uuid)
+            if result.state in ('STARTED', 'PROGRESS'):
+                raise IntegrityError('Cannot delete resource because a linked '
+                                     'task is running')
+            result.revoke(terminate=True)
+        return super(TaskedResource, cls).delete_view(*args, **kwargs)
 
     @classmethod
     def add_view(cls, *args, **kwargs):

@@ -5,8 +5,6 @@ Note that all genomic positions in this module are one-based and inclusive.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
-.. todo:: Perhaps add some delete cascade rules.
-
 .. Licensed under the MIT license, see the LICENSE file.
 """
 
@@ -430,7 +428,8 @@ class Coverage(db.Model):
 
 sample_frequency = db.Table(
     'sample_frequency', db.Model.metadata,
-    db.Column('annotation_id', db.Integer, db.ForeignKey('annotation.id'),
+    db.Column('annotation_id', db.Integer,
+              db.ForeignKey('annotation.id', ondelete='CASCADE'),
               nullable=False),
     db.Column('sample_id', db.Integer, db.ForeignKey('sample.id'),
               nullable=False))
@@ -462,7 +461,8 @@ class Annotation(db.Model):
         primaryjoin='DataSource.id==Annotation.annotated_data_source_id',
         backref=db.backref('annotation', uselist=False, lazy='select'))
 
-    sample_frequency = db.relationship(Sample, secondary=sample_frequency)
+    sample_frequency = db.relationship(Sample, secondary=sample_frequency,
+                                       cascade='all', passive_deletes=True)
 
     def __init__(self, original_data_source, annotated_data_source,
                  global_frequency=True, sample_frequency=None):
@@ -486,7 +486,8 @@ class Observation(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    variation_id = db.Column(db.Integer, db.ForeignKey('variation.id'),
+    variation_id = db.Column(db.Integer,
+                             db.ForeignKey('variation.id', ondelete='CASCADE'),
                              index=True, nullable=False)
 
     chromosome = db.Column(db.String(30))
@@ -512,7 +513,9 @@ class Observation(db.Model):
 
     variation = db.relationship(Variation,
                                 backref=db.backref('observations',
-                                                   lazy='dynamic'))
+                                                   lazy='dynamic',
+                                                   cascade='all, delete-orphan',
+                                                   passive_deletes=True))
 
     def __init__(self, variation, chromosome, position, reference, observed,
                  zygosity=None, support=1):
@@ -561,7 +564,8 @@ class Region(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    coverage_id = db.Column(db.Integer, db.ForeignKey('coverage.id'),
+    coverage_id = db.Column(db.Integer,
+                            db.ForeignKey('coverage.id', ondelete='CASCADE'),
                             index=True, nullable=False)
     chromosome = db.Column(db.String(30))
     begin = db.Column(db.Integer)
@@ -573,7 +577,9 @@ class Region(db.Model):
     #     with a `support` integer for each region.
 
     coverage = db.relationship(Coverage,
-                               backref=db.backref('regions', lazy='dynamic'))
+                               backref=db.backref('regions', lazy='dynamic',
+                                                  cascade='all, delete-orphan',
+                                                  passive_deletes=True))
 
     def __init__(self, coverage, chromosome, begin, end):
         self.coverage = coverage

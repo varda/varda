@@ -24,7 +24,6 @@ grepping the source code for ``Todo``.
 * Have a maintenance and/or read-only mode, probably with HTTP redirects.
 * Store phasing info, for example by numbering each allele (uniquely within a
   sample) and store the allele number with observations.
-* Delete resources (have to think about cascading or not).
 * Support bigBed format.
 * What to do for variants where we have more observations than coverage? We
   could have a check in sample activation, but would we really like to
