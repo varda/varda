@@ -23,8 +23,8 @@ def upgrade():
     insp = Inspector.from_engine(op.get_bind())
     fks = insp.get_foreign_keys('token')
     for fk in fks:
-        if fk['constrained_columns'] != 'user_id':
-            pass
+        if fk['constrained_columns'] != ['user_id']:
+            continue
         op.drop_constraint(fk['name'], 'token')
         op.create_foreign_key(fk['name'], 'token', 'user', ['user_id'], ['id'], ondelete='CASCADE')
     ### end Alembic commands ###
@@ -36,8 +36,8 @@ def downgrade():
     insp = Inspector.from_engine(op.get_bind())
     fks = insp.get_foreign_keys('token')
     for fk in fks:
-        if fk['constrained_columns'] != 'user_id':
-            pass
+        if fk['constrained_columns'] != ['user_id']:
+            continue
         op.drop_constraint(fk['name'], 'token')
         op.create_foreign_key(fk['name'], 'token', 'user', ['user_id'], ['id'])
     ### end Alembic commands ###
