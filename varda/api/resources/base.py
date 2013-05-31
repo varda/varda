@@ -352,8 +352,13 @@ class TaskedResource(ModelResource):
             task.update(state=result.state.lower())
             if result.state == 'PROGRESS':
                 task.update(progress=result.info.get('percentage'))
-            if result.state == 'FAILURE' and isinstance(result.result, tasks.TaskError):
-                task.update(error={'code': result.result.code,
-                                   'message': result.result.message})
+            if result.state == 'FAILURE':
+                if isinstance(result.result, tasks.TaskError):
+                    error = {'code': result.result.code,
+                             'message': result.result.message}
+                else:
+                    error = {'code': 'unexpected_error',
+                             'message': 'Unexpected error'}
+                task.update(error=error)
         serialization.update(task=task)
         return serialization
