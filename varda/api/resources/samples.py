@@ -30,7 +30,7 @@ class SamplesResource(ModelResource):
     instance_name = 'sample'
     instance_type = 'sample'
 
-    views = ['list', 'get', 'add', 'edit']
+    views = ['list', 'get', 'add', 'edit', 'delete']
 
     embeddable = {'user': UsersResource}
     filterable = {'public': 'boolean',
@@ -58,6 +58,9 @@ class SamplesResource(ModelResource):
                    'coverage_profile': {'type': 'boolean'},
                    'public': {'type': 'boolean'},
                    'notes': {'type': 'string', 'maxlength': 10000}}
+
+    delete_ensure_conditions = [has_role('admin'), owns_sample]
+    delete_ensure_options = {'satisfy': any}
 
     @classmethod
     def list_view(cls, *args, **kwargs):

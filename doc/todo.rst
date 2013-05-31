@@ -31,6 +31,7 @@ grepping the source code for ``Todo``.
 * Enforce active property of sample. Changing anything means deactivating
   (automatically or manually?) and activating can only be done if everything
   is ok (no duplicated imports, everything has been imported, etc).
+  Also, should owners be allowed to delete their imports and samples?
 * Move region binning to its own package.
 * Fallback modes to accomodate browsing the API with a standard web browser,
   e.g., query string alternative to pagination with Accept-Range headers.

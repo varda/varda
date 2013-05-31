@@ -366,7 +366,8 @@ class Variation(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'),
+    sample_id = db.Column(db.Integer,
+                          db.ForeignKey('sample.id', ondelete='CASCADE'),
                           nullable=False)
     data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'),
                                nullable=False)
@@ -377,7 +378,9 @@ class Variation(db.Model):
     prefer_genotype_likelihoods = db.Column(db.Boolean)
 
     sample = db.relationship(Sample,
-                             backref=db.backref('variations', lazy='dynamic'))
+                             backref=db.backref('variations', lazy='dynamic',
+                                                cascade='all, delete-orphan',
+                                                passive_deletes=True))
     data_source = db.relationship(DataSource,
                                   backref=db.backref('variations',
                                                      lazy='dynamic'))
@@ -403,7 +406,8 @@ class Coverage(db.Model):
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
-    sample_id = db.Column(db.Integer, db.ForeignKey('sample.id'),
+    sample_id = db.Column(db.Integer,
+                          db.ForeignKey('sample.id', ondelete='CASCADE'),
                           nullable=False)
     data_source_id = db.Column(db.Integer, db.ForeignKey('data_source.id'),
                                nullable=False)
@@ -411,7 +415,9 @@ class Coverage(db.Model):
     task_uuid = db.Column(db.String(36))
 
     sample = db.relationship(Sample,
-                             backref=db.backref('coverages', lazy='dynamic'))
+                             backref=db.backref('coverages', lazy='dynamic',
+                                                cascade='all, delete-orphan',
+                                                passive_deletes=True))
     data_source = db.relationship(DataSource,
                                   backref=db.backref('coverages',
                                                      lazy='dynamic'))
@@ -431,7 +437,8 @@ sample_frequency = db.Table(
     db.Column('annotation_id', db.Integer,
               db.ForeignKey('annotation.id', ondelete='CASCADE'),
               nullable=False),
-    db.Column('sample_id', db.Integer, db.ForeignKey('sample.id'),
+    db.Column('sample_id', db.Integer,
+              db.ForeignKey('sample.id', ondelete='CASCADE'),
               nullable=False))
 
 
