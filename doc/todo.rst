@@ -39,3 +39,6 @@ grepping the source code for ``Todo``.
   before it reaches the API code.
 * Implement Cross-origin resource sharing (CORS) to enable serving Aulë from
   another domain.
+* Store variant observations as (begin, end, observed), so without the
+  reference sequence. This would invalidate existing observations (or at least
+  need a migration).
