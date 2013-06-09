@@ -207,8 +207,8 @@ def _cast_variation(value, definition):
 #     arguments in our @data decorator. Some wrapper code generating Colander
 #     schemas would be possible though.
 #     See https://github.com/ccnmtl/mvsim/blob/master/main/models.py
-#     Another alternative would be the `Voluptuous <https://github.com/alecthomas/voluptuous>`
-#     library.
+#     Other alternatives would be the `Voluptuous <https://github.com/alecthomas/voluptuous>`
+#     or `schema <https://github.com/halst/schema>` libraries.
 class ApiValidator(Validator):
     def _validate(self, *args, **kwargs):
         self.missing_id = False
