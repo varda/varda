@@ -93,6 +93,8 @@ class VariantsResource(Resource):
                                              Observation.reference,
                                              Observation.observed)
 
+        # Todo: Add ORDER BY clause.
+
         items = [cls.serialize((o.chromosome, o.position, o.reference, o.observed),
                                sample=sample)
                  for o in observations.limit(count).offset(begin)]
