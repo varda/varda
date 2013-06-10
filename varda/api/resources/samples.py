@@ -35,6 +35,7 @@ class SamplesResource(ModelResource):
     embeddable = {'user': UsersResource}
     filterable = {'public': 'boolean',
                   'user': 'user'}
+    orderable = ['name', 'pool_size', 'public', 'active', 'added']
 
     list_ensure_conditions = [has_role('admin'), is_user, true('public')]
     list_ensure_options = {'satisfy': any}
