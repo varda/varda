@@ -1,7 +1,8 @@
 """
 Models backed by SQL using SQLAlchemy.
 
-Note that all genomic positions in this module are one-based and inclusive.
+Note that all genomic positions in this module are zero-based and regions are
+open-ended (as in the BED format).
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
@@ -497,19 +498,14 @@ class Observation(db.Model):
                              db.ForeignKey('variation.id', ondelete='CASCADE'),
                              index=True, nullable=False)
 
+    # Begin and end are zero-based and open-ended (end position is not
+    # included), as in the BED format. For example, the first 100 bases of a
+    # chromosome are defined by begin=0 and end=100.
     chromosome = db.Column(db.String(30))
-    position = db.Column(db.Integer)
-    reference = db.Column(db.String(200))
+    begin = db.Column(db.Integer)
+    end = db.Column(db.Integer)
     observed = db.Column(db.String(200))
     bin = db.Column(db.Integer)
-
-    # Todo: Should we perhaps also store the end position? Would make it
-    #     easier to query for variants overlapping some position. Perhaps it's
-    #     enough to have a computed index for len(referenc)?
-    #     If we actually store begin-end, it's actually a range, and it would
-    #     be clearer how to store insertions unambiguously.
-    #     Also, if we store the end position we don't really need the
-    #     reference sequence, especially if there is a genome configured.
 
     # A zygosity of `None` means exact genotype is unknown, but the variant
     # allele was observed.
@@ -524,35 +520,37 @@ class Observation(db.Model):
                                                    cascade='all, delete-orphan',
                                                    passive_deletes=True))
 
-    def __init__(self, variation, chromosome, position, reference, observed,
+    def __init__(self, variation, chromosome, begin, end, observed,
                  zygosity=None, support=1):
         self.variation = variation
         self.chromosome = chromosome
-        self.position = position
-        self.reference = reference
+        self.begin = begin
+        self.end = end
         self.observed = observed
-        # We choose the 'region' of the reference covered by an insertion to
-        # be the base next to it.
-        self.bin = assign_bin(self.position,
-                              self.position + max(1, len(self.reference)) - 1)
+        # Since the region binning interface only understands regions of non-
+        # zero length, we choose the 'region' of the reference covered by an
+        # insertion to be the base next to it.
+        # Also note that positions in the `region_binning` module are one-
+        # based.
+        self.bin = assign_bin(self.begin + 1, max(self.begin + 1, self.end))
         self.zygosity = zygosity
         self.support = support
 
     @detached_session_fix
     def __repr__(self):
-        return '<Observation chromosome=%r, position=%r, reference=%r, ' \
-            'observed=%r, zygosity=%r, support=%r>' \
-            % (self.chromosome, self.position, self.reference, self.observed,
+        return '<Observation chromosome=%r, begin=%r, end=%r, observed=%r,' \
+            'zygosity=%r, support=%r>' \
+            % (self.chromosome, self.begin, self.end, self.observed,
                self.zygosity, self.support)
 
     def is_deletion(self):
         return self.observed == ''
 
     def is_insertion(self):
-        return self.reference == ''
+        return self.begin == self.end
 
     def is_snv(self):
-        return len(self.observed) == len(self.reference) == 1
+        return self.begin + 1 == self.end and len(self.observed) == 1
 
     def is_indel(self):
         return not (self.is_deletion() or
@@ -561,7 +559,7 @@ class Observation(db.Model):
 
 
 Index('observation_location',
-      Observation.bin, Observation.chromosome, Observation.position)
+      Observation.bin, Observation.chromosome, Observation.begin)
 
 
 class Region(db.Model):
@@ -574,6 +572,10 @@ class Region(db.Model):
     coverage_id = db.Column(db.Integer,
                             db.ForeignKey('coverage.id', ondelete='CASCADE'),
                             index=True, nullable=False)
+
+    # Begin and end are zero-based and open-ended (end position is not
+    # included), as in the BED format. For example, the first 100 bases of a
+    # chromosome are defined by begin=0 and end=100.
     chromosome = db.Column(db.String(30))
     begin = db.Column(db.Integer)
     end = db.Column(db.Integer)
@@ -593,7 +595,13 @@ class Region(db.Model):
         self.chromosome = chromosome
         self.begin = begin
         self.end = end
-        self.bin = assign_bin(self.begin, self.end)
+        # Since the region binning interface only understands regions of non-
+        # zero length, we choose the 'region' of the reference covered by an
+        # empty region to be the base next to it (but this case should never
+        # occur).
+        # Also note that positions in the `region_binning` module are one-
+        # based.
+        self.bin = assign_bin(self.begin + 1, max(self.begin + 1, self.end))
 
     @detached_session_fix
     def __repr__(self):

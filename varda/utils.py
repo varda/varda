@@ -98,6 +98,16 @@ def normalize_chromosome(chromosome):
 def normalize_region(chromosome, begin, end):
     """
     Use reference to normalize chromosome name and validate location.
+
+    :arg chromosome: Chromosome name.
+    :type chromosome: str
+    :arg begin: Beginning of genomic region, zero-based.
+    :type begin: int
+    :arg end: End of genomic region, zero-based, exclusive.
+    :type end: int
+
+    :return: Normalized region as a tuple of `chromosome`, `begin`, `end`.
+    :rtype: (str, int, int)
     """
     chromosome = normalize_chromosome(chromosome)
 
@@ -112,48 +122,69 @@ def normalize_region(chromosome, begin, end):
     return chromosome, begin, end
 
 
-def normalize_variant(chromosome, position, reference, observed):
+def normalize_variant(chromosome, begin, end, observed, reference=None):
     """
     Use reference to create a normalized representation of the variant.
+
+    The `reference` argument is optional. If not given, it is retrieved from
+    the reference genome (if available).
+
+    :arg chromosome: Chromosome name.
+    :type chromosome: str
+    :arg begin: Beginning of reference genomic region, zero-based.
+    :type begin: int
+    :arg end: End of reference genomic region, zero-based, exclusive.
+    :type end: int
+    :arg observed: Variant sequence.
+    :type observed: str
+    :arg reference: Reference sequence.
+    :type reference: str
+
+    :return: Normalized variant representation as a tuple of `chromosome`,
+        `begin`, `end`, `observed`.
+    :rtype: (str, int, int, str)
     """
-    # Todo: Document clearly what the position means (0/1-based, what is it
-    #     for an insertion).
-    reference = reference.upper()
     observed = observed.upper()
+    if reference is not None:
+        reference = reference.upper()
 
     chromosome = normalize_chromosome(chromosome)
 
     if genome:
-        if position > len(genome[chromosome]):
+        if end > len(genome[chromosome]):
             raise ReferenceMismatch('Position %d does not exist on chromosome'
                                     ' "%s" in reference genome' %
-                                    (position, chromosome))
-        if (genome[chromosome][position - 1
-                               :position + len(reference) - 1].upper() !=
-            reference):
+                                    (end, chromosome))
+        if reference is None:
+            reference = genome[chromosome][begin:end].upper()
+        elif reference != genome[chromosome][begin:end].upper():
             raise ReferenceMismatch('Sequence "%s" does not match reference'
-                                    ' genome on "%s" at position %d' %
-                                    (reference, chromosome, position))
+                                    ' genome on "%s" at positions %d-%d' %
+                                    (reference, chromosome, begin + 1, end))
 
-    prefix, reference, observed, _ = trim_common(reference, observed)
-    position += prefix
+    if reference is not None:
+        prefix, reference, observed, suffix = trim_common(reference, observed)
+        begin += prefix
+        end += prefix - suffix
 
     # Todo: If reference == observed == '', there is no variant. Probably
     #     raise an exception in that case.
 
     if not genome:
-        return chromosome, position, reference, observed
+        return chromosome, begin, end, observed
 
     # Insertions and deletions can be moved to the left by looking for cyclic
     # permutations.
-    if reference == '':
-        position, observed = move_left(genome[chromosome], position, observed)
+    if begin == end:
+        begin, observed = move_left(genome[chromosome], begin, observed)
+        end = begin
         observed = observed.upper()
-    elif observed == '':
-        position, reference = move_left(genome[chromosome], position, reference)
-        reference = reference.upper()
+    elif observed == '' and reference is not None:
+        begin, reference = move_left(genome[chromosome], begin, reference)
+        end = begin + len(reference)
+        #reference = reference.upper()
 
-    return chromosome, position, reference, observed
+    return chromosome, begin, end, observed
 
 
 def trim_common(s1, s2):
@@ -200,9 +231,8 @@ def trim_common(s1, s2):
 
 def move_left(context, position, sequence):
     """
-    Move ``sequence`` as far as possible to the left, starting at
-    ``position`` (one-based) in ``context``, while staying in cyclic
-    permutations.
+    Move `sequence` as far as possible to the left, starting at `position`
+    (zero-based) in `context`, while staying in cyclic permutations.
 
     Schematic example::
 
@@ -215,31 +245,31 @@ def move_left(context, position, sequence):
 
     Code examples::
 
-        >>> move_left('abbaabbaabba', 5, 'abba')
-        (1, 'abba')
-        >>> move_left('abbaabbaabba', 6, 'bbaa')
-        (1, 'abba')
-        >>> move_left('abbaabbaabba', 6, 'bba')
-        (5, 'abb')
+        >>> move_left('abbaabbaabba', 4, 'abba')
+        (0, 'abba')
+        >>> move_left('abbaabbaabba', 5, 'bbaa')
+        (0, 'abba')
+        >>> move_left('abbaabbaabba', 5, 'bba')
+        (4, 'abb')
 
     :arg context: Context sequence.
     :type context: str (or really a subscriptable yielding strings)
-    :arg position: Start position of ``sequence`` in ``context``.
+    :arg position: Start position of ``sequence`` in ``context``, zero-based.
     :type position: int
     :arg sequence: Sequence to find cyclic permutations of in ``context``.
     :type sequence: str
 
-    :return: A tuple (permutation, position) being the resulting cyclic
-        permutation of ``sequence`` and its position in ``context``.
-    :rtype: (str, int)
+    :return: A tuple `position`, `permutation` being the resulting cyclic
+        permutation of `sequence` and its position in `context`.
+    :rtype: (int, str)
     """
     def lookup(p):
         if position <= p < position + len(sequence):
             return sequence[p - position].upper()
-        return context[p - 1].upper()
+        return context[p].upper()
 
     move = 0
-    while (position - move > 1 and
+    while (position - move > 0 and
            lookup(position - move - 1) ==
            lookup(position + len(sequence) - move - 1)):
         move += 1
@@ -250,8 +280,8 @@ def move_left(context, position, sequence):
         return position, sequence
 
     return (position - move,
-            context[position - move - 1
-                    :min(position, position - move + len(sequence)) - 1]
+            context[position - move
+                    :min(position, position - move + len(sequence))]
             + sequence[:-move])
 
 
@@ -304,19 +334,26 @@ def read_genotype(call, prefer_likelihoods=False):
         return [int(a) for a in call.gt_alleles]
 
 
-def calculate_frequency(chromosome, position, reference, observed,
-                        sample=None, exclude_checksum=None):
+def calculate_frequency(chromosome, begin, end, observed, sample=None,
+                        exclude_checksum=None):
     """
     Calculate frequency for a variant.
 
-    Return a tuple of:
+    :arg chromosome: Chromosome name.
+    :type chromosome: str
+    :arg begin: Beginning of reference genomic region, zero-based.
+    :type begin: int
+    :arg end: End of reference genomic region, zero-based, exclusive.
+    :type end: int
+    :arg observed: Variant sequence.
+    :type observed: str
 
-    - number of individuals (with coverage)
-    - dictionary of mappings:
-      zygosity -> ratio of individuals with observed allele and zygosity
+    :return: A tuple of the number of individuals having coverage and a
+        dictionary with for every zygosity the ratio of individuals with
+        observed allele and zygosity.
+    :rtype: (int, dict)
     """
-    end_position = position + max(1, len(reference)) - 1
-    bins = all_bins(position, end_position)
+    bins = all_bins(begin + 1, max(begin + 1, end))
 
     # Todo: Double-check if we handle pooled samples correctly.
 
@@ -326,8 +363,8 @@ def calculate_frequency(chromosome, position, reference, observed,
                           func.sum(Observation.support)).
             filter(Observation.bin.in_(bins)).
             filter_by(chromosome=chromosome,
-                      position=position,
-                      reference=reference,
+                      begin=begin,
+                      end=end,
                       observed=observed).
             join(Variation).
             filter_by(sample=sample).
@@ -338,8 +375,8 @@ def calculate_frequency(chromosome, position, reference, observed,
         if sample.coverage_profile:
             coverage = Region.query.join(Coverage).filter(
                 Region.chromosome == chromosome,
-                Region.begin <= position,
-                Region.end >= end_position,
+                Region.begin <= begin,
+                Region.end >= end,
                 Region.bin.in_(bins),
                 Coverage.sample == sample).count()
         else:
@@ -360,8 +397,8 @@ def calculate_frequency(chromosome, position, reference, observed,
                           func.sum(Observation.support)).
             filter(Observation.bin.in_(bins)).
             filter_by(chromosome=chromosome,
-                      position=position,
-                      reference=reference,
+                      begin=begin,
+                      end=end,
                       observed=observed).
             join(Variation).
             join(Sample).
@@ -373,8 +410,8 @@ def calculate_frequency(chromosome, position, reference, observed,
 
         coverage = Region.query.join(Coverage).filter(
             Region.chromosome == chromosome,
-            Region.begin <= position,
-            Region.end >= end_position,
+            Region.begin <= begin,
+            Region.end >= end,
             Region.bin.in_(bins)).join(Sample).filter_by(
             active=True).count()
 

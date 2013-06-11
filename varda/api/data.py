@@ -183,11 +183,11 @@ def _cast_variant(value, definition):
         # Todo: I'm not so sure about the urllib.unquote call. I would've
         #     hoped that Werkzeug routing would unquote any argument in our
         #     url (e.g. '/variants/<str:variant>' in views.variant_get.
-        match = re.match('([^:]+):([0-9]+)([a-zA-Z]{,200})>([a-zA-Z]{,200}$)',
+        match = re.match('([^:]+):([0-9]+)-([0-9]+)>([a-zA-Z]{,200}$)',
                          urllib.unquote(value))
         try:
-            chromosome, position, reference, observed = match.groups()
-            return chromosome, int(position), reference, observed
+            chromosome, begin, end, observed = match.groups()
+            return chromosome, int(begin), int(end), observed
         except AttributeError:
             pass
     return value
@@ -251,14 +251,15 @@ class ApiValidator(Validator):
     def _validate_type_variant(self, field, value):
         if isinstance(value, tuple):
             try:
-                chromosome, position, reference, observed = value
-                if (all(isinstance(x, basestring)
-                        for x in (chromosome, reference, observed))
-                    and isinstance(position, int)):
+                chromosome, begin, end, observed = value
+                if (isinstance(chromosome, basestring) and
+                    isinstance(begin, int) and
+                    isinstance(end, int) and
+                    isinstance(observed, basestring)):
                     # Todo: Must we check here if we're dealing with DNA?
                     #     Also, these length checks are quire arbitrary.
                     if (len(chromosome) < 100 and
-                        len(reference) < 300 and
+                        end - begin < 300 and
                         len(observed) < 300):
                         return
             except ValueError:

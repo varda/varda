@@ -9,6 +9,7 @@ REST API variants resource.
 
 from flask import g, jsonify
 
+from ... import genome
 from ...models import Observation, Sample, Variation
 from ...region_binning import all_bins
 from ...utils import (calculate_frequency, normalize_region, normalize_variant,
@@ -64,19 +65,22 @@ class VariantsResource(Resource):
                 # Todo: Meaningful error message.
                 abort(400)
 
-        # Todo: Note that we mean start, stop to be 1-based, inclusive, but we
-        #     haven't checked if we actually treat it that way.
+        # Note that in the REST API, we mean begin, end to be one-based and
+        # inclusive, but within Varda, everything is zero-based and
+        # open-ended.
         try:
-            chromosome, begin_position, end_position = normalize_region(
-                region['chromosome'], region['begin'], region['end'])
+            chromosome, begin, end = normalize_region(
+                region['chromosome'], region['begin'] - 1, region['end'])
         except ReferenceMismatch as e:
             raise ValidationError(str(e))
 
-        bins = all_bins(begin_position, end_position)
+        # Exception to the zero-based, open-ended positioning is the
+        # region_binning module.
+        bins = all_bins(begin + 1, max(begin + 1, end))
         observations = Observation.query.filter(
             Observation.chromosome == chromosome,
-            Observation.position >= begin_position,
-            Observation.position <= end_position,
+            Observation.position >= begin,
+            Observation.position <= end,
             Observation.bin.in_(bins))
 
         # Filter by sample, or by samples with coverage profile otherwise.
@@ -89,11 +93,11 @@ class VariantsResource(Resource):
                                                         coverage_profile=True)
 
         observations = observations.distinct(Observation.chromosome,
-                                             Observation.position,
-                                             Observation.reference,
+                                             Observation.begin,
+                                             Observation.end,
                                              Observation.observed)
 
-        items = [cls.serialize((o.chromosome, o.position, o.reference, o.observed),
+        items = [cls.serialize((o.chromosome, o.begin, o.end, o.observed),
                                sample=sample)
                  for o in observations.limit(count).offset(begin)]
         return (observations.count(),
@@ -136,7 +140,9 @@ class VariantsResource(Resource):
         """
         # Todo: Also support HGVS input.
         try:
-            variant = normalize_variant(chromosome, position, reference, observed)
+            variant = normalize_variant(chromosome, position - 1,
+                                        position - 1 + len(reference),
+                                        observed, reference=reference)
         except ReferenceMismatch as e:
             raise ValidationError(str(e))
         uri = cls.instance_uri(variant)
@@ -150,24 +156,29 @@ class VariantsResource(Resource):
 
     @classmethod
     def instance_key(cls, variant):
-        return '%s:%d%s>%s' % variant
+        return '%s:%d-%d>%s' % variant
 
     @classmethod
     def serialize(cls, variant, sample=None):
-        chromosome, position, reference, observed = variant
+        chromosome, begin, end, observed = variant
 
         coverage, frequency = calculate_frequency(
-            chromosome, position, reference, observed, sample=sample)
+            chromosome, begin, end, observed, sample=sample)
 
         if sample is not None:
             sample_uri = SamplesResource.instance_uri(sample)
         else:
             sample_uri = None
 
+        if genome:
+            reference = genome[chromosome][begin:end].upper()
+        else:
+            reference = 'N' * (end - begin)
+
         return {'uri': cls.instance_uri(variant),
                 'sample_uri': sample_uri,
                 'chromosome': chromosome,
-                'position': position,
+                'position': begin + 1,
                 'reference': reference,
                 'observed': observed,
                 'coverage': coverage,

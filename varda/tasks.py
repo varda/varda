@@ -30,7 +30,6 @@ import vcf
 from . import db, celery
 from .models import (Annotation, Coverage, DataSource, DataUnavailable,
                      Observation, Sample, Region, Variation)
-from .region_binning import all_bins
 from .utils import (calculate_frequency, digest, NoGenotypesInRecord,
                     normalize_variant, normalize_chromosome, normalize_region,
                     read_genotype, ReferenceMismatch)
@@ -233,22 +232,23 @@ def annotate_variants(original_variants, annotated_variants,
         sample_results = [[] for _ in sample_frequency]
         for index, allele in enumerate(record.ALT):
             try:
-                chromosome, position, reference, observed = normalize_variant(
-                    record.CHROM, record.POS, record.REF, str(allele))
+                chromosome, begin, end, observed = normalize_variant(
+                    record.CHROM, record.POS - 1, record.POS - 1 + len(record.REF),
+                    str(allele), reference=record.REF)
             except ReferenceMismatch as e:
                 raise ReadError(str(e))
 
             if global_frequency:
                 global_result.append(calculate_frequency(
-                        chromosome, position, reference, observed,
+                        chromosome, begin, end, observed,
                         exclude_checksum=exclude_checksum))
 
             # Todo: Instead of doing it separately per sample, it can probably
             #     be done much more efficiently in one go.
             for i, sample in enumerate(sample_frequency):
                 sample_results[i].append(calculate_frequency(
-                        chromosome, position, reference, observed,
-                        sample=sample, exclude_checksum=exclude_checksum))
+                        chromosome, begin, end, observed, sample=sample,
+                        exclude_checksum=exclude_checksum))
 
         if global_frequency:
             record.add_info('GLOBAL_VN', [vn for vn, _ in global_result])
@@ -282,8 +282,8 @@ def read_observations(observations, filetype='vcf', skip_filtered=True,
         genotypes from likelihoods (if available).
     :type prefer_genotype_likelihoods: bool
 
-    :return: Generator yielding tuples (current_record, chromosome, position,
-        reference, observed, zygosity, support).
+    :return: Generator yielding tuples (current_record, chromosome, begin,
+        end, observed, zygosity, support).
     """
     if filetype != 'vcf':
         raise ReadError('Data must be in VCF format')
@@ -368,8 +368,9 @@ def read_observations(observations, filetype='vcf', skip_filtered=True,
 
         for index, allele in enumerate(record.ALT):
             try:
-                chromosome, position, reference, observed = normalize_variant(
-                    record.CHROM, record.POS, record.REF, str(allele))
+                chromosome, begin, end, observed = normalize_variant(
+                    record.CHROM, record.POS - 1, record.POS - 1 + len(record.REF),
+                    str(allele), reference=record.REF)
             except ReferenceMismatch as e:
                 logger.info('Reference mismatch: %s', str(e))
                 if current_app.conf['REFERENCE_MISMATCH_ABORT']:
@@ -377,12 +378,12 @@ def read_observations(observations, filetype='vcf', skip_filtered=True,
                 continue
 
             # Todo: Ignore or abort?
-            if len(reference) > 200 or len(observed) > 200:
+            if end - begin > 200 or len(observed) > 200:
                 continue
 
             for zygosity, support in alt_support[index].items():
-                yield (current_record, chromosome, position, reference,
-                       observed, zygosity, support)
+                yield (current_record, chromosome, begin, end, observed,
+                       zygosity, support)
 
 
 def read_regions(regions, filetype='bed'):
@@ -403,7 +404,7 @@ def read_regions(regions, filetype='bed'):
             if current_app.conf['REFERENCE_MISMATCH_ABORT']:
                 raise ReadError(str(e))
             continue
-        yield current_record, chromosome, begin + 1, end
+        yield current_record, chromosome, begin, end
 
 
 @celery.task(base=CleanTask)
@@ -478,7 +479,7 @@ def import_variation(variation_id):
     try:
         with data as observations:
             old_percentage = -1
-            for i, (record, chromosome, position, reference, observed, zygosity, support) \
+            for i, (record, chromosome, begin, end, observed, zygosity, support) \
                     in enumerate(read_observations(observations,
                                                    filetype=data_source.filetype,
                                                    skip_filtered=variation.skip_filtered,
@@ -491,9 +492,9 @@ def import_variation(variation_id):
                     current_task.update_state(state='PROGRESS',
                                               meta={'percentage': percentage})
                     old_percentage = percentage
-                observation = Observation(variation, chromosome, position,
-                                          reference, observed,
-                                          zygosity=zygosity, support=support)
+                observation = Observation(variation, chromosome, begin, end,
+                                          observed, zygosity=zygosity,
+                                          support=support)
                 db.session.add(observation)
                 if i % DB_BUFFER_SIZE == DB_BUFFER_SIZE - 1:
                     db.session.flush()
