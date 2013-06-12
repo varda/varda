@@ -31,6 +31,8 @@ class UsersResource(ModelResource):
 
     views = ['list', 'get', 'add', 'edit', 'delete']
 
+    orderable = ['name', 'added']
+
     get_ensure_conditions = [has_role('admin'), is_user]
     get_ensure_options = {'satisfy': any}
 

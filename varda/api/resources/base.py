@@ -62,6 +62,9 @@ class Resource(object):
 
     embeddable = {}
     filterable = {}
+    orderable = []
+
+    default_order = []
 
     list_ensure_conditions = [has_role('admin')]
     list_ensure_options = {}
@@ -106,6 +109,12 @@ class Resource(object):
         if cls.filterable:
             filter_schema = {k: {'type': v} for k, v in cls.filterable.items()}
             cls.list_schema.update(filter_schema)
+        if cls.orderable:
+            order_schema = {'order': {'type': 'list',
+                                      'schema': {'type': 'directed_string'},
+                                      'allowed': [(f, d) for f in cls.orderable
+                                                  for d in ('asc', 'desc')]}}
+            cls.list_schema.update(order_schema)
         return super(Resource, cls).__new__(cls, *args, **kwargs)
 
     def __init__(self, blueprint, url_prefix=None):
@@ -126,6 +135,7 @@ class Resource(object):
             self.register_view('delete', methods=['DELETE'])
 
     def register_view(self, endpoint, wrapper=None, **kwargs):
+        # Todo: Define list of wrappers per view as class properties.
         if wrapper is None:
             wrapper = lambda f: f
 
@@ -143,6 +153,15 @@ class Resource(object):
                                     '%s_%s' % (self.instance_name, endpoint),
                                     view,
                                     **kwargs)
+
+    @classmethod
+    def get_order(cls, requested_order=None):
+        # Todo: Implement this via a view wrapper.
+        if not requested_order:
+            return cls.default_order
+        requested_fields = [f for f, _ in requested_order]
+        return requested_order + [(f, d) for f, d in cls.default_order
+                                  if f not in requested_fields]
 
     @classmethod
     def get_view(cls, embed=None, **kwargs):
@@ -210,27 +229,22 @@ class ModelResource(Resource):
 
     views = ['list', 'get', 'add', 'edit', 'delete']
 
+    default_order = [('id', 'asc')]
+
     @classmethod
-    def list_view(cls, begin, count, embed=None, **filter):
-        # Todo: Explicitely order resources in the collection, possibly in a
-        #     user-defined way.
-        #     Since we are using LIMIT/OFFSET, it is very important that we
-        #     use ORDER BY as well [1]. It might be the case that we already
-        #     implicitely have ORDER BY clauses on our queries [2], and if
-        #     not, we at least have the option to define a default ORDER BY
-        #     in the model definition [3].
-        #     Also not that LIMIT/OFFSET may get slow on many rows [1], so
-        #     perhaps it's worth considering a recipe like [4] or [5] as an
-        #     alternative.
+    def list_view(cls, begin, count, embed=None, order=None, **filter):
+        # Todo: On large collections, LIMIT/OFFSET may get slow on many rows
+        #     [1], so perhaps it's worth considering a recipe like [2] or [3]
+        #     as an alternative.
         #
         # [1] http://www.postgresql.org/docs/8.0/static/queries-limit.html
-        # [2] http://www.mail-archive.com/sqlalchemy@googlegroups.com/msg07314.html
-        # [3] https://groups.google.com/forum/?fromgroups=#!topic/sqlalchemy/mhMPaKNQYyc
-        # [4] http://www.sqlalchemy.org/trac/wiki/UsageRecipes/WindowedRangeQuery
-        # [5] http://stackoverflow.com/questions/6618366/improving-offset-performance-in-postgresql
+        # [2] http://www.sqlalchemy.org/trac/wiki/UsageRecipes/WindowedRangeQuery
+        # [3] http://stackoverflow.com/questions/6618366/improving-offset-performance-in-postgresql
         instances = cls.model.query
         if filter:
             instances = instances.filter_by(**filter)
+        instances = instances.order_by(*[getattr(getattr(cls.model, f), d)()
+                                         for f, d in cls.get_order(order)])
         items = [cls.serialize(r, embed=embed)
                  for r in instances.limit(count).offset(begin)]
         return (instances.count(),

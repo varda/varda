@@ -31,6 +31,14 @@ class VariantsResource(Resource):
 
     views = ['list', 'get', 'add']
 
+    orderable = ['chromosome', 'position']
+
+    default_order = [('chromosome', 'asc'),
+                     ('position', 'asc'),
+                     ('reference', 'asc'),
+                     ('observed', 'asc'),
+                     ('id', 'asc')]
+
     list_ensure_conditions = [has_role('admin'), has_role('annotator')]
     list_ensure_options = {'satisfy': any}
     list_schema = {'region': {'type': 'dict',
@@ -53,7 +61,7 @@ class VariantsResource(Resource):
     key_type = 'string'
 
     @classmethod
-    def list_view(cls, begin, count, region, sample=None):
+    def list_view(cls, begin, count, region, sample=None, order=None):
         """
         Get a collection of variants.
         """
@@ -92,6 +100,9 @@ class VariantsResource(Resource):
                                              Observation.position,
                                              Observation.reference,
                                              Observation.observed)
+
+        observations = observations.order_by(*[getattr(getattr(Observation, f), d)()
+                                               for f, d in cls.get_order(order)])
 
         items = [cls.serialize((o.chromosome, o.position, o.reference, o.observed),
                                sample=sample)

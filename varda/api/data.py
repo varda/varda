@@ -51,18 +51,19 @@ def cast(document, schema):
         structures may have been copied by reference in the return value.
     :rtype: dict
     """
-    casters = {'list':        _cast_list,
-               'dict':        _cast_dict,
-               'integer':     _cast_integer,
-               'boolean':     _cast_boolean,
-               'annotation':  _cast_annotation,
-               'coverage':    _cast_coverage,
-               'data_source': _cast_data_source,
-               'sample':      _cast_sample,
-               'token':       _cast_token,
-               'user':        _cast_user,
-               'variant':     _cast_variant,
-               'variation':   _cast_variation}
+    casters = {'list':            _cast_list,
+               'dict':            _cast_dict,
+               'integer':         _cast_integer,
+               'boolean':         _cast_boolean,
+               'directed_string': _cast_directed_string,
+               'annotation':      _cast_annotation,
+               'coverage':        _cast_coverage,
+               'data_source':     _cast_data_source,
+               'sample':          _cast_sample,
+               'token':           _cast_token,
+               'user':            _cast_user,
+               'variant':         _cast_variant,
+               'variation':       _cast_variation}
     return_document = {}
     for field, value in document.items():
         definition = schema.get(field)
@@ -124,6 +125,16 @@ def _cast_boolean(value, definition):
             return True
         elif value.lower() in ('false', 'no', 'off', '0'):
             return False
+    return value
+
+
+def _cast_directed_string(value, definition):
+    if isinstance(value, basestring):
+        if value.startswith('-'):
+            return value[1:], 'desc'
+        if value.startswith('+'):
+            return value[1:], 'asc'
+        return value, 'asc'
     return value
 
 
@@ -223,6 +234,13 @@ class ApiValidator(Validator):
     def _validate_id(self, id_, field, value):
         if id_ and not value:
             self.missing_id = True
+
+    def _validate_type_directed_string(self, field, value):
+        if not (isinstance(value, tuple) or
+                len(value) == 2 or
+                isinstance(value[0], basestring)
+                or value[1] in ('asc', 'desc')):
+            self._error(cerberus.errors.ERROR_BAD_TYPE % (field, 'directed string'))
 
     def _validate_type_annotation(self, field, value):
         if not isinstance(self.document[field], Annotation):
