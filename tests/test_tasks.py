@@ -5,6 +5,7 @@ Test Celery tasks.
 
 import tempfile
 
+from flask.ext.testing import TestCase
 from nose.tools import *
 
 from varda import create_app, db
@@ -14,37 +15,43 @@ from varda.tasks import ping
 
 TEST_SETTINGS = {
     'TESTING': True,
-    'FILES_DIR': tempfile.mkdtemp(),
+    'DATA_DIR': tempfile.mkdtemp(),
+    'GENOME': 'tests/data/hg19.fa',
+    'REFERENCE_MISMATCH_ABORT': True,
     'SQLALCHEMY_DATABASE_URI': 'sqlite://',
-    'BROKER_TRANSPORT': 'memory',
+    'BROKER_URL': 'memory://',
+    'CELERY_RESULT_BACKEND': 'cache',
+    'CELERY_CACHE_BACKEND': 'memory',
     'CELERY_ALWAYS_EAGER': True,
-    'CELERY_EAGER_PROPAGATES_EXCEPTIONS': False
+    # Note: If exceptions are propagated, on_failure handlers are not called.
+    'CELERY_EAGER_PROPAGATES_EXCEPTIONS': True
 }
 
 
-class TestTasks():
+class TestTasks(TestCase):
     """
     Test Celery tasks, by calling them in various ways.
+
+    .. note:: Since the `flask.ext.testing.TestCase` class is based on
+        `unittest.TestCase`, we really need to name our setup and teardown
+        methods `setUp` and `tearDown` (note the case). With pure `nose`
+        tests this wouldn't be necessary.
     """
-    def setup(self):
+    def create_app(self):
+        return create_app(TEST_SETTINGS)
+
+    def setUp(self):
         """
         Run once before every test. Setup the test database.
         """
-        self.app = create_app(TEST_SETTINGS)
-        self.client = self.app.test_client()
-        with self.app.test_request_context():
-            db.create_all()
-            user = User('Test User', 'test', 'test', roles=['admin'])
-            db.session.add(user)
-            db.session.commit()
+        db.create_all()
 
-    def teardown(self):
+    def tearDown(self):
         """
         Run once after every test. Drop the test database.
         """
-        with self.app.test_request_context():
-            db.session.remove()
-            db.drop_all()
+        db.session.remove()
+        db.drop_all()
 
     def test_ping_blocking(self):
         """
