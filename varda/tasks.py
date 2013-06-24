@@ -225,8 +225,13 @@ def annotate_variants(original_variants, annotated_variants,
         if percentage > old_percentage:
             # Todo: Task state updating should be defined in the task itself,
             #     perhaps we can give values using a callback.
-            current_task.update_state(state='PROGRESS',
-                                      meta={'percentage': percentage})
+            try:
+                current_task.update_state(state='PROGRESS',
+                                          meta={'percentage': percentage})
+            except AttributeError:
+                # Hack for the unit tests were whe call this not from within
+                # a task.
+                pass
             old_percentage = percentage
 
         global_result = []

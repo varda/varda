@@ -41,6 +41,11 @@ def monkey_patch_fixture():
     MappedClassMedium.save = save
 
 
+class _EmptyUpload(object):
+    def read(self):
+        return ''
+
+
 class UserData(DataSet):
     class test_user:
         name = 'Test User'
@@ -50,6 +55,9 @@ class UserData(DataSet):
 
 class SampleData(DataSet):
     class unactivated_sample:
+        user = UserData.test_user
+        name = 'Test Sample'
+    class unactivated_sample_subset:
         user = UserData.test_user
         name = 'Test Sample'
 
@@ -65,6 +73,21 @@ class DataSourceData(DataSet):
         name = 'Test Data Source'
         filetype = 'vcf'
         local_file = 'exome-samtools.vcf'
+    class exome_samtools_subset_coverage:
+        user = UserData.test_user
+        name = 'Test Data Source'
+        filetype = 'bed'
+        local_file = 'exome-samtools-subset.bed'
+    class exome_samtools_subset_variation:
+        user = UserData.test_user
+        name = 'Test Data Source'
+        filetype = 'vcf'
+        local_file = 'exome-samtools-subset.vcf'
+    class empty_variation:
+        user = UserData.test_user
+        name = 'Test Data Source'
+        filetype = 'vcf'
+        upload = _EmptyUpload()
 
 
 class CoverageData(DataSet):
@@ -74,6 +97,9 @@ class CoverageData(DataSet):
     class unimported_exome_samtools_coverage_2:
         sample = SampleData.unactivated_sample
         data_source = DataSourceData.exome_samtools_coverage
+    class unimported_exome_samtools_subset_coverage:
+        sample = SampleData.unactivated_sample_subset
+        data_source = DataSourceData.exome_samtools_subset_coverage
 
 
 class VariationData(DataSet):
@@ -83,3 +109,12 @@ class VariationData(DataSet):
     class unimported_exome_samtools_variation_2:
         sample = SampleData.unactivated_sample
         data_source = DataSourceData.exome_samtools_variation
+    class unimported_exome_samtools_subset_variation:
+        sample = SampleData.unactivated_sample_subset
+        data_source = DataSourceData.exome_samtools_subset_variation
+
+
+class AnnotationData(DataSet):
+    class unwritten_exome_samtools_annotation:
+        original_data_source = DataSourceData.exome_samtools_variation
+        annotated_data_source = DataSourceData.empty_variation
