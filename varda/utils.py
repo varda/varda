@@ -271,13 +271,15 @@ def read_genotype(call, prefer_likelihoods=False):
     :raise NoGenotypesInRecord: If the record for the given call has no
         genotype information.
     """
-    if not any(x in call.site.FORMAT.split(':') for x in ('GT', 'GL', 'PL')):
+    fields = call.site.FORMAT.split(':')
+
+    if not any(x in fields for x in ('GT', 'GL', 'PL')):
         raise NoGenotypesInRecord('The record for the given call has no '
                                   'genotypes defined and nothing to derive '
                                   'them from')
 
-    if prefer_likelihoods or 'GT' not in call.data:
-        if 'GL' in call.data or 'PL' in call.data:
+    if prefer_likelihoods or 'GT' not in fields:
+        if 'GL' in fields or 'PL' in fields:
             # Get ploidy from GT, default to diploid.
             try:
                 ploidy = len(call.gt_alleles)
@@ -292,10 +294,10 @@ def read_genotype(call, prefer_likelihoods=False):
                                  range(len(call.site.ALT) + 1), ploidy),
                                key=lambda g: g[::-1])
 
-            if 'PL' in call.data:
+            if 'PL' in fields:
                 return genotypes[min((call.data.PL[i], i)
                                      for i in range(len(genotypes)))[1]]
-            elif 'GL' in call.data:
+            elif 'GL' in fields:
                 return genotypes[min((-call.data.GL[i], i)
                                      for i in range(len(genotypes)))[1]]
 
