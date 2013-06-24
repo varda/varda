@@ -91,3 +91,7 @@ grepping the source code for ``Todo``.
 
   For now we think it is best to stick with the current representations, but
   this is still somewhat up for discussion.
+
+* Have a section in the docs describing the unit tests. Also note that the
+  unit tests use the first 200,000 bases of chromosome 19 as a reference
+  genome.
