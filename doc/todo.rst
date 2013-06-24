@@ -95,3 +95,21 @@ grepping the source code for ``Todo``.
 * Have a section in the docs describing the unit tests. Also note that the
   unit tests use the first 200,000 bases of chromosome 19 as a reference
   genome.
+
+* Refactor how we handle Celery tasks. Don't store the task uuid in the
+  database. Probably also create the resulting resource in the task, not
+  before starting the task like we do now.
+
+  A running task should be monitored and, when finished, it points to the
+  resulting resource.
+
+  We can probably still list running tasks even though we don't store them
+  in the database, following `what Flower does
+  <https://github.com/mher/flower/blob/master/flower/models.py#L104>`_.
+  This will only work when sending task events is enabled (``-E`` option to
+  ``celeryd``). Also have a look at `CELERY_SEND_EVENTS` and
+  `CELERY_SEND_TASK_SENT_EVENT` `configuration options
+  <http://docs.celeryproject.org/en/latest/configuration.html#events>`_.
+  As `this post suggests
+  <http://stackoverflow.com/questions/15575826/how-to-inspect-and-cancel-celery-tasks-by-task-name>`_,
+  we probably also have to explicitely monitor the events.
