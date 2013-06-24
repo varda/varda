@@ -60,6 +60,11 @@ class DataSourceData(DataSet):
         name = 'Test Data Source'
         filetype = 'bed'
         local_file = 'exome-samtools.bed'
+    class exome_samtools_variation:
+        user = UserData.test_user
+        name = 'Test Data Source'
+        filetype = 'vcf'
+        local_file = 'exome-samtools.vcf'
 
 
 class CoverageData(DataSet):
@@ -69,3 +74,12 @@ class CoverageData(DataSet):
     class unimported_exome_samtools_coverage_2:
         sample = SampleData.unactivated_sample
         data_source = DataSourceData.exome_samtools_coverage
+
+
+class VariationData(DataSet):
+    class unimported_exome_samtools_variation:
+        sample = SampleData.unactivated_sample
+        data_source = DataSourceData.exome_samtools_variation
+    class unimported_exome_samtools_variation_2:
+        sample = SampleData.unactivated_sample
+        data_source = DataSourceData.exome_samtools_variation

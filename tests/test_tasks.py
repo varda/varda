@@ -14,10 +14,10 @@ from nose.tools import *
 from sqlalchemy import create_engine
 
 from varda import create_app, db, models
-from varda.models import Coverage, Region, User
+from varda.models import Coverage, Observation, Region, User, Variation
 from varda import tasks
 
-from fixtures import CoverageData
+from fixtures import CoverageData, VariationData
 
 
 TEST_SETTINGS = {
@@ -128,3 +128,55 @@ class TestTasks(TestCase):
                 tasks.import_coverage.delay(coverage.id)
             assert_equal(cm.exception.code, 'duplicate_data_source')
             assert not coverage.task_done
+
+    def test_import_variation(self):
+        """
+        Import a variation file.
+        """
+        with self.fixture.data(VariationData) as data:
+            variation = Variation.query.get(
+                data.VariationData.unimported_exome_samtools_variation.id)
+            result = tasks.import_variation.delay(variation.id)
+            assert_equal(result.state, 'SUCCESS')
+            assert variation.task_done
+            assert_equal(Observation.query.filter_by(variation=variation).count(), 16)
+
+    def test_import_nonexisting_variation(self):
+        """
+        Import a variation file for nonexisting variation resource.
+        """
+        with assert_raises(tasks.TaskError) as cm:
+            tasks.import_variation.delay(27)
+        assert_equal(cm.exception.code, 'variation_not_found')
+
+    def test_import_imported_variation(self):
+        """
+        Import already imported variation.
+        """
+        with self.fixture.data(VariationData) as data:
+            variation = Variation.query.get(
+                data.VariationData.unimported_exome_samtools_variation.id)
+            result = tasks.import_variation.delay(variation.id)
+            assert_equal(result.state, 'SUCCESS')
+
+            with assert_raises(tasks.TaskError) as cm:
+                tasks.import_variation.delay(variation.id)
+            assert_equal(cm.exception.code, 'variation_imported')
+            assert variation.task_done
+
+    def test_import_variation_duplicate(self):
+        """
+        Import the same variation file twice.
+        """
+        with self.fixture.data(VariationData) as data:
+            variation = Variation.query.get(
+                data.VariationData.unimported_exome_samtools_variation.id)
+            result = tasks.import_variation.delay(variation.id)
+            assert_equal(result.state, 'SUCCESS')
+
+            variation = Variation.query.get(
+                data.VariationData.unimported_exome_samtools_variation_2.id)
+            with assert_raises(tasks.TaskError) as cm:
+                tasks.import_variation.delay(variation.id)
+            assert_equal(cm.exception.code, 'duplicate_data_source')
+            assert not variation.task_done
