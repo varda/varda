@@ -64,6 +64,7 @@ def normalize_chromosome(chromosome):
     """
     Try to get normalized chromosome name by reference lookup.
     """
+    # Todo: Define these aliases in settings.
     chromosome_aliases = [['M', 'MT', 'NC_012920.1', 'NC_012920_1',
                            'NC_012920', 'chrM', 'chrMT']]
 
