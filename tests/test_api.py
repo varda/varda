@@ -252,7 +252,7 @@ class TestApi():
 
         All annotations should have observation and coverage 1.
         """
-        sample, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
+        sample, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome.vcf', 'tests/data/exome.bed')
         annotated_data_source = self._annotate(vcf_data_source, sample_frequency=[sample])
 
         # Download annotation and see if we can parse it as VCF
@@ -271,7 +271,7 @@ class TestApi():
         Import and annotate exome sample with coverage track, check variant
         frequency.
         """
-        self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
+        self._import('Test sample', 'tests/data/exome.vcf', 'tests/data/exome.bed')
 
         data = {'chromosome': 'chr20',
                 'position': 139745,
@@ -292,8 +292,8 @@ class TestApi():
 
         All annotations should have observation and coverage 2.
         """
-        self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
-        sample, vcf_data_source, _ = self._import('Test subset', 'tests/data/exome-samtools-subset.vcf', 'tests/data/exome-samtools-subset.bed')
+        self._import('Test sample', 'tests/data/exome.vcf', 'tests/data/exome.bed')
+        sample, vcf_data_source, _ = self._import('Test subset', 'tests/data/exome-subset.vcf', 'tests/data/exome-subset.bed')
         annotated_data_source = self._annotate(vcf_data_source)
 
         # Download annotation and see if we can parse it as VCF
@@ -314,8 +314,8 @@ class TestApi():
 
         All annotations should have observation and coverage (2, 2), (1, 2), or (1, 1).
         """
-        sample, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
-        self._import('Test subset', 'tests/data/exome-samtools-subset.vcf', 'tests/data/exome-samtools-subset.bed')
+        sample, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome.vcf', 'tests/data/exome.bed')
+        self._import('Test subset', 'tests/data/exome-subset.vcf', 'tests/data/exome-subset.bed')
         annotated_data_source = self._annotate(vcf_data_source)
 
         # Download annotation and see if we can parse it as VCF
@@ -334,9 +334,9 @@ class TestApi():
         Importing the same file twice should not be possible.
         """
         # Todo: Better test.
-        self._import('Test sample 1', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
+        self._import('Test sample 1', 'tests/data/exome.vcf', 'tests/data/exome.bed')
         try:
-            self._import('Test sample 2', 'tests/data/exome-samtools.vcf', 'tests/data/exome-samtools.bed')
+            self._import('Test sample 2', 'tests/data/exome.vcf', 'tests/data/exome.bed')
         except AssertionError:
             pass
         else:
@@ -356,7 +356,7 @@ class TestApi():
         # Upload VCF
         data = {'name': 'Test observations',
                 'filetype': 'vcf',
-                'data': open('tests/data/exome-samtools.vcf')}
+                'data': open('tests/data/exome.vcf')}
         r = self.client.post(self.uri_data_sources, data=data, headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 201)
         # Todo: Something better than the replace.
@@ -394,7 +394,7 @@ class TestApi():
         # Upload VCF
         data = {'name': 'Test observations',
                 'filetype': 'vcf',
-                'data': open('tests/data/exome-samtools.vcf')}
+                'data': open('tests/data/exome.vcf')}
         r = self.client.post(self.uri_data_sources, data=data, headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 201)
         # Todo: Something better than the replace.

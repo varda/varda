@@ -85,7 +85,7 @@ class TestTasks(TestCase):
         """
         with self.fixture.data(CoverageData) as data:
             coverage = Coverage.query.get(
-                data.CoverageData.unimported_exome_samtools_coverage.id)
+                data.CoverageData.exome_coverage.id)
             result = tasks.import_coverage.delay(coverage.id)
             assert_equal(result.state, 'SUCCESS')
             assert coverage.task_done
@@ -105,7 +105,7 @@ class TestTasks(TestCase):
         """
         with self.fixture.data(CoverageData) as data:
             coverage = Coverage.query.get(
-                data.CoverageData.unimported_exome_samtools_coverage.id)
+                data.CoverageData.exome_coverage.id)
             result = tasks.import_coverage.delay(coverage.id)
             assert_equal(result.state, 'SUCCESS')
 
@@ -120,12 +120,12 @@ class TestTasks(TestCase):
         """
         with self.fixture.data(CoverageData) as data:
             coverage = Coverage.query.get(
-                data.CoverageData.unimported_exome_samtools_coverage.id)
+                data.CoverageData.exome_coverage.id)
             result = tasks.import_coverage.delay(coverage.id)
             assert_equal(result.state, 'SUCCESS')
 
             coverage = Coverage.query.get(
-                data.CoverageData.unimported_exome_samtools_coverage_2.id)
+                data.CoverageData.exome_coverage_duplicate.id)
             with assert_raises(tasks.TaskError) as cm:
                 tasks.import_coverage.delay(coverage.id)
             assert_equal(cm.exception.code, 'duplicate_data_source')
@@ -137,7 +137,7 @@ class TestTasks(TestCase):
         """
         with self.fixture.data(VariationData) as data:
             variation = Variation.query.get(
-                data.VariationData.unimported_exome_samtools_variation.id)
+                data.VariationData.exome_variation.id)
             result = tasks.import_variation.delay(variation.id)
             assert_equal(result.state, 'SUCCESS')
             assert variation.task_done
@@ -157,7 +157,7 @@ class TestTasks(TestCase):
         """
         with self.fixture.data(VariationData) as data:
             variation = Variation.query.get(
-                data.VariationData.unimported_exome_samtools_variation.id)
+                data.VariationData.exome_variation.id)
             result = tasks.import_variation.delay(variation.id)
             assert_equal(result.state, 'SUCCESS')
 
@@ -172,12 +172,12 @@ class TestTasks(TestCase):
         """
         with self.fixture.data(VariationData) as data:
             variation = Variation.query.get(
-                data.VariationData.unimported_exome_samtools_variation.id)
+                data.VariationData.exome_variation.id)
             result = tasks.import_variation.delay(variation.id)
             assert_equal(result.state, 'SUCCESS')
 
             variation = Variation.query.get(
-                data.VariationData.unimported_exome_samtools_variation_2.id)
+                data.VariationData.exome_variation_duplicate.id)
             with assert_raises(tasks.TaskError) as cm:
                 tasks.import_variation.delay(variation.id)
             assert_equal(cm.exception.code, 'duplicate_data_source')
@@ -191,12 +191,12 @@ class TestTasks(TestCase):
         """
         with self.fixture.data(AnnotationData, CoverageData, VariationData) as data:
             coverage = Coverage.query.get(
-                data.CoverageData.unimported_exome_samtools_subset_coverage.id)
+                data.CoverageData.exome_subset_coverage.id)
             result = tasks.import_coverage.delay(coverage.id)
             assert coverage.task_done
 
             variation = Variation.query.get(
-                data.VariationData.unimported_exome_samtools_subset_variation.id)
+                data.VariationData.exome_subset_variation.id)
             result = tasks.import_variation.delay(variation.id)
             assert variation.task_done
 
@@ -204,7 +204,7 @@ class TestTasks(TestCase):
             db.session.commit()
 
             annotation = Annotation.query.get(
-                data.AnnotationData.unwritten_exome_samtools_annotation.id)
+                data.AnnotationData.exome_annotation.id)
 
             result = tasks.write_annotation.delay(annotation.id)
             assert_equal(result.state, 'SUCCESS')
@@ -244,12 +244,12 @@ class TestTasks(TestCase):
         """
         with self.fixture.data(AnnotationData, CoverageData, VariationData) as data:
             coverage = Coverage.query.get(
-                data.CoverageData.unimported_exome_samtools_subset_coverage.id)
+                data.CoverageData.exome_subset_coverage.id)
             result = tasks.import_coverage.delay(coverage.id)
             assert coverage.task_done
 
             variation = Variation.query.get(
-                data.VariationData.unimported_exome_samtools_subset_variation.id)
+                data.VariationData.exome_subset_variation.id)
             result = tasks.import_variation.delay(variation.id)
             assert variation.task_done
 
@@ -257,7 +257,7 @@ class TestTasks(TestCase):
             db.session.commit()
 
             annotation = Annotation.query.get(
-                data.AnnotationData.unwritten_exome_samtools_annotation.id)
+                data.AnnotationData.exome_annotation.id)
 
             result = tasks.write_annotation.delay(annotation.id)
             assert_equal(result.state, 'SUCCESS')
@@ -273,7 +273,7 @@ class TestTasks(TestCase):
         """
         with self.fixture.data(DataSourceData) as data:
             data_source = DataSource.query.get(
-                data.DataSourceData.exome_samtools_coverage.id)
+                data.DataSourceData.exome_coverage.id)
             with data_source.data() as data:
                 regions = list(tasks.read_regions(data, data_source.filetype))
 
@@ -308,7 +308,7 @@ class TestTasks(TestCase):
         """
         with self.fixture.data(DataSourceData) as data:
             data_source = DataSource.query.get(
-                data.DataSourceData.exome_samtools_variation.id)
+                data.DataSourceData.exome_variation.id)
             with data_source.data() as data:
                 observations = list(tasks.read_observations(data, data_source.filetype))
 
@@ -338,7 +338,7 @@ class TestTasks(TestCase):
         # Todo: Actually use a test VCF file where GT and PL are discordant.
         with self.fixture.data(DataSourceData) as data:
             data_source = DataSource.query.get(
-                data.DataSourceData.exome_samtools_variation.id)
+                data.DataSourceData.exome_variation.id)
             with data_source.data() as data:
                 observations = list(tasks.read_observations(data, data_source.filetype,
                                                             prefer_genotype_likelihoods=True))
@@ -368,7 +368,7 @@ class TestTasks(TestCase):
         """
         with self.fixture.data(DataSourceData) as data:
             data_source = DataSource.query.get(
-                data.DataSourceData.exome_samtools_variation.id)
+                data.DataSourceData.exome_variation.id)
             with data_source.data() as data:
                 observations = list(tasks.read_observations(data, data_source.filetype,
                                                             use_genotypes=False))
@@ -398,7 +398,7 @@ class TestTasks(TestCase):
         # Todo: Actually use a test VCF file with filtered variants.
         with self.fixture.data(DataSourceData) as data:
             data_source = DataSource.query.get(
-                data.DataSourceData.exome_samtools_variation.id)
+                data.DataSourceData.exome_variation.id)
             with data_source.data() as data:
                 observations = list(tasks.read_observations(data, data_source.filetype,
                                                             skip_filtered=False))
@@ -430,12 +430,12 @@ class TestTasks(TestCase):
         """
         with self.fixture.data(CoverageData, DataSourceData, VariationData) as data:
             coverage = Coverage.query.get(
-                data.CoverageData.unimported_exome_samtools_subset_coverage.id)
+                data.CoverageData.exome_subset_coverage.id)
             result = tasks.import_coverage.delay(coverage.id)
             assert coverage.task_done
 
             variation = Variation.query.get(
-                data.VariationData.unimported_exome_samtools_subset_variation.id)
+                data.VariationData.exome_subset_variation.id)
             result = tasks.import_variation.delay(variation.id)
             assert variation.task_done
 
@@ -443,7 +443,7 @@ class TestTasks(TestCase):
             db.session.commit()
 
             data_source = DataSource.query.get(
-                data.DataSourceData.exome_samtools_variation.id)
+                data.DataSourceData.exome_variation.id)
             annotated_file = StringIO.StringIO()
 
             with data_source.data() as data:

@@ -54,67 +54,67 @@ class UserData(DataSet):
 
 
 class SampleData(DataSet):
-    class unactivated_sample:
+    class exome_sample:
         user = UserData.test_user
-        name = 'Test Sample'
-    class unactivated_sample_subset:
+        name = 'Exome sample'
+    class exome_subset_sample:
         user = UserData.test_user
-        name = 'Test Sample'
+        name = 'Exome (subset) sample'
 
 
 class DataSourceData(DataSet):
-    class exome_samtools_coverage:
+    class exome_coverage:
         user = UserData.test_user
-        name = 'Test Data Source'
+        name = 'Exome coverage'
         filetype = 'bed'
-        local_file = 'exome-samtools.bed'
-    class exome_samtools_variation:
+        local_file = 'exome.bed'
+    class exome_variation:
         user = UserData.test_user
-        name = 'Test Data Source'
+        name = 'Exome variants'
         filetype = 'vcf'
-        local_file = 'exome-samtools.vcf'
-    class exome_samtools_subset_coverage:
+        local_file = 'exome.vcf'
+    class exome_subset_coverage:
         user = UserData.test_user
-        name = 'Test Data Source'
+        name = 'Exome (subset) coverage'
         filetype = 'bed'
-        local_file = 'exome-samtools-subset.bed'
-    class exome_samtools_subset_variation:
+        local_file = 'exome-subset.bed'
+    class exome_subset_variation:
         user = UserData.test_user
-        name = 'Test Data Source'
+        name = 'Exome (subset) variants'
         filetype = 'vcf'
-        local_file = 'exome-samtools-subset.vcf'
+        local_file = 'exome-subset.vcf'
     class empty_variation:
         user = UserData.test_user
-        name = 'Test Data Source'
+        name = 'No variants'
         filetype = 'vcf'
         upload = _EmptyUpload()
 
 
 class CoverageData(DataSet):
-    class unimported_exome_samtools_coverage:
-        sample = SampleData.unactivated_sample
-        data_source = DataSourceData.exome_samtools_coverage
-    class unimported_exome_samtools_coverage_2:
-        sample = SampleData.unactivated_sample
-        data_source = DataSourceData.exome_samtools_coverage
-    class unimported_exome_samtools_subset_coverage:
-        sample = SampleData.unactivated_sample_subset
-        data_source = DataSourceData.exome_samtools_subset_coverage
+    class exome_coverage:
+        sample = SampleData.exome_sample
+        data_source = DataSourceData.exome_coverage
+    class exome_coverage_duplicate:
+        sample = SampleData.exome_sample
+        data_source = DataSourceData.exome_coverage
+    class exome_subset_coverage:
+        sample = SampleData.exome_subset_sample
+        data_source = DataSourceData.exome_subset_coverage
 
 
 class VariationData(DataSet):
-    class unimported_exome_samtools_variation:
-        sample = SampleData.unactivated_sample
-        data_source = DataSourceData.exome_samtools_variation
-    class unimported_exome_samtools_variation_2:
-        sample = SampleData.unactivated_sample
-        data_source = DataSourceData.exome_samtools_variation
-    class unimported_exome_samtools_subset_variation:
-        sample = SampleData.unactivated_sample_subset
-        data_source = DataSourceData.exome_samtools_subset_variation
+    class exome_variation:
+        sample = SampleData.exome_sample
+        data_source = DataSourceData.exome_variation
+    class exome_variation_duplicate:
+        sample = SampleData.exome_sample
+        data_source = DataSourceData.exome_variation
+    class exome_subset_variation:
+        sample = SampleData.exome_subset_sample
+        data_source = DataSourceData.exome_subset_variation
 
 
 class AnnotationData(DataSet):
-    class unwritten_exome_samtools_annotation:
-        original_data_source = DataSourceData.exome_samtools_variation
+    class exome_annotation:
+        original_data_source = DataSourceData.exome_variation
         annotated_data_source = DataSourceData.empty_variation
