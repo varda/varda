@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Models backed by SQL using SQLAlchemy.
 
@@ -106,19 +107,32 @@ class DataUnavailable(Exception):
 class User(db.Model):
     """
     User in the system.
-
-    For the roles column we use a bitstring where the leftmost role in the
-    :data:`USER_ROLES` tuple is defined by the least-significant bit.
-    Essentially, this creates a set of roles.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
+
+    #: User name.
     name = db.Column(db.String(200))
+
+    #: Unique string used to identify the user.
     login = db.Column(db.String(40), index=True, unique=True)
+
+    #: Hashed password.
     password_hash = db.Column(db.String(100))
+
+    #: User email address.
     email = db.Column(db.String(200))
+
+    #: Bitstring where the leftmost role in the :data:`USER_ROLES` tuple is
+    #: defined by the least-significant bit. Essentially, this creates a set
+    #: of roles.
+    #:
+    #: You should probably use the :attr:`roles` property instead of accessing
+    #: this field directly.
     roles_bitstring = db.Column(db.Integer)
+
+    #: Date and time of creation.
     added = db.Column(db.DateTime)
 
     def __init__(self, name, login, password, email=None, roles=None):
@@ -145,22 +159,41 @@ class User(db.Model):
 
     @property
     def password(self):
+        """
+        Since we only store the hashed password (in :attr:`password_hash`) and
+        not the password itself, this is always `None`.
+        """
         return None
 
     @password.setter
     def password(self, password):
+        """
+        Change the password for the user.
+        """
         self.password_hash = self._hash_password(password)
 
     @property
     def roles(self):
+        """
+        A subset of the roles defined in :data:`USER_ROLES`.
+        """
         return {role for i, role in enumerate(USER_ROLES)
                 if self.roles_bitstring & pow(2, i)}
 
     @roles.setter
     def roles(self, roles):
+        """
+        Change the roles for the user.
+
+        :arg roles: Subset of the roles defined in :data:`USER_ROLES`.
+        :type roles: sequence
+        """
         self.roles_bitstring = self._encode_roles(roles)
 
     def check_password(self, password):
+        """
+        Return `True` iff `password` matches the user password.
+        """
         return (bcrypt.hashpw(password, self.password_hash) ==
                 self.password_hash)
 
@@ -175,10 +208,17 @@ class Token(db.Model):
     user_id = db.Column(db.Integer,
                         db.ForeignKey('user.id', ondelete='CASCADE'),
                         nullable=False)
+
+    #: Human-readable name.
     name = db.Column(db.String(200))
+
+    #: The actual token string.
     key = db.Column(db.String(40), index=True, unique=True)
+
+    #: Date and time of creation.
     added = db.Column(db.DateTime)
 
+    #: The :class:`User` owning this token.
     user = db.relationship(User,
                            backref=db.backref('tokens', lazy='dynamic',
                                               cascade='all, delete-orphan',
@@ -199,24 +239,43 @@ class Token(db.Model):
 
 class Sample(db.Model):
     """
-    Sample.
-
-    ``coverage_profile`` is essentially ``not is_population_study`` and should
-    always be True iff the sample has one or more Coverage entries (so perhaps
-    we should not store it, but have it as a calculated property).
+    Sample (of one or more individuals).
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    #: Human-readable name.
     name = db.Column(db.String(200))
+
+    #: Number of individuals.
     pool_size = db.Column(db.Integer)
+
+    #: Data and time of creation.
     added = db.Column(db.DateTime)
+
+    #: Set to `True` iff the sample can be included in frequency calculations.
     active = db.Column(db.Boolean, default=False)
+
+    #: Set to `True` iff the sample has coverage information (i.e., it has one
+    #: or more :class:`Coverage` entries). If `False`, the sample will not be
+    #: included in global observation frequencies (usually only the case for
+    #: population studies).
     coverage_profile = db.Column(db.Boolean)
+
+    #: Set to `True` iff the sample can be directly queried for observation
+    #: frequencies by anyone.
     public = db.Column(db.Boolean)
+
+    #: Textual notes.
+    #:
+    #: .. hint:: If you use `Markdown <http://daringfireball.net/projects/markdown/>`_
+    #:     here, the `Aulë <https://github.com/martijnvermaat/aule>`_ web
+    #:     interface will render it as such.
     notes = db.Column(db.Text)
 
+    #: The :class:`User` owning this sample.
     user = db.relationship(User,
                            backref=db.backref('samples', lazy='dynamic'))
 
@@ -238,30 +297,63 @@ class Sample(db.Model):
 
 class DataSource(db.Model):
     """
-    Data source (probably uploaded as a file). E.g. VCF file to be imported,
-    or BED track from which Region entries are created.
+    Data source (probably uploaded as a file).
 
-    .. note:: Data source checksums are not forced to be unique, since several
-        users might upload the same data source and do different things with
-        it.
+    .. note:: Data source :attr:`checksum` values are not forced to be unique,
+        since several users might upload the same data source and do different
+        things with it.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    #: Human-readable name.
     name = db.Column(db.String(200))
+
+    #: Name of the file (in the directory defined by the `DATA_DIR`
+    #: configuration setting) used to store the data.
     filename = db.Column(db.String(50))
+
+    #: Filetype can be any of the values in :data:`DATA_SOURCE_FILETYPES`.
     filetype = db.Column(db.Enum(*DATA_SOURCE_FILETYPES, name='filetype'))
+
+    #: Set to `True` iff the data is stored gzip-compressed.
     gzipped = db.Column(db.Boolean)
+
+    #: Data and time of creation.
     added = db.Column(db.DateTime)
+
+    #: Checksum of the (uncompressed) data. Can be `None` if it is not yet
+    #: calculated.
     checksum = db.Column(db.String(40))
+
+    #: Number of records in the file. Can be `None` if it is not yet
+    #: calculated.
     records = db.Column(db.Integer)
 
+    #: The :class:`User` owning this data source.
     user = db.relationship(User,
                            backref=db.backref('data_sources', lazy='dynamic'))
 
     def __init__(self, user, name, filetype, upload=None, local_file=None,
                  empty=False, gzipped=False):
+        """
+        One of the following three keyword arguments must be specified:
+
+        * `upload`: Data is provided as an uploaded file. Specifically,
+          `upload` is expected to be a :class:`werkzeug.datastructures.FileStorage`
+          instance.
+
+        * `local_file`: Data is locally available in the file with this name
+          in the directory specified by the `SECONDARY_DATA_DIR` configuration
+          setting. If the `SECONDARY_DATA_BY_USER` configuration setting is
+          `True`, an additional subdirectory within `SECONDARY_DATA_DIR` is
+          used with name equal to `user.login`.
+
+        * `empty`: No data is provided for the data source at this point. Data
+          can be written to it later using the :meth:`data_writer` method.
+        """
         if not filetype in DATA_SOURCE_FILETYPES:
             raise InvalidDataSource('unknown_filetype',
                                     'Data source filetype "%s" is unknown'
@@ -361,7 +453,8 @@ class DataSource(db.Model):
 
 class Variation(db.Model):
     """
-    Coupling between a Sample, a DataSource, and Observations.
+    Coupling between a :class:`Sample`, a :class:`DataSource`, and a set of
+    :class:`Observation`s.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
@@ -373,14 +466,30 @@ class Variation(db.Model):
                                nullable=False)
     task_done = db.Column(db.Boolean, default=False)
     task_uuid = db.Column(db.String(36))
+
+    #: Set to `True` iff observations not passing the filter (i.e., having a
+    #: value other than ``PASS` in the VCF file) are discarded.
     skip_filtered = db.Column(db.Boolean)
+
+    #: Set to `True` iff genotype information (i.e., the ``GT`` value in the
+    #: VCF file) is used to deduce observation :attr:`Observation.support` and
+    #: :attr:`Observation.zygosity`. See also
+    #: :attr:`prefere_genotype_likelihoods`.
     use_genotypes = db.Column(db.Boolean)
+
+    #: Set to `True` iff genotype likelihoods (i.e., the ``GL`` and ``PL``
+    #: values in the VCF file) are prefered over genotype information. Only
+    #: used if :attr:`use_genotypes` is `True`.
     prefer_genotype_likelihoods = db.Column(db.Boolean)
 
+    #: The :class:`Sample` this set of :class:`Observation`s belong to.
     sample = db.relationship(Sample,
                              backref=db.backref('variations', lazy='dynamic',
                                                 cascade='all, delete-orphan',
                                                 passive_deletes=True))
+
+    #: The :class:`DataSource` this set of :class:`Observation`s are imported
+    #: from.
     data_source = db.relationship(DataSource,
                                   backref=db.backref('variations',
                                                      lazy='dynamic'))
@@ -401,7 +510,8 @@ class Variation(db.Model):
 
 class Coverage(db.Model):
     """
-    Coupling between a Sample, a DataSource, and Regions.
+    Coupling between a :class:`Sample`, a :class:`DataSource`, and a set of
+    :class:`Region`s.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
@@ -414,10 +524,13 @@ class Coverage(db.Model):
     task_done = db.Column(db.Boolean, default=False)
     task_uuid = db.Column(db.String(36))
 
+    #: The :class:`Sample` this set of :class:`Region`s belong to.
     sample = db.relationship(Sample,
                              backref=db.backref('coverages', lazy='dynamic',
                                                 cascade='all, delete-orphan',
                                                 passive_deletes=True))
+
+    #: The :class:`DataSource` this set of :class:`Region`s are imported from.
     data_source = db.relationship(DataSource,
                                   backref=db.backref('coverages',
                                                      lazy='dynamic'))
@@ -444,7 +557,7 @@ sample_frequency = db.Table(
 
 class Annotation(db.Model):
     """
-    Annotated data source.
+    Annotation of a data source.
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
@@ -457,19 +570,26 @@ class Annotation(db.Model):
                                          nullable=False)
     task_done = db.Column(db.Boolean, default=False)
     task_uuid = db.Column(db.String(36))
+
+    #: Set to `True` iff global observation frequencies are annotated.
     global_frequency = db.Column(db.Boolean)
 
+    #: A link to each :class:`Sample` for which observation frequencies are
+    #: annotated.
+    sample_frequency = db.relationship(Sample, secondary=sample_frequency,
+                                       cascade='all', passive_deletes=True)
+
+    #: The original :class:`DataSource` that is being annotated.
     original_data_source = db.relationship(
         DataSource,
         primaryjoin='DataSource.id==Annotation.original_data_source_id',
         backref=db.backref('annotations', lazy='dynamic'))
+
+    #: The annotated :class:`DataSource` data source.
     annotated_data_source = db.relationship(
         DataSource,
         primaryjoin='DataSource.id==Annotation.annotated_data_source_id',
         backref=db.backref('annotation', uselist=False, lazy='select'))
-
-    sample_frequency = db.relationship(Sample, secondary=sample_frequency,
-                                       cascade='all', passive_deletes=True)
 
     def __init__(self, original_data_source, annotated_data_source,
                  global_frequency=True, sample_frequency=None):
@@ -488,7 +608,7 @@ class Annotation(db.Model):
 
 class Observation(db.Model):
     """
-    Observation in a sample.
+    Observation of a variant in a sample (one or more individuals).
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
@@ -497,27 +617,42 @@ class Observation(db.Model):
                              db.ForeignKey('variation.id', ondelete='CASCADE'),
                              index=True, nullable=False)
 
+    #: Reference genome chromosome name.
     chromosome = db.Column(db.String(30))
+
+    #: Position is one-based, and defines where :attr:`reference` and
+    #: :attr:`observed` start on the reference genome.
     position = db.Column(db.Integer)
-    reference = db.Column(db.String(200))
-    observed = db.Column(db.String(200))
-    bin = db.Column(db.Integer)
 
     # Todo: Should we perhaps also store the end position? Would make it
     #     easier to query for variants overlapping some position. Perhaps it's
-    #     enough to have a computed index for len(referenc)?
-    #     If we actually store begin-end, it's actually a range, and it would
-    #     be clearer how to store insertions unambiguously.
-    #     Also, if we store the end position we don't really need the
-    #     reference sequence, especially if there is a genome configured.
+    #     enough to have a computed index for len(reference)?
 
-    # A zygosity of `None` means exact genotype is unknown, but the variant
-    # allele was observed.
+    #: Reference sequence, can be empty for an insertion.
+    reference = db.Column(db.String(200))
+
+    #: Observed sequence, can be empty for a deletion.
+    observed = db.Column(db.String(200))
+
+    #: Bin index that can be used for faster range-limited querying. See the
+    #: :mod:`region_binning` module for more information.
+    #:
+    #: .. note:: Bin indices are always calculated on non-empty ranges, so for
+    #:     an insertion we (somewhat arbitrarily) choose the first base next
+    #:     to it as its range, although technically it spans only the empty
+    #:     range.
+    bin = db.Column(db.Integer)
+
+    #: Zygosity can be any of the values in :data:`OBSERVATION_ZYGOSITIES`, or
+    #: `None` (meaning that the exact genotype is unknown, but the variant
+    #: allele was observed).
     zygosity = db.Column(db.Enum(*OBSERVATION_ZYGOSITIES, name='zygosity'))
 
-    # Number of individuals.
+    #: Number of individuals the variant was observed in.
     support = db.Column(db.Integer)
 
+    #: The :class:`Variation` linking this observation to a :class:`Sample`
+    #: and a :class:`DataSource`.
     variation = db.relationship(Variation,
                                 backref=db.backref('observations',
                                                    lazy='dynamic',
@@ -546,15 +681,28 @@ class Observation(db.Model):
                self.zygosity, self.support)
 
     def is_deletion(self):
+        """
+        Return `True` iff this observation is a deletion.
+        """
         return self.observed == ''
 
     def is_insertion(self):
+        """
+        Return `True` iff this observation is an insertion.
+        """
         return self.reference == ''
 
     def is_snv(self):
+        """
+        Return `True` iff this observation is a single nucleotide variant.
+        """
         return len(self.observed) == len(self.reference) == 1
 
     def is_indel(self):
+        """
+        Return `True` iff this observation is neither a deletion, insertion,
+        or single nucleotide variant.
+        """
         return not (self.is_deletion() or
                     self.is_insertion() or
                     self.is_snv())
@@ -566,7 +714,7 @@ Index('observation_location',
 
 class Region(db.Model):
     """
-    Covered region for a sample.
+    Covered region for variant calling in a sample (one or more individuals).
     """
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
 
@@ -574,15 +722,26 @@ class Region(db.Model):
     coverage_id = db.Column(db.Integer,
                             db.ForeignKey('coverage.id', ondelete='CASCADE'),
                             index=True, nullable=False)
+
+    #: Reference genome chromosome name.
     chromosome = db.Column(db.String(30))
+
+    #: Begin of the region, one-based and inclusive.
     begin = db.Column(db.Integer)
+
+    #: End of the region, one-based and inclusive.
     end = db.Column(db.Integer)
+
+    #: Bin index that can be used for faster range-limited querying. See the
+    #: :mod:`region_binning` module for more information.
     bin = db.Column(db.Integer)
 
     # Todo: Perhaps we might want to have a `support` column here similar to
     #     the Observation model? It only makes sense if we accept BED files
     #     with a `support` integer for each region.
 
+    #: The :class:`Coverage` linking this observation to a :class:`Sample` and
+    #: a :class:`DataSource`.
     coverage = db.relationship(Coverage,
                                backref=db.backref('regions', lazy='dynamic',
                                                   cascade='all, delete-orphan',
