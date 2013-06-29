@@ -335,7 +335,6 @@ class TestTasks(TestCase):
         """
         Read a file with observations and prefer genotype likelihoods.
         """
-        # Todo: Actually use a test VCF file where GT and PL are discordant.
         with self.fixture.data(DataSourceData) as data:
             data_source = DataSource.query.get(
                 data.DataSourceData.exome_variation.id)
@@ -344,23 +343,21 @@ class TestTasks(TestCase):
                                                             prefer_genotype_likelihoods=True))
 
             assert_equal(observations,
-                         [(i + 24, 'chr20') + observation for i, observation in
-                          enumerate([(76962, 'T', 'C', 'heterozygous', 1),
-                                     (126156, 'CAAA', '', 'heterozygous', 1),
-                                     (126311, 'CC', '', 'heterozygous', 1),
-                                     (131495, 'T', 'C', 'homozygous', 1),
-                                     (131506, 'TCT', '', 'heterozygous', 1),
-                                     (131657, 'A', 'G', 'homozygous', 1),
-                                     (138004, 'G', 'C', 'homozygous', 1),
-                                     (138179, 'C', '', 'heterozygous', 1),
-                                     (139362, 'G', 'A', 'homozygous', 1),
-                                     (139745, 'T', 'C', 'homozygous', 1),
-                                     (139841, 'A', 'T', 'homozygous', 1),
-                                     (139916, '', 'AA', 'homozygous', 1),
-                                     (166727, 'G', 'A', 'heterozygous', 1),
-                                     (168466, 'T', 'A', 'heterozygous', 1),
-                                     (168728, 'T', 'A', 'homozygous', 1),
-                                     (168781, 'G', 'T', 'heterozygous', 1)])])
+                         [(24, 'chr20', 76962, 'T', 'C', 'heterozygous', 1),
+                          (25, 'chr20', 126156, 'CAAA', '', 'heterozygous', 1),
+                          (26, 'chr20', 126311, 'CC', '', 'homozygous', 1),
+                          (27, 'chr20', 131495, 'T', 'C', 'homozygous', 1),
+                          (28, 'chr20', 131506, 'TCT', '', 'heterozygous', 1),
+                          (29, 'chr20', 131657, 'A', 'G', 'homozygous', 1),
+                          (30, 'chr20', 138004, 'G', 'C', 'homozygous', 1),
+                          (32, 'chr20', 139362, 'G', 'A', 'homozygous', 1),
+                          (33, 'chr20', 139745, 'T', 'C', 'homozygous', 1),
+                          (34, 'chr20', 139841, 'A', 'T', 'homozygous', 1),
+                          (35, 'chr20', 139916, '', 'AA', 'homozygous', 1),
+                          (36, 'chr20', 166727, 'G', 'A', 'heterozygous', 1),
+                          (37, 'chr20', 168466, 'T', 'A', 'heterozygous', 1),
+                          (38, 'chr20', 168728, 'T', 'A', 'homozygous', 1),
+                          (39, 'chr20', 168781, 'G', 'T', 'heterozygous', 1)])
 
     def test_read_observations_no_genotypes(self):
         """
@@ -395,16 +392,15 @@ class TestTasks(TestCase):
         """
         Read a file with observations and include filtered.
         """
-        # Todo: Actually use a test VCF file with filtered variants.
         with self.fixture.data(DataSourceData) as data:
             data_source = DataSource.query.get(
-                data.DataSourceData.exome_variation.id)
+                data.DataSourceData.exome_variation_filtered.id)
             with data_source.data() as data:
                 observations = list(tasks.read_observations(data, data_source.filetype,
                                                             skip_filtered=False))
 
             assert_equal(observations,
-                         [(i + 24, 'chr20') + observation for i, observation in
+                         [(i + 26, 'chr20') + observation for i, observation in
                           enumerate([(76962, 'T', 'C', 'heterozygous', 1),
                                      (126156, 'CAAA', '', 'heterozygous', 1),
                                      (126311, 'CC', '', 'heterozygous', 1),
@@ -421,6 +417,33 @@ class TestTasks(TestCase):
                                      (168466, 'T', 'A', 'heterozygous', 1),
                                      (168728, 'T', 'A', 'homozygous', 1),
                                      (168781, 'G', 'T', 'heterozygous', 1)])])
+
+    def test_read_observations_without_filtered(self):
+        """
+        Read a file with observations and discard filtered.
+        """
+        with self.fixture.data(DataSourceData) as data:
+            data_source = DataSource.query.get(
+                data.DataSourceData.exome_variation_filtered.id)
+            with data_source.data() as data:
+                observations = list(tasks.read_observations(data, data_source.filetype,
+                                                            skip_filtered=True))
+
+            assert_equal(observations,
+                         [(26, 'chr20', 76962, 'T', 'C', 'heterozygous', 1),
+                          (27, 'chr20', 126156, 'CAAA', '', 'heterozygous', 1),
+                          (28, 'chr20', 126311, 'CC', '', 'heterozygous', 1),
+                          (30, 'chr20', 131506, 'TCT', '', 'heterozygous', 1),
+                          (31, 'chr20', 131657, 'A', 'G', 'homozygous', 1),
+                          (32, 'chr20', 138004, 'G', 'C', 'homozygous', 1),
+                          (33, 'chr20', 138179, 'C', '', 'heterozygous', 1),
+                          (34, 'chr20', 139362, 'G', 'A', 'homozygous', 1),
+                          (36, 'chr20', 139841, 'A', 'T', 'homozygous', 1),
+                          (37, 'chr20', 139916, '', 'AA', 'homozygous', 1),
+                          (38, 'chr20', 166727, 'G', 'A', 'heterozygous', 1),
+                          (39, 'chr20', 168466, 'T', 'A', 'heterozygous', 1),
+                          (40, 'chr20', 168728, 'T', 'A', 'homozygous', 1),
+                          (41, 'chr20', 168781, 'G', 'T', 'heterozygous', 1)])
 
     def test_annotate_variants(self):
         """

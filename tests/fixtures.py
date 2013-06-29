@@ -73,6 +73,11 @@ class DataSourceData(DataSet):
         name = 'Exome variants'
         filetype = 'vcf'
         local_file = 'exome.vcf'
+    class exome_variation_filtered:
+        user = UserData.test_user
+        name = 'Exome variants (filtered)'
+        filetype = 'vcf'
+        local_file = 'exome-filtered.vcf'
     class exome_subset_coverage:
         user = UserData.test_user
         name = 'Exome (subset) coverage'
@@ -106,6 +111,9 @@ class VariationData(DataSet):
     class exome_variation:
         sample = SampleData.exome_sample
         data_source = DataSourceData.exome_variation
+    class exome_variation_filtered:
+        sample = SampleData.exome_sample
+        data_source = DataSourceData.exome_variation_filtered
     class exome_variation_duplicate:
         sample = SampleData.exome_sample
         data_source = DataSourceData.exome_variation
