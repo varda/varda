@@ -72,8 +72,8 @@ class VariantsResource(Resource):
                 # Todo: Meaningful error message.
                 abort(400)
 
-        # Todo: Note that we mean start, stop to be 1-based, inclusive, but we
-        #     haven't checked if we actually treat it that way.
+        # Todo: Document that `begin` and `end` are 1-based and inclusive. Or,
+        #     perhaps we should change that to conform to BED track regions.
         try:
             chromosome, begin_position, end_position = normalize_region(
                 region['chromosome'], region['begin'], region['end'])
@@ -125,7 +125,8 @@ class VariantsResource(Resource):
 
         * **uri** (`string`) - URI for this variant.
         * **chromosome** (`string`) - Chromosome name.
-        * **position** (`integer`) - Start position of the variant.
+        * **position** (`integer`) - Start position of the variant (1-based,
+        *     inclusive).
         * **reference** (`string`) - Reference sequence.
         * **observed** (`string`) - Observed sequence.
         * **hgvs** (`string`) - HGVS description.

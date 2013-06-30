@@ -30,7 +30,6 @@ import vcf
 from . import db, celery
 from .models import (Annotation, Coverage, DataSource, DataUnavailable,
                      Observation, Sample, Region, Variation)
-from .region_binning import all_bins
 from .utils import (calculate_frequency, digest, NoGenotypesInRecord,
                     normalize_variant, normalize_chromosome, normalize_region,
                     read_genotype, ReferenceMismatch)
@@ -408,6 +407,8 @@ def read_regions(regions, filetype='bed'):
             if current_app.conf['REFERENCE_MISMATCH_ABORT']:
                 raise ReadError(str(e))
             continue
+        # Regions in a BED track are zero-based and open-ended, but our
+        # regions are one-based and inclusive.
         yield current_record, chromosome, begin + 1, end
 
 

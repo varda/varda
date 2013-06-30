@@ -1,6 +1,8 @@
 """
 Various utilities for Varda.
 
+.. note:: All genomic positions in this module are one-based and inclusive.
+
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
 .. Licensed under the MIT license, see the LICENSE file.
@@ -99,6 +101,16 @@ def normalize_chromosome(chromosome):
 def normalize_region(chromosome, begin, end):
     """
     Use reference to normalize chromosome name and validate location.
+
+    :arg chromosome: Chromosome name.
+    :type chromosome: str
+    :arg begin: Beginning of genomic region, one-based.
+    :type begin: int
+    :arg end: End of genomic region, one-based, inclusive.
+    :type end: int
+
+    :return: Normalized region as a tuple of `chromosome`, `begin`, `end`.
+    :rtype: (str, int, int)
     """
     chromosome = normalize_chromosome(chromosome)
 
@@ -116,9 +128,21 @@ def normalize_region(chromosome, begin, end):
 def normalize_variant(chromosome, position, reference, observed):
     """
     Use reference to create a normalized representation of the variant.
+
+    :arg chromosome: Chromosome name.
+    :type chromosome: str
+    :arg position: One-based position where `reference` and `observed` start
+        on the reference genome
+    :type position: int
+    :arg reference: Reference sequence.
+    :type reference: str
+    :arg observed: Observed sequence.
+    :type observed: str
+
+    :return: Normalized variant representation as a tuple of `chromosome`,
+        `position`, `reference`, `observed`.
+    :rtype: (str, int, str, str)
     """
-    # Todo: Document clearly what the position means (0/1-based, what is it
-    #     for an insertion).
     reference = reference.upper()
     observed = observed.upper()
 
@@ -201,9 +225,8 @@ def trim_common(s1, s2):
 
 def move_left(context, position, sequence):
     """
-    Move ``sequence`` as far as possible to the left, starting at
-    ``position`` (one-based) in ``context``, while staying in cyclic
-    permutations.
+    Move `sequence` as far as possible to the left, starting at `position`
+    (one-based) in `context`, while staying in cyclic permutations.
 
     Schematic example::
 
@@ -225,13 +248,13 @@ def move_left(context, position, sequence):
 
     :arg context: Context sequence.
     :type context: str (or really a subscriptable yielding strings)
-    :arg position: Start position of ``sequence`` in ``context``.
+    :arg position: Start position of `sequence` in `context`, one-based.
     :type position: int
-    :arg sequence: Sequence to find cyclic permutations of in ``context``.
+    :arg sequence: Sequence to find cyclic permutations of in `context`.
     :type sequence: str
 
     :return: A tuple (permutation, position) being the resulting cyclic
-        permutation of ``sequence`` and its position in ``context``.
+        permutation of `sequence` and its position in `context`.
     :rtype: (str, int)
     """
     def lookup(p):
@@ -312,16 +335,23 @@ def calculate_frequency(chromosome, position, reference, observed,
     """
     Calculate frequency for a variant.
 
-    Return a tuple of:
+    :arg chromosome: Chromosome name.
+    :type chromosome: str
+    :arg position: One-based position where `reference` and `observed` start
+        on the reference genome
+    :type position: int
+    :arg reference: Reference sequence.
+    :type reference: str
+    :arg observed: Observed sequence.
+    :type observed: str
 
-    - number of individuals (with coverage)
-    - dictionary of mappings:
-      zygosity -> ratio of individuals with observed allele and zygosity
+    :return: A tuple of the number of individuals having coverage and a
+        dictionary with for every zygosity the ratio of individuals with
+        observed allele and zygosity.
+    :rtype: (int, dict)
     """
     end_position = position + max(1, len(reference)) - 1
     bins = all_bins(position, end_position)
-
-    # Todo: Double-check if we handle pooled samples correctly.
 
     if sample:
         observations = collections.Counter(dict(
