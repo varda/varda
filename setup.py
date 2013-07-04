@@ -37,7 +37,7 @@ setup(
     url=distmeta['__homepage__'],
     license='MIT License',
     platforms=['any'],
-    packages=['varda'],
+    packages=['varda', 'varda.api', 'varda.api.resources'],
     entry_points = {
         'console_scripts': ['varda = varda.commands:main']
         },
