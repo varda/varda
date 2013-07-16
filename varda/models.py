@@ -2,7 +2,7 @@
 """
 Models backed by SQL using SQLAlchemy.
 
-Note that all genomic positions in this module are one-based and inclusive.
+.. note:: All genomic positions in this module are one-based and inclusive.
 
 .. moduleauthor:: Martijn Vermaat <martijn@vermaat.name>
 
