@@ -113,3 +113,6 @@ grepping the source code for ``Todo``.
   As `this post suggests
   <http://stackoverflow.com/questions/15575826/how-to-inspect-and-cancel-celery-tasks-by-task-name>`_,
   we probably also have to explicitely monitor the events.
+
+* See if `this issue
+  <https://github.com/mitsuhiko/flask-sqlalchemy/issues/144>`_ affects us.
