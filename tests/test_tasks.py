@@ -388,6 +388,33 @@ class TestTasks(TestCase):
                                      (168728, 'T', 'A', None, 1),
                                      (168781, 'G', 'T', None, 1)])])
 
+    def test_read_observations_gtc(self):
+        """
+        Read a file with observations, using GTC field.
+        """
+        with self.fixture.data(DataSourceData) as data:
+            data_source = DataSource.query.get(
+                data.DataSourceData.gonl_summary_variation.id)
+            with data_source.data() as data:
+                observations = list(tasks.read_observations(data, data_source.filetype))
+
+            assert_equal([o[2:] for o in observations[:15]],
+                         [(60309, 'G', 'T', 'heterozygous', 4),
+                          (60573, 'T', 'C', 'heterozygous', 1),
+                          (60828, 'T', 'G', 'heterozygous', 6),
+                          (61098, 'C', 'T', 'heterozygous', 163),
+                          (61098, 'C', 'T', 'homozygous', 31),
+                          (61270, 'A', 'C', 'heterozygous', 20),
+                          (61682, 'C', 'T', 'heterozygous', 1),
+                          (61795, 'G', 'T', 'heterozygous', 203),
+                          (61795, 'G', 'T', 'homozygous', 64),
+                          (61803, 'A', 'G', 'heterozygous', 1),
+                          (61955, 'C', 'T', 'heterozygous', 1),
+                          (62255, 'T', 'C', 'heterozygous', 4),
+                          (62731, 'C', 'A', 'heterozygous', 93),
+                          (62731, 'C', 'A', 'homozygous', 6),
+                          (63008, 'C', 'A', 'heterozygous', 1)])
+
     def test_read_observations_with_filtered(self):
         """
         Read a file with observations and include filtered.

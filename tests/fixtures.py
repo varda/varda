@@ -60,6 +60,12 @@ class SampleData(DataSet):
     class exome_subset_sample:
         user = UserData.test_user
         name = 'Exome (subset) sample'
+    class gonl_sample:
+        user = UserData.test_user
+        name = 'GoNL sample'
+    class gonl_summary_sample:
+        user = UserData.test_user
+        name = 'GoNL (summary) sample'
 
 
 class DataSourceData(DataSet):
@@ -88,6 +94,16 @@ class DataSourceData(DataSet):
         name = 'Exome (subset) variants'
         filetype = 'vcf'
         local_file = 'exome-subset.vcf'
+    class gonl_variation:
+        user = UserData.test_user
+        name = 'GoNL variants'
+        filetype = 'vcf'
+        local_file = 'gonl.vcf'
+    class gonl_summary_variation:
+        user = UserData.test_user
+        name = 'GoNL (summary) variants'
+        filetype = 'vcf'
+        local_file = 'gonl-summary.vcf'
     class empty_variation:
         user = UserData.test_user
         name = 'No variants'

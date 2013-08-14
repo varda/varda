@@ -16,6 +16,7 @@ from __future__ import division
 from collections import Counter, defaultdict
 from contextlib import contextmanager
 import hashlib
+import itertools
 import os
 import time
 import uuid
@@ -339,10 +340,12 @@ def read_observations(observations, filetype='vcf', skip_filtered=True,
         # Todo: Use constants for zygosity, re-use them for a database enum.
 
         # In the case where we don't have genotypes or don't want to use them,
-        # we just count the number of samples and store an unknown zygosity.
-        # But only if there is exactly one ALT.
+        # we look for a GTC (genotype counts) field containing, well, a count
+        # for each genotype.
+        # Our last resort is to just count the number of samples and store an
+        # unknown zygosity. But only if there is exactly one ALT.
 
-        if use_genotypes and record.samples is not None:
+        if use_genotypes and record.samples:
             for call in record.samples:
                 try:
                     genotype = read_genotype(call, prefer_genotype_likelihoods)
@@ -363,6 +366,33 @@ def read_observations(observations, filetype='vcf', skip_filtered=True,
                     for index, count in counts.items():
                         if index > 0:
                             alt_support[index - 1][zygosity] += 1
+
+        elif 'GTC' in record.INFO:
+            # All possible genotypes given alleles and call ploidy. Example
+            # (diploid, two alt alleles):
+            #
+            #     genotypes = [(0, 0), (0, 1), (1, 1), (0, 2), (1, 2), (2, 2)]
+            #
+            # Todo: Make a function out of this, it is also used in the
+            #     read_genotype function.
+            # Todo: We could deduce ploidy from len(record.ALT) and
+            #     len(record.INFO['GTC'] but for now we don't bother.
+            ploidy = 2
+            genotypes = sorted(itertools.combinations_with_replacement(
+                                 range(len(record.ALT) + 1), ploidy),
+                               key=lambda g: g[::-1])
+
+            for genotype, sample_count in zip(genotypes, record.INFO['GTC']):
+                if sample_count < 1:
+                    continue
+                counts = Counter(a for a in genotype)
+                if len(counts) > 1:
+                    zygosity = 'heterozygous'
+                else:
+                    zygosity = 'homozygous'
+                for index, count in counts.items():
+                    if index > 0:
+                        alt_support[index - 1][zygosity] += sample_count
 
         elif len(record.ALT) == 1:
             if record.samples is None:
