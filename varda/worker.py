@@ -10,4 +10,5 @@ Helper module for celery to run a worker.
 from . import celery, create_app
 
 
+# Todo: Should we make it possible to use create_reverse_proxied_app here?
 create_app().app_context().push()
