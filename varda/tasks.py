@@ -197,17 +197,17 @@ def annotate_variants(original_variants, annotated_variants,
         reader.infos[label + '_VN'] = VcfInfo(
             label + '_VN', vcf_field_counts['A'], 'Integer',
             'Number of individuals in %s %s' % (sample.name, description))
-        reader.infos['GLOBAL_VF'] = VcfInfo(
-            'GLOBAL_VF', vcf_field_counts['A'], 'Float',
+        reader.infos[label + '_VF'] = VcfInfo(
+            label + '_VF', vcf_field_counts['A'], 'Float',
             'Ratio of individuals in %s in which the allele was observed.'
             % sample.name)
-        reader.infos['GLOBAL_VF_HET'] = VcfInfo(
-            'GLOBAL_VF_HET', vcf_field_counts['A'], 'Float',
+        reader.infos[label + '_VF_HET'] = VcfInfo(
+            label + '_VF_HET', vcf_field_counts['A'], 'Float',
             'Ratio of individuals in %s in which the allele was observed as '
             'heterozygous.'
             % sample.name)
-        reader.infos['GLOBAL_VF_HOM'] = VcfInfo(
-            'GLOBAL_VF_HOM', vcf_field_counts['A'], 'Float',
+        reader.infos[label + '_VF_HOM'] = VcfInfo(
+            label + '_VF_HOM', vcf_field_counts['A'], 'Float',
             'Ratio of individuals in %s in which the allele was observed as '
             'homozygous.'
             % sample.name)
