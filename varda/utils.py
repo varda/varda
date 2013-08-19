@@ -62,6 +62,23 @@ def digest(data):
     return sha1.hexdigest(), records
 
 
+def chromosome_compare_key(chromosome):
+    """
+    Key to compare chromosomes by in sorting. Can be used as `key` argument in
+    the :func:`sorted`, :func:`max` and :func:`min` functions.
+
+    :arg chromosome: Chromosome name.
+    :type chromosome: str
+
+    :return: Compare key for `chromosome`.
+    :rtype: comparable
+    """
+    if chromosome.startswith('chr'):
+        chromosome = chromosome[3:]
+    parts = chromosome.split('_')
+    return len(parts), [int(p) if p.isdigit() else p for p in parts]
+
+
 def normalize_chromosome(chromosome):
     """
     Try to get normalized chromosome name by reference lookup.

@@ -14,6 +14,7 @@ import semantic_version
 from .. import genome
 from .. import tasks
 from ..models import InvalidDataSource
+from ..utils import chromosome_compare_key
 from .errors import (AcceptError, ActivationFailure, BasicAuthRequiredError,
                      IntegrityError, ValidationError)
 from .resources import (AnnotationsResource, CoveragesResource,
@@ -263,7 +264,7 @@ def genome_get():
         abort(404)
     # Todo: Also configure a genome name (assembly) to report here.
     return jsonify(genome={'uri':         url_for('.genome_get'),
-                           'chromosomes': genome.keys()})
+                           'chromosomes': sorted(genome.keys(), key=chromosome_compare_key)})
 
 
 @api.route('/authentication')
