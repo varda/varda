@@ -116,3 +116,16 @@ grepping the source code for ``Todo``.
 
 * See if `this issue
   <https://github.com/mitsuhiko/flask-sqlalchemy/issues/144>`_ affects us.
+
+* For simplicity, we are currently storing `homozygous` vs `heterozygous` for
+  each alternate call. Shouldn't we actually be storing the genotype, like
+  `0/1` vs `1/1` (in reporting, we could include `0/0`)? It is more general.
+
+  I can think of two reasons why we choose not to store genotypes. The first
+  is that we don't have reference calls (but we could simply omit `0/0`). The
+  second is that we don't have a guarantee that a given chromosome was called
+  using the same ploidity. Therefore, we could for example have genotypes from
+  different samples on the Y chromosome as `0/0`, `0/1`, `1/1` versus `0`,
+  `1`. We could report these as-is, or merge them to the highest ploidity
+  which would be incorrect in this case. Or we store the ploidity for each
+  chromosome system-wide.
