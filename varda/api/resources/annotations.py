@@ -34,7 +34,7 @@ class AnnotationsResource(TaskedResource):
 
     task = tasks.write_annotation
 
-    views = ['list', 'get', 'add', 'edit', 'delete']
+    views = ['list', 'get', 'add', 'delete']
 
     embeddable = {'original_data_source': DataSourcesResource,
                   'annotated_data_source': DataSourcesResource}
@@ -49,8 +49,8 @@ class AnnotationsResource(TaskedResource):
     add_ensure_conditions = [has_role('admin'), owns_data_source,
                              has_role('annotator'), has_role('trader')]
     add_ensure_options = {'satisfy': lambda conditions: next(conditions) or (next(conditions) and any(conditions))}
-    # Todo: Optional name for `annotated_data_source`.
     add_schema = {'data_source': {'type': 'data_source', 'required': True},
+                  'name': {'type': 'string', 'maxlength': 200},
                   'global_frequency': {'type': 'boolean'},
                   'sample_frequency': {'type': 'list',
                                        'maxlength': 30,
@@ -146,7 +146,7 @@ class AnnotationsResource(TaskedResource):
         return super(AnnotationsResource, cls).get_view(*args, **kwargs)
 
     @classmethod
-    def add_view(cls, data_source, global_frequency=True,
+    def add_view(cls, data_source, name=None, global_frequency=True,
                  sample_frequency=None):
         """
         Create an annotation.
@@ -160,6 +160,7 @@ class AnnotationsResource(TaskedResource):
         # - owns_data_source AND annotator
         # - owns_data_source AND trader
         sample_frequency = sample_frequency or []
+        name = name or '%s (annotated)' % data_source.name
 
         for sample in sample_frequency:
             if not (sample.public or
@@ -176,9 +177,7 @@ class AnnotationsResource(TaskedResource):
                 raise InvalidDataSource('inactive_data_source', 'Data source '
                     'cannot be annotated unless it is imported in an active sample')
 
-        annotated_data_source = DataSource(g.user,
-                                           '%s (annotated)' % data_source.name,
-                                           data_source.filetype,
+        annotated_data_source = DataSource(g.user, name, data_source.filetype,
                                            empty=True, gzipped=True)
         db.session.add(annotated_data_source)
         annotation = Annotation(data_source, annotated_data_source,
