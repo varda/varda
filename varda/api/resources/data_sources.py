@@ -34,6 +34,8 @@ class DataSourcesResource(ModelResource):
     views = ['list', 'get', 'add', 'edit', 'delete', 'data']
 
     embeddable = {'user': UsersResource}
+    # Todo: Filter by `is_annotation` or similar property. Since we don't want
+    #     to show annotations in the main data sources view in Aule.
     filterable = {'user': 'user'}
     orderable = ['name', 'filetype', 'added']
 

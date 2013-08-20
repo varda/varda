@@ -38,9 +38,7 @@ class AnnotationsResource(TaskedResource):
 
     embeddable = {'original_data_source': DataSourcesResource,
                   'annotated_data_source': DataSourcesResource}
-    # Todo: I don't think this filterable definition is correct, there is no
-    #     `data_source` attribute on an `Annotation`??
-    filterable = {'data_source': 'data_source'}
+    filterable = {'original_data_source': 'data_source'}
 
     list_ensure_conditions = [has_role('admin'), owns_data_source]
     list_ensure_options = {'satisfy': any}
@@ -51,6 +49,7 @@ class AnnotationsResource(TaskedResource):
     add_ensure_conditions = [has_role('admin'), owns_data_source,
                              has_role('annotator'), has_role('trader')]
     add_ensure_options = {'satisfy': lambda conditions: next(conditions) or (next(conditions) and any(conditions))}
+    # Todo: Optional name for `annotated_data_source`.
     add_schema = {'data_source': {'type': 'data_source', 'required': True},
                   'global_frequency': {'type': 'boolean'},
                   'sample_frequency': {'type': 'list',
