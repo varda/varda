@@ -241,8 +241,13 @@ class ModelResource(Resource):
         # [2] http://www.sqlalchemy.org/trac/wiki/UsageRecipes/WindowedRangeQuery
         # [3] http://stackoverflow.com/questions/6618366/improving-offset-performance-in-postgresql
         instances = cls.model.query
-        if filter:
-            instances = instances.filter_by(**filter)
+        for field, value in filter.items():
+            try:
+                model, field = field.split('.')
+                instances = instances.filter(
+                    getattr(cls.model, model).has(**{field: value}))
+            except ValueError:
+                instances = instances.filter_by(**{field: value})
         instances = instances.order_by(*[getattr(getattr(cls.model, f), d)()
                                          for f, d in cls.get_order(order)])
         items = [cls.serialize(r, embed=embed)
