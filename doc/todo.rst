@@ -129,3 +129,11 @@ grepping the source code for ``Todo``.
   `1`. We could report these as-is, or merge them to the highest ploidity
   which would be incorrect in this case. Or we store the ploidity for each
   chromosome system-wide.
+
+* Having a pool size per sample is not granular enough in some situations. For
+  example, the `1KG phase1 integrated call sets
+  <http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/phase1/analysis_results/integrated_call_sets/>`_
+  are over 1092 individuals for most chromosomes, but over 1083 and 535 for
+  the mitochondrial genome and chromosome Y, respectively.
+  Not sure if we can really solve this easily, since having a pool size per
+  variation/coverage will not work for samples with coverage.
