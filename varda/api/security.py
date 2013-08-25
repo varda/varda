@@ -250,7 +250,7 @@ def owns_annotation(annotation=None, **_):
     data_source owned by the currently authenticated user.
     """
     try:
-        return annotation.data_source.user is g.user
+        return annotation.annotated_data_source.user is g.user
     except AttributeError:
         return False
 

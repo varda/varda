@@ -14,7 +14,7 @@ from flask import abort, current_app, g, jsonify, url_for
 from ... import db
 from ...models import Annotation, DataSource, InvalidDataSource, Sample
 from ... import tasks
-from ..security import has_role, owns_annotation, owns_data_source
+from ..security import has_role, is_user, owns_annotation, owns_data_source
 from .base import TaskedResource
 from .data_sources import DataSourcesResource
 
@@ -38,10 +38,14 @@ class AnnotationsResource(TaskedResource):
 
     embeddable = {'original_data_source': DataSourcesResource,
                   'annotated_data_source': DataSourcesResource}
-    filterable = {'original_data_source': 'data_source'}
+    filterable = {'annotated_data_source.user': 'user'}
 
-    list_ensure_conditions = [has_role('admin'), owns_data_source]
-    list_ensure_options = {'satisfy': any}
+    # Note: We consider an annotation's owner to be the owner of the attached
+    #     annotated_data_source, not the owner of the original_data_source.
+
+    list_ensure_conditions = [has_role('admin'), is_user]
+    list_ensure_options = {'satisfy': any,
+                           'kwargs': {'user': 'annotated_data_source.user'}}
 
     get_ensure_conditions = [has_role('admin'), owns_annotation]
     get_ensure_options = {'satisfy': any}

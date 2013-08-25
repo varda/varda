@@ -23,7 +23,7 @@ from .resources import (AnnotationsResource, CoveragesResource,
 from .utils import user_by_login, user_by_token
 
 
-API_VERSION = semantic_version.Version('0.2.2')
+API_VERSION = semantic_version.Version('0.3.0')
 
 
 api = Blueprint('api', 'api')

@@ -10,7 +10,7 @@ REST API data sources model resource.
 from flask import current_app, g, request, send_from_directory, url_for
 
 from ...models import DataSource, DATA_SOURCE_FILETYPES
-from ..security import is_user, has_role, owns_data_source
+from ..security import has_role, is_user, owns_data_source
 from .base import ModelResource
 from .users import UsersResource
 
@@ -34,8 +34,6 @@ class DataSourcesResource(ModelResource):
     views = ['list', 'get', 'add', 'edit', 'delete', 'data']
 
     embeddable = {'user': UsersResource}
-    # Todo: Filter by `is_annotation` or similar property. Since we don't want
-    #     to show annotations in the main data sources view in Aule.
     filterable = {'user': 'user'}
     orderable = ['name', 'filetype', 'added']
 

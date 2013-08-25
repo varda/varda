@@ -376,6 +376,9 @@ class TaskedResource(ModelResource):
                     error = {'code': result.result.code,
                              'message': result.result.message}
                 else:
+                    # Todo: Could we somehow serialize this error using the
+                    #     serialization for top-level errors defined with the
+                    #     API?
                     error = {'code': 'unexpected_error',
                              'message': 'Unexpected error'}
                 task.update(error=error)
