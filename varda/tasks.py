@@ -449,6 +449,8 @@ def import_variation(variation_id):
     """
     logger.info('Started task: import_variation(%d)', variation_id)
 
+    current_task.update_state(state='PROGRESS', meta={'percentage': 0})
+
     variation = Variation.query.get(variation_id)
     if variation is None:
         raise TaskError('variation_not_found', 'Variation not found')
@@ -563,6 +565,8 @@ def import_coverage(coverage_id):
     """
     logger.info('Started task: import_coverage(%d)', coverage_id)
 
+    current_task.update_state(state='PROGRESS', meta={'percentage': 0})
+
     coverage = Coverage.query.get(coverage_id)
     if coverage is None:
         raise TaskError('coverage_not_found', 'Coverage not found')
@@ -637,6 +641,8 @@ def write_annotation(annotation_id):
     :type annotation_id: int
     """
     logger.info('Started task: write_annotation(%d)', annotation_id)
+
+    current_task.update_state(state='PROGRESS', meta={'percentage': 0})
 
     annotation = Annotation.query.get(annotation_id)
     if annotation is None:
