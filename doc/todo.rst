@@ -114,6 +114,13 @@ grepping the source code for ``Todo``.
   <http://stackoverflow.com/questions/15575826/how-to-inspect-and-cancel-celery-tasks-by-task-name>`_,
   we probably also have to explicitely monitor the events.
 
+  **Important:** We still seem to have an issue with many long-running tasks
+  where some of them may be run twice. In general, this will raise the
+  ``TaskError('variation_imported', 'Variation already imported')`` exception
+  but I have seen at least one case where the entire variation has been
+  imported twice which is quite hard to recover from. My hope is that we can
+  prevent this from happening by some refactoring here.
+
 * See if `this issue
   <https://github.com/mitsuhiko/flask-sqlalchemy/issues/144>`_ affects us.
 
