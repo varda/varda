@@ -144,3 +144,7 @@ grepping the source code for ``Todo``.
   the mitochondrial genome and chromosome Y, respectively.
   Not sure if we can really solve this easily, since having a pool size per
   variation/coverage will not work for samples with coverage.
+
+* Options for logging in a production environment. Basically, if
+  `DEBUG=False`, everything from log level warning and up should be logged to
+  a file and every error should optionally be e-mailed.
