@@ -19,6 +19,15 @@ from .base import TaskedResource
 from .data_sources import DataSourcesResource
 
 
+def _satisfy_add(conditions):
+    is_admin, is_annotator, is_trader, owns_data_source = conditions
+    if is_admin:
+        return True
+    if owns_data_source:
+        return is_annotator or is_trader
+    return False
+
+
 class AnnotationsResource(TaskedResource):
     """
     An annotation is represented as an object with the following fields:
@@ -50,9 +59,9 @@ class AnnotationsResource(TaskedResource):
     get_ensure_conditions = [has_role('admin'), owns_annotation]
     get_ensure_options = {'satisfy': any}
 
-    add_ensure_conditions = [has_role('admin'), owns_data_source,
-                             has_role('annotator'), has_role('trader')]
-    add_ensure_options = {'satisfy': lambda conditions: next(conditions) or (next(conditions) and any(conditions))}
+    add_ensure_conditions = [has_role('admin'), has_role('annotator'),
+                             has_role('trader'), owns_data_source]
+    add_ensure_options = {'satisfy': _satisfy_add}
     add_schema = {'data_source': {'type': 'data_source', 'required': True},
                   'name': {'type': 'string', 'maxlength': 200},
                   'global_frequency': {'type': 'boolean'},

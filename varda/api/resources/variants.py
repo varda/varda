@@ -14,9 +14,19 @@ from ...region_binning import all_bins
 from ...utils import (calculate_frequency, normalize_region, normalize_variant,
                       ReferenceMismatch)
 from ..errors import ValidationError
-from ..security import has_role
+from ..security import has_role, owns_sample, public_sample, true
 from .base import Resource
 from .samples import SamplesResource
+
+
+def _satisfy_lookup(conditions):
+    sample_selected, is_admin, is_annotator, owns_sample, public_sample\
+        = conditions
+    if is_admin:
+        return True
+    if sample_selected:
+        return owns_sample or public_sample
+    return is_annotator
 
 
 class VariantsResource(Resource):
@@ -39,8 +49,10 @@ class VariantsResource(Resource):
                      ('observed', 'asc'),
                      ('id', 'asc')]
 
-    list_ensure_conditions = [has_role('admin'), has_role('annotator')]
-    list_ensure_options = {'satisfy': any}
+    list_ensure_conditions = [true('sample'), has_role('admin'),
+                              has_role('annotator'), owns_sample,
+                              public_sample]
+    list_ensure_options = {'satisfy': _satisfy_lookup}
     list_schema = {'region': {'type': 'dict',
                               'schema': {'chromosome': {'type': 'string', 'required': True, 'maxlength': 30},
                                          'begin': {'type': 'integer', 'required': True},
@@ -48,8 +60,10 @@ class VariantsResource(Resource):
                               'required': True},
                    'sample': {'type': 'sample'}}
 
-    get_ensure_conditions = [has_role('admin'), has_role('annotator')]
-    get_ensure_options = {'satisfy': any}
+    get_ensure_conditions = [true('sample'), has_role('admin'),
+                             has_role('annotator'), owns_sample,
+                             public_sample]
+    get_ensure_options = {'satisfy': _satisfy_lookup}
     get_schema = {'sample': {'type': 'sample'}}
 
     add_ensure_conditions = []
@@ -65,13 +79,6 @@ class VariantsResource(Resource):
         """
         Get a collection of variants.
         """
-        if sample:
-            if not (sample.public or
-                    sample.user is g.user or
-                    'admin' in g.user.roles):
-                # Todo: Meaningful error message.
-                abort(400)
-
         # Todo: Document that `begin` and `end` are 1-based and inclusive. Or,
         #     perhaps we should change that to conform to BED track regions.
         try:
@@ -111,7 +118,6 @@ class VariantsResource(Resource):
                 jsonify(collection={'uri': cls.collection_uri(),
                                     'items': items}))
 
-
     @classmethod
     def get_view(cls, variant, sample=None):
         """
@@ -132,13 +138,6 @@ class VariantsResource(Resource):
         * **hgvs** (`string`) - HGVS description.
         * **frequency** (`float`) - Frequency in database samples.
         """
-        if sample:
-            if not (sample.public or
-                    sample.user is g.user or
-                    'admin' in g.user.roles):
-                # Todo: Meaningful error message.
-                abort(400)
-
         return jsonify(variant=cls.serialize(variant, sample=sample))
 
     @classmethod
