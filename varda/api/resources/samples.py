@@ -272,6 +272,7 @@ class SamplesResource(ModelResource):
         serialization.update(name=instance.name,
                              pool_size=instance.pool_size,
                              public=instance.public,
+                             coverage_profile=instance.coverage_profile,
                              active=instance.active,
                              notes=instance.notes,
                              added=str(instance.added.isoformat()))
