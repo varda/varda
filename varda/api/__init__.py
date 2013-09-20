@@ -8,3 +8,4 @@ REST server API.
 
 
 from .views import api
+from .documentation import docs

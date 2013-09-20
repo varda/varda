@@ -5,6 +5,9 @@
 # URL prefix to serve the Varda server API under
 API_URL_PREFIX = None
 
+# URL prefix to serve the Varda server API documentation under
+API_DOCS_URL_PREFIX = '/doc'
+
 # Path to serve the Aulë application from
 AULE_LOCAL_PATH = None
 

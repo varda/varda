@@ -20,7 +20,7 @@ import os.path
 from flask import Blueprint, current_app, send_from_directory
 
 
-web = Blueprint('web', __name__)
+web = Blueprint('web', 'web')
 
 
 @web.route('/')
