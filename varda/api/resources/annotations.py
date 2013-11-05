@@ -186,11 +186,18 @@ class AnnotationsResource(TaskedResource):
             # This is a trader, so check if the data source has been imported in
             # an active sample.
             # Todo: Anyone should be able to annotate against the public samples.
+            # Todo: This check is bogus when annotating a BED file.
             if not data_source.variations.join(Sample).filter_by(active=True).count():
                 raise InvalidDataSource('inactive_data_source', 'Data source '
                     'cannot be annotated unless it is imported in an active sample')
 
-        annotated_data_source = DataSource(g.user, name, data_source.filetype,
+        # For now, we only support VCF->VCF and BED->CSV.
+        if data_source.filetype == 'vcf':
+            annotated_filetype = 'vcf'
+        else:
+            annotated_filetype = 'csv'
+
+        annotated_data_source = DataSource(g.user, name, annotated_filetype,
                                            empty=True, gzipped=True)
         db.session.add(annotated_data_source)
         annotation = Annotation(data_source, annotated_data_source,
