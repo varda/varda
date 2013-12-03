@@ -226,52 +226,52 @@ def root_get():
 
     .. sourcecode:: http
 
-       GET / HTTP/1.1
+        GET / HTTP/1.1
 
     **Example response**:
 
     .. sourcecode:: http
 
-       HTTP/1.1 200 OK
-       Content-Type: application/json
+        HTTP/1.1 200 OK
+        Content-Type: application/json
 
-       {
-         "root": {
-           "uri": "/",
-           "api_version": "0.3.0",
-           "status": "ok",
-           "authentication": {
-             "uri": "/authentication"
-           },
-           "genome": {
-             "uri": "/genome"
-           },
-           "annotation_collection": {
-             "uri": "/annotations/"
-           },
-           "coverage_collection": {
-             "uri": "/coverages/"
-           },
-           "data_source_collection": {
-             "uri": "/data_sources/"
-           },
-           "sample_collection": {
-             "uri": "/samples/"
-           },
-           "token_collection": {
-             "uri": "/tokens/"
-           },
-           "user_collection": {
-             "uri": "/users/"
-           },
-           "variant_collection": {
-             "uri": "/variants/"
-           },
-           "variation_collection": {
-             "uri": "/variations/"
-           }
-         }
-       }
+        {
+          "root": {
+            "uri": "/",
+            "api_version": "0.3.0",
+            "status": "ok",
+            "authentication": {
+              "uri": "/authentication"
+            },
+            "genome": {
+              "uri": "/genome"
+            },
+            "annotation_collection": {
+              "uri": "/annotations/"
+            },
+            "coverage_collection": {
+              "uri": "/coverages/"
+            },
+            "data_source_collection": {
+              "uri": "/data_sources/"
+            },
+            "sample_collection": {
+              "uri": "/samples/"
+            },
+            "token_collection": {
+              "uri": "/tokens/"
+            },
+            "user_collection": {
+              "uri": "/users/"
+            },
+            "variant_collection": {
+              "uri": "/variants/"
+            },
+            "variation_collection": {
+              "uri": "/variations/"
+            }
+          }
+        }
     """
     return jsonify(root=root_serialize())
 
@@ -358,31 +358,31 @@ def authentication_get():
 
     .. sourcecode:: http
 
-       GET /authentication HTTP/1.1
+        GET /authentication HTTP/1.1
 
     **Example response**:
 
     .. sourcecode:: http
 
-       HTTP/1.1 200 OK
-       Content-Type: application/json
+        HTTP/1.1 200 OK
+        Content-Type: application/json
 
-       {
-         "authentication": {
-           "uri": "/authentication",
-           "authenticated": true,
-           "user": {
-             "uri": "/users/1"
-             "added": "2012-11-30T20:14:27.954255",
-             "email": null,
-             "login": "admin",
-             "name": "Admin User",
-             "roles": [
-               "admin"
-             ],
-           }
-         }
-       }
+        {
+          "authentication": {
+            "uri": "/authentication",
+            "authenticated": true,
+            "user": {
+              "uri": "/users/1"
+              "added": "2012-11-30T20:14:27.954255",
+              "email": null,
+              "login": "admin",
+              "name": "Admin User",
+              "roles": [
+                "admin"
+              ],
+            }
+          }
+        }
     """
     return jsonify(authentication=authentication_serialize())
 

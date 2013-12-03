@@ -312,59 +312,59 @@ Example response:
 
 .. sourcecode:: http
 
-   HTTP/1.1 206 PARTIAL CONTENT
-   Content-Type: application/json
-   Content-Range: items 0-5/8
+    HTTP/1.1 206 PARTIAL CONTENT
+    Content-Type: application/json
+    Content-Range: items 0-5/8
 
-   {
-     "sample_collection": {
-       "uri": "/samples/",
-       "items": [
-         {
-           "uri": "/samples/130",
-           "name": "1KG phase1 integrated call set",
-           "pool_size": 1092,
-           "public": true,
-           ...
-         },
-         {
-           "uri": "/samples/134",
-           "name": "My sample",
-           "pool_size": 4,
-           "public": true,
-           ...
-         },
-         {
-           "uri": "/samples/135",
-           "name": "A new sample",
-           "pool_size": 3,
-           "public": true,
-           ...
-         },
-         {
-           "uri": "/samples/129",
-           "name": "Another sample",
-           "pool_size": 1,
-           "public": true,
-           ...
-         },
-         {
-           "uri": "/samples/131",
-           "name": "Sample 42",
-           "pool_size": 1,
-           "public": true,
-           ...
-         },
-         {
-           "uri": "/samples/128",
-           "name": "Some test sample",
-           "pool_size": 1,
-           "public": true,
-           ...
-         }
-       ]
-     }
-   }
+    {
+      "sample_collection": {
+        "uri": "/samples/",
+        "items": [
+          {
+            "uri": "/samples/130",
+            "name": "1KG phase1 integrated call set",
+            "pool_size": 1092,
+            "public": true,
+            ...
+          },
+          {
+            "uri": "/samples/134",
+            "name": "My sample",
+            "pool_size": 4,
+            "public": true,
+            ...
+          },
+          {
+            "uri": "/samples/135",
+            "name": "A new sample",
+            "pool_size": 3,
+            "public": true,
+            ...
+          },
+          {
+            "uri": "/samples/129",
+            "name": "Another sample",
+            "pool_size": 1,
+            "public": true,
+            ...
+          },
+          {
+            "uri": "/samples/131",
+            "name": "Sample 42",
+            "pool_size": 1,
+            "public": true,
+            ...
+          },
+          {
+            "uri": "/samples/128",
+            "name": "Some test sample",
+            "pool_size": 1,
+            "public": true,
+            ...
+          }
+        ]
+      }
+    }
 
 
 .. _api-tasked-resources:
