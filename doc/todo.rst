@@ -148,3 +148,13 @@ grepping the source code for ``Todo``.
 * Options for logging in a production environment. Basically, if
   `DEBUG=False`, everything from log level warning and up should be logged to
   a file and every error should optionally be e-mailed.
+
+* JSON is not a hypertext format, but still we can do better by using
+  hypertext-like representations, for example using `HAL
+  <http://stateless.co/hal_specification.html>`_.
+
+* Replace `Resource` base class by `SingletonResource` and
+  `CollectionResource`. Implement the root, genome, and authentication
+  resource using `SingletonResource`.
+
+* See if we can easily compress with bgzip instead of regular gzip.

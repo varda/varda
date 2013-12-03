@@ -23,7 +23,7 @@ from .resources import (AnnotationsResource, CoveragesResource,
 from .utils import user_by_login, user_by_token
 
 
-API_VERSION = semantic_version.Version('0.3.0')
+API_VERSION = semantic_version.Version('1.0.0')
 
 
 api = Blueprint('api', 'api')
@@ -32,10 +32,10 @@ api = Blueprint('api', 'api')
 @api.before_request
 def check_accept_api_version():
     """
-    Clients can ask for specific versions of our API with a `semver <http://semver.org/>`_
-    specification in the `Accept-Version` header. If no `Accept-Version`
-    header is present, a value of ``>=0.1`` (matching any current or future
-    version) is assumed.
+    Clients can ask for specific versions of our API with a `Semantic
+    Versioning <http://semver.org/>`_ specification in the `Accept-Version`
+    header. If no `Accept-Version` header is present, a value of ``>=0.1``
+    (matching any current or future version) is assumed.
 
     In the future, we could use this to make changes in a backwards compatible
     way. One extreme would be to route to different installations of Varda,
@@ -220,28 +220,122 @@ variants_resource = VariantsResource(api, url_prefix='/variants')
 @api.route('/')
 def root_get():
     """
-    Varda server status information.
+    Returns the resource representation in the `root` field.
 
-    :statuscode 200: Respond with an object as defined below.
+    **Example request**:
 
-    The response object has the following fields:
+    .. sourcecode:: http
 
-    * **status** (`string`) - Currently always ``ok``, but future versions of
-      the API might add other values (e.g. ``maintanance``).
-    * **version** (`integer`) - API version.
-    * **genome** (`list of string`) - Reference genome chromosome names.
-    * **authentication_uri** (`string`) - URI for the :ref:`authentication
-      state <api_misc>`.
-    * **users_uri** (`string`) - URI for the :ref:`registered users resource <api_users>`.
-    * **samples_uri** (`string`) - URI for the :ref:`samples resource <api_samples>`.
-    * **data_sources_uri** (`string`) - URI for the :ref:`data sources
-      resource <api_data_sources>`.
+       GET / HTTP/1.1
+
+    **Example response**:
+
+    .. sourcecode:: http
+
+       HTTP/1.1 200 OK
+       Content-Type: application/json
+
+       {
+         "root": {
+           "uri": "/",
+           "api_version": "0.3.0",
+           "status": "ok",
+           "authentication": {
+             "uri": "/authentication"
+           },
+           "genome": {
+             "uri": "/genome"
+           },
+           "annotation_collection": {
+             "uri": "/annotations/"
+           },
+           "coverage_collection": {
+             "uri": "/coverages/"
+           },
+           "data_source_collection": {
+             "uri": "/data_sources/"
+           },
+           "sample_collection": {
+             "uri": "/samples/"
+           },
+           "token_collection": {
+             "uri": "/tokens/"
+           },
+           "user_collection": {
+             "uri": "/users/"
+           },
+           "variant_collection": {
+             "uri": "/variants/"
+           },
+           "variation_collection": {
+             "uri": "/variations/"
+           }
+         }
+       }
+    """
+    return jsonify(root=root_serialize())
+
+
+def root_serialize():
+    """
+    The root resource representation has the following fields:
+
+    **uri** (`uri`)
+      URI for this resource.
+
+    **status** (`string`)
+      Currently always ``ok``, but future versions of the API
+      might add other values (e.g. ``maintanance``).
+
+    **api_version** (`string`)
+      API version (see :ref:`api-versioning`).
+
+    **authentication** (`object`)
+      :ref:`Link <api-links>` to the :ref:`authentication
+      <api-resources-authentication>` resource.
+
+    **genome** (`object`)
+      :ref:`Link <api-links>` to the :ref:`genome <api-resources-genome>`
+      resource.
+
+    **annotation_collection** (`object`)
+      :ref:`Link <api-links>` to the :ref:`annotation collection
+      <api-resources-annotations-collection>` resource.
+
+    **coverage_collection** (`object`)
+      :ref:`Link <api-links>` to the :ref:`coverage collection
+      <api-resources-coverages-collection>` resource.
+
+    **data_source_collection** (`object`)
+      :ref:`Link <api-links>` to the :ref:`data_source collection
+      <api-resources-data-sources-collection>` resource.
+
+    **sample_collection** (`object`)
+      :ref:`Link <api-links>` to the :ref:`sample collection
+      <api-resources-samples-collection>` resource.
+
+    **token_collection** (`object`)
+      :ref:`Link <api-links>` to the :ref:`token collection
+      <api-resources-tokens-collection>` resource.
+
+    **user_collection** (`object`)
+      :ref:`Link <api-links>` to the :ref:`user collection
+      <api-resources-users-collection>` resource.
+
+    **variant_collection** (`object`)
+      :ref:`Link <api-links>` to the :ref:`variant collection
+      <api-resources-variants-collection>` resource.
+
+    **variation_collection** (`object`)
+      :ref:`Link <api-links>` to the :ref:`variation collection
+      <api-resources-variations-collection>` resource.
     """
     # Todo: Option to embed genome and/or authentication resources.
-    api = {'status':             'ok',
-           'version':            str(API_VERSION),
-           'genome':             {'uri': url_for('.genome_get')},
-           'authentication':     {'uri': url_for('.authentication_get')}}
+    api = {'uri':                url_for('.root_get'),
+           'status':             'ok',
+           'api_version':        str(API_VERSION),
+           'authentication':     {'uri': url_for('.authentication_get')},
+           'genome':             {'uri': url_for('.genome_get')}}
     api.update({resource.instance_name + '_collection':
                     {'uri': resource.collection_uri()}
                 for resource in (annotations_resource,
@@ -252,53 +346,60 @@ def root_get():
                                  users_resource,
                                  variants_resource,
                                  variations_resource)})
-    return jsonify(api)
-
-
-@api.route('/genome')
-def genome_get():
-    """
-    Genome info.
-    """
-    if not genome:
-        abort(404)
-    # Todo: Also configure a genome name (assembly) to report here.
-    return jsonify(genome={'uri':         url_for('.genome_get'),
-                           'chromosomes': sorted(genome.keys(), key=chromosome_compare_key)})
+    return api
 
 
 @api.route('/authentication')
 def authentication_get():
     """
-    Authentication state (for this very request).
+    Returns the resource representation in the `authentication` field.
 
-    :statuscode 200: Respond with the authentication state as `authenticated`
-        and, if true, a :ref:`user <api_users>` object as `user`.
-
-    Example request:
+    **Example request**:
 
     .. sourcecode:: http
 
-        GET /authentication HTTP/1.1
+       GET /authentication HTTP/1.1
 
-    Example response:
+    **Example response**:
 
     .. sourcecode:: http
 
-        HTTP/1.1 200 OK
-        Content-Type: application/json
+       HTTP/1.1 200 OK
+       Content-Type: application/json
 
-        {
-          "authenticated": true,
-          "user":
-            {
-              "uri": "/users/1",
-              "name": "Frederick Sanger",
-              "login": "fred",
-              "roles": ["admin"],
-              "added": "2012-11-23T10:55:12.776706"
-            }
-        }
+       {
+         "authentication": {
+           "uri": "/authentication",
+           "authenticated": true,
+           "user": {
+             "uri": "/users/1"
+             "added": "2012-11-30T20:14:27.954255",
+             "email": null,
+             "login": "admin",
+             "name": "Admin User",
+             "roles": [
+               "admin"
+             ],
+           }
+         }
+       }
+    """
+    return jsonify(authentication=authentication_serialize())
+
+
+def authentication_serialize():
+    """
+    The authentication resource representation has the following fields:
+
+    **uri** (`uri`)
+      URI for this resource.
+
+    **authenticated** (`boolean`)
+      Whether or not the request is authenticated.
+
+    **user** (`object`)
+      :ref:`Link <api-links>` to a :ref:`user <api-resources-users-instances>`
+      resource if the request is authenticated, `null` otherwise.
     """
     authentication = {'uri':           url_for('.authentication_get'),
                       'authenticated': False,
@@ -306,4 +407,29 @@ def authentication_get():
     if g.user is not None:
         authentication.update(authenticated=True,
                               user=users_resource.serialize(g.user))
-    return jsonify(authentication)
+    return authentication
+
+
+@api.route('/genome')
+def genome_get():
+    """
+    Returns the resource representation in the `genome` field.
+    """
+    if not genome:
+        abort(404)
+    return jsonify(genome=genome__serialize())
+
+
+def genome_serialize():
+    """
+    The genome resource representation has the following fields:
+
+    **uri** (`uri`)
+      URI for this resource.
+
+    **chromosomes** (`list` of `string`)
+      List of chromosome names.
+    """
+    # Todo: Also configure a genome name (assembly) to report here.
+    return {'uri':         url_for('.genome_get'),
+            'chromosomes': sorted(genome.keys(), key=chromosome_compare_key)}

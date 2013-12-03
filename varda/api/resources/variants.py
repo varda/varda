@@ -31,10 +31,10 @@ def _satisfy_lookup(conditions):
 
 class VariantsResource(Resource):
     """
-    A variant is represented as an object with the following fields:
+    Variant resources model genomic variants with their observed frequencies.
 
-    **Note:** This resource is subject to change and therefore not documented
-        yet.
+    .. note:: The implementation of this resource is still in flux and it is
+       therefore not documented.
     """
     instance_name = 'variant'
     instance_type = 'variant'
@@ -75,9 +75,42 @@ class VariantsResource(Resource):
     key_type = 'string'
 
     @classmethod
+    def instance_key(cls, variant):
+        return '%s:%d%s>%s' % variant
+
+    @classmethod
+    def serialize(cls, variant, sample=None):
+        """
+        A variant is represented as an object with the following fields:
+
+        **uri** (`uri`)
+          URI for this resource.
+        """
+        chromosome, position, reference, observed = variant
+
+        coverage, frequency = calculate_frequency(
+            chromosome, position, reference, observed, sample=sample)
+
+        if sample is not None:
+            sample_uri = SamplesResource.instance_uri(sample)
+        else:
+            sample_uri = None
+
+        return {'uri': cls.instance_uri(variant),
+                'sample_uri': sample_uri,
+                'chromosome': chromosome,
+                'position': position,
+                'reference': reference,
+                'observed': observed,
+                'coverage': coverage,
+                'frequency': sum(frequency.values()),
+                'frequency_het': frequency['heterozygous'],
+                'frequency_hom': frequency['homozygous']}
+
+    @classmethod
     def list_view(cls, begin, count, region, sample=None, order=None):
         """
-        Get a collection of variants.
+        Returns a collection of variants in the `variant_collection` field.
         """
         # Todo: Document that `begin` and `end` are 1-based and inclusive. Or,
         #     perhaps we should change that to conform to BED track regions.
@@ -115,35 +148,20 @@ class VariantsResource(Resource):
                                sample=sample)
                  for o in observations.limit(count).offset(begin)]
         return (observations.count(),
-                jsonify(collection={'uri': cls.collection_uri(),
-                                    'items': items}))
+                jsonify(variant_collection={'uri': cls.collection_uri(),
+                                            'items': items}))
 
     @classmethod
     def get_view(cls, variant, sample=None):
         """
-        Get frequency details for a variant.
-
-        Requires the `admin` or `annotator` role.
-
-        :statuscode 200: Respond with an object defined below as `variant`.
-
-        The response object has the following fields:
-
-        * **uri** (`string`) - URI for this variant.
-        * **chromosome** (`string`) - Chromosome name.
-        * **position** (`integer`) - Start position of the variant (1-based,
-        *     inclusive).
-        * **reference** (`string`) - Reference sequence.
-        * **observed** (`string`) - Observed sequence.
-        * **hgvs** (`string`) - HGVS description.
-        * **frequency** (`float`) - Frequency in database samples.
+        Returns the variant representation in the `variant` field.
         """
         return jsonify(variant=cls.serialize(variant, sample=sample))
 
     @classmethod
     def add_view(cls, chromosome, position, reference='', observed=''):
         """
-        Create a variant.
+        Adds a variant resource.
         """
         # Todo: Also support HGVS input.
         try:
@@ -158,30 +176,3 @@ class VariantsResource(Resource):
         response = jsonify(variant={'uri': uri})
         response.location = uri
         return response, 201
-
-    @classmethod
-    def instance_key(cls, variant):
-        return '%s:%d%s>%s' % variant
-
-    @classmethod
-    def serialize(cls, variant, sample=None):
-        chromosome, position, reference, observed = variant
-
-        coverage, frequency = calculate_frequency(
-            chromosome, position, reference, observed, sample=sample)
-
-        if sample is not None:
-            sample_uri = SamplesResource.instance_uri(sample)
-        else:
-            sample_uri = None
-
-        return {'uri': cls.instance_uri(variant),
-                'sample_uri': sample_uri,
-                'chromosome': chromosome,
-                'position': position,
-                'reference': reference,
-                'observed': observed,
-                'coverage': coverage,
-                'frequency': sum(frequency.values()),
-                'frequency_het': frequency['heterozygous'],
-                'frequency_hom': frequency['homozygous']}

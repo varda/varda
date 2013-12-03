@@ -9,13 +9,8 @@ installing Varda using `PostgreSQL`_ as database server and `Redis`_ as
 message broker and task result backend, which is the recommended setup.
 
 .. note:: All operating system specific instructions assume installation on a
-   `Debian`_ (testing, or *wheezy*) system. You'll have to figure out the
-   necessary adjustements yourself if you're on another system.
-
-.. warning:: Following this guide will give you a running Varda server suitable
-   for a development environment. Deployment to a production server will need
-   some additional security measures (but shoudn't be done anyway since this
-   is pre-alpha software).
+   `Debian`_ 7 *wheezy* system. You'll have to figure out the necessary
+   adjustements yourself if you're on another system.
 
 The following steps will get Varda running on your system with the recommended
 setup:
@@ -51,10 +46,6 @@ Don't use this for anything serious though.
 Database server: PostgreSQL
 ---------------------------
 
-.. note:: See :ref:`install-mysql` and :ref:`install-sqlite` for
-   alternatives. In theory, any database supported by `SQLAlchemy`_ could
-   work.
-
 Install `PostgreSQL`_ and add a user for Varda. Create a database
 (e.g. ``varda``) owned by the new user. For example::
 
@@ -68,24 +59,39 @@ Python package later::
 
     $ sudo apt-get install python-dev libpq-dev
 
+.. seealso::
+
+   :ref:`install-mysql`
+     Alternatively, MySQL can be used as database server.
+
+   :ref:`install-sqlite`
+     Alternatively, SQLite can be used as database server.
+
+   `Dialects -- SQLAlchemy documentation <http://docs.sqlalchemy.org/en/latest/dialects/index.html>`_
+     In theory, any database supported by SQLAlchemy could work.
+
 
 .. _install-redis:
 
 Message broker and task result backend: Redis
 ---------------------------------------------
 
-.. note:: See :ref:`install-rabbitmq` for an alternative. It should be
-   possible to use `any message broker
-   <http://docs.celeryproject.org/en/latest/getting-started/brokers/index.html>`_
-   and `any task result backend
-   <http://docs.celeryproject.org/en/latest/configuration.html#task-result-backend-settings>`_
-   supported by Celery.
-
 Varda uses `Celery`_ for distributing long-running tasks. A message broker is
 needed for communication between the server process and worker
 processes. Simply install `Redis`_ and you're done. ::
 
     $ sudo apt-get install redis-server
+
+.. seealso::
+
+   :ref:`install-rabbitmq`
+     Alternatively, RabbitMQ can be used as message broker.
+
+   `Brokers -- Celery documentation <http://docs.celeryproject.org/en/latest/getting-started/brokers/index.html>`_
+     It should be possible to use any message broker and any `task result
+     backend
+     <http://docs.celeryproject.org/en/latest/configuration.html#task-result-backend-settings>`_
+     supported by Celery.
 
 
 .. _install-virtualenv:
@@ -95,8 +101,7 @@ Python virtual environment
 
 It is recommended to run Varda from a Python virtual environment, using
 `virtualenv`_. Installing virtualenv and creating virtual environment is not
-covered here. Hat tip: managing virtual environments is easiest using
-`virtualenvwrapper`_.
+covered here.
 
 Assuming you created and activated a virtual environment for Varda, install
 all required Python packages::
@@ -110,6 +115,16 @@ Now might be a good idea to run the unit tests::
 If everything's okay, install Varda::
 
     $ python setup.py install
+
+.. seealso::
+
+   `virtualenv`_
+     ``virtualenv`` is a tool to create isolated Python environments.
+
+   `virtualenvwrapper`_
+     ``virtualenvwrapper`` is a set of extensions to the ``virtualenv``
+     tool. The extensions include wrappers for creating and deleting virtual
+     environments and otherwise managing your development workflow.
 
 
 .. _install-setup:
@@ -128,9 +143,6 @@ configuration settings, for example::
     BROKER_URL = 'redis://'
     CELERY_RESULT_BACKEND = 'redis://'
 
-.. note:: For more information on the available configuration settings, see
-   :ref:`config`.
-
 Make sure ``DATA_DIR`` refers to a directory that is writable for Varda. This
 is where Varda stores uploaded and generated files.
 
@@ -144,6 +156,11 @@ user::
    start over from scratch).
 
 You can now proceed to :ref:`run`.
+
+.. seealso::
+
+   :ref:`config`
+     For more information on the available configuration settings.
 
 
 .. _install-alternatives:
@@ -159,9 +176,6 @@ setup documented above.
 
 Database server: MySQL
 ^^^^^^^^^^^^^^^^^^^^^^
-
-.. note:: This is an alternative to the recommended setup (see
-   :ref:`install-postgresql`).
 
 Install `MySQL`_ and create a database (e.g. ``varda``) with all privileges
 for the Varda user. For example::
@@ -179,27 +193,31 @@ Also install some development libraries needed for building the
 Substitute ``MySQL-python`` for ``psycopg2`` in ``requirements.txt`` before
 you use it in the :ref:`install-virtualenv` section.
 
+.. seealso::
+
+   :ref:`install-postgresql`
+     The recommended setup uses PostgreSQL as database server.
+
 
 .. _install-sqlite:
 
 Database server: SQLite
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-.. note:: This is an alternative to the recommended setup (see `Database
-   server: PostgreSQL`_).
-
 You probably already have all you need for using `SQLite`_. You can remove the
 ``psycopg2`` line in ``requirements.txt`` before you use it in the
 :ref:`install-virtualenv` section.
+
+.. seealso::
+
+   :ref:`install-postgresql`
+     The recommended setup uses PostgreSQL as database server.
 
 
 .. _install-rabbitmq:
 
 Message broker: RabbitMQ
 ^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. note:: This is an alternative to the recommended setup (see
-   :ref:`install-redis`).
 
 Preferably install `RabbitMQ`_ from the APT repository `provided by RabbitMQ
 <http://www.rabbitmq.com/install-debian.html>`_. Example::
@@ -209,6 +227,11 @@ Preferably install `RabbitMQ`_ from the APT repository `provided by RabbitMQ
     $ sudo rabbitmqctl add_vhost varda
     $ sudo rabbitmqctl set_permissions -p varda varda '.*' '.*' '.*'
 
+.. seealso::
+
+   :ref:`install-redis`
+     The recommended setup uses Redis as message broker.
+
 
 .. _Celery: http://celeryproject.org/
 .. _Debian: http://www.debian.org/
@@ -217,7 +240,6 @@ Preferably install `RabbitMQ`_ from the APT repository `provided by RabbitMQ
 .. _Python: http://python.org/
 .. _RabbitMQ: http://www.rabbitmq.com/
 .. _Redis: http://redis.io/
-.. _SQLAlchemy: http://www.sqlalchemy.org/
 .. _SQLite: http://www.sqlite.org/
 .. _virtualenv: http://www.virtualenv.org/
 .. _virtualenvwrapper: http://www.doughellmann.com/docs/virtualenvwrapper/

@@ -17,13 +17,7 @@ from .base import ModelResource
 
 class UsersResource(ModelResource):
     """
-    A user is represented as an object with the following fields:
-
-    * **uri** (`string`) - URI for this user.
-    * **name** (`string`) - Human readable name.
-    * **login** (`string`) - User login used for identification.
-    * **roles** (`list of string`) - Roles this user has.
-    * **added** (`string`) - Date and time this user was added.
+    User resources model API users and their permissions.
     """
     model = User
     instance_name = 'user'
@@ -55,184 +49,107 @@ class UsersResource(ModelResource):
     delete_ensure_options = {'satisfy': any}
 
     @classmethod
+    def serialize(cls, instance, embed=None):
+        """
+        A user is represented as an object with the following fields:
+
+        **uri** (`uri`)
+          URI for this resource.
+
+        **added** (`string`)
+          Date and time this user was added, see :ref:`api-datetime`.
+
+        **email** (`string`)
+          User e-mail address.
+
+        **login** (`string`)
+          Login name used for authentication.
+
+        **name** (`string`)
+          Human readable user name.
+
+        **roles** (`list` of `string`)
+          Roles for this user. Possible values for this field are `admin`,
+          `importer`, `annotator`, and `trader`.
+        """
+        serialization = super(UsersResource, cls).serialize(instance, embed=embed)
+        serialization.update(name=instance.name,
+                             login=instance.login,
+                             email=instance.email,
+                             roles=list(instance.roles),
+                             added=str(instance.added.isoformat()))
+        return serialization
+
+    @classmethod
     def list_view(cls, *args, **kwargs):
         """
-        Get a collection of users.
+        Returns a collection of users in the `user_collection` field.
 
-        .. todo:: Document what it means to be a collection of resources.
+        .. note:: Requires having the `admin` role.
 
-        Requires the `admin` role.
-
-        :statuscode 200: Respond with a list of :ref:`user <api_users>` objects
-            as `users`.
-
-        Example request:
-
-        .. sourcecode:: http
-
-            GET /users HTTP/1.1
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/json
-
-            {
-              "users":
-                [
-                  {
-                    "uri": "/users/1",
-                    "name": "Frederick Sanger",
-                    "login": "fred",
-                    "roles": ["admin"],
-                    "added": "2012-11-23T10:55:12.776706"
-                  },
-                  {
-                    "uri": "/users/2",
-                    "name": "Walter Gilbert",
-                    "login": "walter",
-                    "roles": ["importer", "annotator"],
-                    "added": "2012-11-23T10:55:12.776706"
-                  }
-                ]
-            }
+        **Orderable by:** `name`, `added`
         """
         return super(UsersResource, cls).list_view(*args, **kwargs)
 
     @classmethod
     def get_view(cls, *args, **kwargs):
         """
-        Get details for a user.
+        Returns the user representation in the `user` field.
 
-        Requires the `admin` role or being the requested user.
-
-        :statuscode 200: Respond with a :ref:`user <api_users>` object as `user`.
-
-        Example request:
-
-        .. sourcecode:: http
-
-            GET /users/1 HTTP/1.1
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/json
-
-            {
-              "user":
-                {
-                  "uri": "/users/1",
-                  "name": "Frederick Sanger",
-                  "login": "fred",
-                  "roles": ["admin"],
-                  "added": "2012-11-23T10:55:12.776706"
-                }
-            }
+        .. note:: Requires having the `admin` role or being the requested
+           user.
         """
         return super(UsersResource, cls).get_view(*args, **kwargs)
 
     @classmethod
     @require_basic_auth
-    def add_view(cls, **kwargs):
+    def add_view(cls, *args, **kwargs):
         """
-        Create a user.
+        Adds a user resource.
 
-        Requires the `admin` role.
+        .. note:: Requires having the `admin` role.
 
-        :arg login: User login used for identification.
-        :type login: string
-        :arg name: Human readable name (default: `login`).
-        :type name: string
-        :arg password: Password.
-        :type password: string
-        :arg roles: Roles to assign.
-        :type roles: list of string
-        :statuscode 201: Respond with a URI for the created user as `user_uri`.
+        .. note:: This request is only allowed using :ref:`HTTP Basic
+           Authentication <api-authentication-basic>`, not token
+           authentication.
 
-        Example request:
+        **Required request data:**
 
-        .. sourcecode:: http
+        - **login** (`string`)
+        - **password** (`string`)
 
-            POST /users HTTP/1.1
-            Content-Type: application/json
+        **Accepted request data:**
 
-            {
-              "name": "Paul Berg",
-              "login": "paul",
-              "password": "dna",
-              "roles": ["importer"]
-            }
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 201 Created
-            Location: https://example.com/users/3
-            Content-Type: application/json
-
-            {
-              "user_uri": "/users/3"
-            }
+        - **name** (`string`)
+        - **email** (`string`)
+        - **roles** (`list` of `string`)
         """
         login = kwargs.get('login')
         kwargs['name'] = kwargs.get('name', login)
         if User.query.filter_by(login=login).first() is not None:
             raise ValidationError('User login is not unique')
-        return super(UsersResource, cls).add_view(**kwargs)
+        return super(UsersResource, cls).add_view(*args, **kwargs)
 
     # Todo: Document that all fields are optional.
     @classmethod
     @require_basic_auth
     def edit_view(cls, *args, **kwargs):
         """
-        Update a user.
+        Updates a user resource.
 
-        Requires the `admin` role.
+        .. note:: Requires having the `admin` role or being the requested
+           user.
 
-        :arg name: Human readable name.
-        :type name: string
-        :arg password: Password.
-        :type password: string
-        :arg roles: Roles to assign.
-        :type roles: list of string
-        :statuscode 200: Respond with a :ref:`user <api_users>` object as
-            `user`.
+        .. note:: This request is only allowed using :ref:`HTTP Basic
+           Authentication <api-authentication-basic>`, not token
+           authentication.
 
-        Example request:
+        **Accepted request data:**
 
-        .. sourcecode:: http
-
-            PATCH /users/3 HTTP/1.1
-            Content-Type: application/json
-
-            {
-              "name": "Changed H. Name",
-              "password": "and password too"
-            }
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/json
-
-            {
-              "user":
-                {
-                  "uri": "/users/1",
-                  "name": "Changed H. Name",
-                  "login": "fred",
-                  "roles": ["admin"],
-                  "added": "2012-11-23T10:55:12.776706"
-                }
-            }
+        - **email** (`string`)
+        - **login** (`string`)
+        - **name** (`string`)
+        - **roles** (`list` of `string`)
         """
         if 'roles' in kwargs and 'admin' not in g.user.roles:
             # Of course we don't allow any user to change their own roles,
@@ -244,19 +161,13 @@ class UsersResource(ModelResource):
     @require_basic_auth
     def delete_view(cls, *args, **kwargs):
         """
-        Delete a user.
+        Todo: documentation, including how/if we cascade.
+
+        .. note:: This request is only allowed using :ref:`HTTP Basic
+           Authentication <api-authentication-basic>`, not token
+           authentication.
 
         .. todo:: Document that we cascade the delete to tokens, but not to
             samples and data sources.
         """
         return super(UsersResource, cls).delete_view(*args, **kwargs)
-
-    @classmethod
-    def serialize(cls, instance, embed=None):
-        serialization = super(UsersResource, cls).serialize(instance, embed=embed)
-        serialization.update(name=instance.name,
-                             login=instance.login,
-                             email=instance.email,
-                             roles=list(instance.roles),
-                             added=str(instance.added.isoformat()))
-        return serialization

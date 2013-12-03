@@ -10,22 +10,18 @@ REST API data sources model resource.
 from flask import current_app, g, request, send_from_directory, url_for
 
 from ...models import DataSource, DATA_SOURCE_FILETYPES
-from ..security import has_role, is_user, owns_data_source
+from ..security import has_role, is_user, owns_data_source, require_user
 from .base import ModelResource
 from .users import UsersResource
 
 
 class DataSourcesResource(ModelResource):
     """
-    A data source is represented as an object with the following fields:
+    Data source resources model data from files that are either uploaded to
+    the server by the user or generated on the server.
 
-    * **uri** (`string`) - URI for this data source.
-    * **user_uri** (`string`) - URI for the data source :ref:`owner <api_users>`.
-    * **data_uri** (`string`) - URI for the data.
-    * **name** (`string`) - Human readable name.
-    * **filetype** (`string`) - Data filetype.
-    * **gzipped** (`boolean`) - Whether or not data is compressed.
-    * **added** (`string`) - Date this data source was added.
+    The actual data is modeled by the :ref:`blob
+    <api-resources-data-sources-blobs>` subresource type.
     """
     model = DataSource
     instance_name = 'data_source'
@@ -65,225 +61,34 @@ class DataSourcesResource(ModelResource):
             self.register_view('data')
 
     @classmethod
-    def list_view(cls, *args, **kwargs):
-        """
-        Get a collection of data sources.
-
-        Requires the `admin` role or being the user specified in the `user`
-        argument.
-
-        :arg user: If set to the URI for a user, restrict the collection to
-            data sources owned by this user.
-        :type user: string
-        :statuscode 200: Respond with a list of :ref:`data source <api_data_sources>`
-            objects as `data_sources`.
-
-        Example request:
-
-        .. sourcecode:: http
-
-            GET /data_sources?user=%2Fusers%2F3 HTTP/1.1
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/json
-
-            {
-              "data_sources":
-                [
-                  {
-                    "uri": "/data_sources/23",
-                    "user_uri": "/users/3",
-                    "data_uri": "/data_sources/23/data",
-                    "name": "1KG chromosome 20 SNPs",
-                    "filetype": "vcf",
-                    "gzipped": true,
-                    "added": "2012-11-23T10:55:12.776706"
-                  },
-                  {
-                    "uri": "/data_sources/24",
-                    "user_uri": "/users/3",
-                    "data_uri": "/data_sources/24/data",
-                    "name": "1KG chromosome 21 SNPs",
-                    "filetype": "vcf",
-                    "gzipped": true,
-                    "added": "2012-11-23T10:57:13.776706"
-                  }
-                ]
-            }
-        """
-        return super(DataSourcesResource, cls).list_view(*args, **kwargs)
-
-    @classmethod
-    def get_view(cls, *args, **kwargs):
-        """
-        Get details for a data source.
-
-        Requires the `admin` role or being the owner of the requested data
-        source.
-
-        :statuscode 200: Respond with a :ref:`data source <api_data_sources>`
-            object as `data_source`.
-
-        Example request:
-
-        .. sourcecode:: http
-
-            GET /data_sources/23 HTTP/1.1
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/json
-
-            {
-              "data_source":
-                {
-                  "uri": "/data_sources/23",
-                  "user_uri": "/users/1",
-                  "data_uri": "/data_sources/23/data",
-                  "name": "1KG chromosome 20 SNPs",
-                  "filetype": "vcf",
-                  "gzipped": true,
-                  "added": "2012-11-23T10:55:12.776706"
-                }
-            }
-        """
-        return super(DataSourcesResource, cls).get_view(*args, **kwargs)
-
-    @classmethod
-    def add_view(cls, **kwargs):
-        """
-        Create a data source.
-
-        The data should be either attached as a HTTP file upload called `data`
-        or specified by the `local_path` argument.
-
-        :arg name: Human readable name.
-        :type name: string
-        :arg filetype: Data filetype.
-        :type filetype: string
-        :arg gzipped: Whether or not data is compressed (default: ``False``).
-        :type gzipped: boolean
-        :arg local_path: A path to the data on the local server file system
-            (optional).
-        :type local_path: string
-        :statuscode 201: Respond with a URI for the created data source as
-            `data_source_uri`.
-
-        Example request:
-
-        .. sourcecode:: http
-
-            POST /data_sources HTTP/1.1
-            Content-Type: application/json
-
-            {
-              "name": "1KG chromosome 20 SNPs",
-              "filetype": "vcf",
-              "gzipped": true,
-              "local_path": "/var/upload/users/1/1kg_snp_chr20.vcf.gz"
-            }
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 201 CREATED
-            Location: https://example.com/data_sources/23
-            Content-Type: application/json
-
-            {
-              "data_source_uri": "/data_sources/23"
-            }
-        """
-        # Todo: If files['data'] is missing (or non-existent file?), we crash with
-        #     a data_source_not_cached error.
-        # Todo: Sandbox local_path (per user).
-        # Todo: Option to upload the actual data later at the /data_source/XX/data
-        #     endpoint, symmetrical to the GET request.
-        kwargs.update(user=g.user, upload=request.files.get('data'))
-        return super(DataSourcesResource, cls).add_view(**kwargs)
-
-    @classmethod
-    def edit_view(cls, *args, **kwargs):
-        """
-        Update a data source.
-
-        Requires the `admin` role or being the owner of the requested data
-        source.
-
-        :arg name: Human readable name.
-        :type name: string
-
-        Example request:
-
-        .. sourcecode:: http
-
-            PATCH /data_sources/23 HTTP/1.1
-            Content-Type: application/json
-
-            {
-              "name": "1KG chromosome 20 SNP calls"
-            }
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/json
-
-            {
-              "data_source":
-                {
-                  "uri": "/data_sources/23",
-                  "user_uri": "/users/1",
-                  "data_uri": "/data_sources/23/data",
-                  "name": "1KG chromosome 20 SNP calls",
-                  "filetype": "vcf",
-                  "gzipped": true,
-                  "added": "2012-11-23T10:55:12.776706"
-                }
-            }
-        """
-        return super(DataSourcesResource, cls).edit_view(*args, **kwargs)
-
-    @classmethod
-    def data_view(cls, data_source):
-        """
-        Get data for a data source.
-
-        Requires the `admin` role or being the owner of the requested data source.
-
-        :statuscode 200: Respond with the data for the data source.
-
-        Example request:
-
-        .. sourcecode:: http
-
-            GET /data_sources/23/data HTTP/1.1
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/x-gzip
-
-            <gzipped data omitted>
-        """
-        return send_from_directory(current_app.config['DATA_DIR'],
-                                   data_source.filename,
-                                   mimetype='application/x-gzip')
-
-    @classmethod
     def serialize(cls, instance, embed=None):
+        """
+        A data source is represented as an object with the following fields:
+
+        **uri** (`uri`)
+          URI for this resource.
+
+        **added** (`string`)
+          Date and time this sample was added, see :ref:`api-datetime`.
+
+        **gzipped** (`boolean`)
+          Whether or not the data is compressed using gzip.
+
+        **name** (`string`)
+          Human readable sample name.
+
+        **filetype** (`string`)
+          Data filetype. Possible values for this field are `bed`, `vcf`, and
+          `csv`.
+
+        **data** (`object`)
+          :ref:`Link <api-links>` to a :ref:`blob
+          <api-resources-data-sources-blobs>` resource.
+
+        **user** (`object`)
+          :ref:`Link <api-links>` to a :ref:`user
+          <api-resources-users-instances>` resource (embeddable).
+        """
         serialization = super(DataSourcesResource, cls).serialize(instance, embed=embed)
         serialization.update(data={'uri': url_for('.data_source_data',
                                                   data_source=instance.id)},
@@ -292,3 +97,86 @@ class DataSourcesResource(ModelResource):
                              gzipped=instance.gzipped,
                              added=str(instance.added.isoformat()))
         return serialization
+
+    @classmethod
+    def list_view(cls, *args, **kwargs):
+        """
+        Returns a collection of data sources in the `data_source_collection`
+        field.
+
+        .. note:: Requires having the `admin` role or being the user specified
+           by the `user` filter.
+
+        **Available filters:**
+
+        - **user** (`uri`)
+
+        **Orderable by:** `name`, `filetype`, `added`
+        """
+        return super(DataSourcesResource, cls).list_view(*args, **kwargs)
+
+    @classmethod
+    def get_view(cls, *args, **kwargs):
+        """
+        Returns the data source representation in the `data_source` field.
+
+        .. note:: Requires having the `admin` role or being the owner of the
+           data source.
+        """
+        return super(DataSourcesResource, cls).get_view(*args, **kwargs)
+
+    @classmethod
+    @require_user
+    def add_view(cls, *args, **kwargs):
+        """
+        Adds a data source resource.
+
+        .. note:: Requires :ref:`user authentication <api-authentication>`.
+
+        **Required request data:**
+
+        - **name** (`string`)
+        - **filetype** (`string`)
+
+        **Accepted request data:**
+
+        - **gzipped** (`boolean`)
+        - **local_file** (`string`)
+        - **data** (`file`)
+        """
+        # Todo: If files['data'] is missing (or non-existent file?), we crash with
+        #     a data_source_not_cached error.
+        # Todo: Sandbox local_path (per user).
+        # Todo: Option to upload the actual data later at the /data_source/XX/data
+        #     endpoint, symmetrical to the GET request.
+        # Todo: Is it possible to call this without authentication?
+        kwargs.update(user=g.user, upload=request.files.get('data'))
+        return super(DataSourcesResource, cls).add_view(*args, **kwargs)
+
+    @classmethod
+    def edit_view(cls, *args, **kwargs):
+        """
+        Updates a data source resource.
+
+        .. note:: Requires having the `admin` role or being the owner of the
+           data source.
+
+        **Accepted request data:**
+
+        - **name** (`string`)
+        """
+        return super(DataSourcesResource, cls).edit_view(*args, **kwargs)
+
+    @classmethod
+    def data_view(cls, data_source):
+        """
+        Returns the gzipped data source data.
+
+        .. warning:: The response body will not be a JSON document.
+
+        .. note:: Requires having the `admin` role or being the owner of the
+           data source.
+        """
+        return send_from_directory(current_app.config['DATA_DIR'],
+                                   data_source.filename,
+                                   mimetype='application/x-gzip')

@@ -77,52 +77,52 @@ class TestApi():
     @property
     def uri_genome(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['genome']['uri']
+        return json.loads(r.data)['root']['genome']['uri']
 
     @property
     def uri_authentication(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['authentication']['uri']
+        return json.loads(r.data)['root']['authentication']['uri']
 
     @property
     def uri_users(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['user_collection']['uri']
+        return json.loads(r.data)['root']['user_collection']['uri']
 
     @property
     def uri_tokens(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['token_collection']['uri']
+        return json.loads(r.data)['root']['token_collection']['uri']
 
     @property
     def uri_samples(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['sample_collection']['uri']
+        return json.loads(r.data)['root']['sample_collection']['uri']
 
     @property
     def uri_variations(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['variation_collection']['uri']
+        return json.loads(r.data)['root']['variation_collection']['uri']
 
     @property
     def uri_coverages(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['coverage_collection']['uri']
+        return json.loads(r.data)['root']['coverage_collection']['uri']
 
     @property
     def uri_data_sources(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['data_source_collection']['uri']
+        return json.loads(r.data)['root']['data_source_collection']['uri']
 
     @property
     def uri_annotations(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['annotation_collection']['uri']
+        return json.loads(r.data)['root']['annotation_collection']['uri']
 
     @property
     def uri_variants(self):
         r = self.client.get(self.uri_root)
-        return json.loads(r.data)['variant_collection']['uri']
+        return json.loads(r.data)['root']['variant_collection']['uri']
 
     def test_root(self):
         """
@@ -130,7 +130,7 @@ class TestApi():
         """
         r = self.client.get(self.uri_root)
         assert_equal(r.status_code, 200)
-        assert_equal(json.loads(r.data)['status'], 'ok')
+        assert_equal(json.loads(r.data)['root']['status'], 'ok')
 
     def test_parameter_type(self):
         """
@@ -170,11 +170,11 @@ class TestApi():
 
         r = self.client.get(self.uri_authentication)
         assert_equal(r.status_code, 200)
-        assert_equal(None, json.loads(r.data)['user'])
+        assert_equal(None, json.loads(r.data)['authentication']['user'])
 
         r = self.client.get(self.uri_authentication, headers=[auth_header()])
         assert_equal(r.status_code, 200)
-        user = json.loads(r.data)['user']['uri']
+        user = json.loads(r.data)['authentication']['user']['uri']
 
         data = {'name': 'test token',
                 'user': user}
@@ -186,7 +186,7 @@ class TestApi():
 
         r = self.client.get(self.uri_authentication, headers=[token_header])
         assert_equal(r.status_code, 200)
-        assert_equal(user, json.loads(r.data)['user']['uri'])
+        assert_equal(user, json.loads(r.data)['authentication']['user']['uri'])
 
         r = self.client.get(self.uri_users, headers=[token_header, ('Range', 'items=0-20')])
         assert_equal(r.status_code, 206)

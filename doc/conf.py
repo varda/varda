@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath('..'))
 
 import varda
 
-# A autodatadoc directive to include just the docstring without signature.
+# Autodoc directives to include just the docstring without signature.
 # From: http://stackoverflow.com/questions/7825263/including-docstring-in-sphinx-documentation
 from sphinx.ext import autodoc
 class DataDocstringDocumenter(autodoc.DataDocumenter):
@@ -28,8 +28,20 @@ class DataDocstringDocumenter(autodoc.DataDocumenter):
     content_indent = ''
     def add_directive_header(self, sig):
         pass
+class FunctionDocstringDocumenter(autodoc.FunctionDocumenter):
+    objtype = 'functiondoc'
+    content_indent = ''
+    def add_directive_header(self, sig):
+        pass
+class MethodDocstringDocumenter(autodoc.MethodDocumenter):
+    objtype = 'methoddoc'
+    content_indent = ''
+    def add_directive_header(self, sig):
+        pass
 def setup(app):
     app.add_autodocumenter(DataDocstringDocumenter)
+    app.add_autodocumenter(FunctionDocstringDocumenter)
+    app.add_autodocumenter(MethodDocstringDocumenter)
 
 # -- General configuration -----------------------------------------------------
 
@@ -38,7 +50,7 @@ def setup(app):
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.todo', 'sphinx.ext.viewcode', 'sphinxcontrib.httpdomain', 'sphinxcontrib.autohttp.flask']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.todo', 'sphinx.ext.viewcode', 'sphinxcontrib.httpdomain']
 
 # Include todo directives.
 todo_include_todos = True

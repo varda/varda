@@ -30,12 +30,13 @@ def _satisfy_add(conditions):
 
 class AnnotationsResource(TaskedResource):
     """
-    An annotation is represented as an object with the following fields:
+    Annotation resources model sets of variants annotated with observation
+    frequencies.
 
-    * **uri** (`string`) - URI for this annotation.
-    * **original_data_source_uri** (`string`) - URI for the original :ref:`data source <api_data_sources>`.
-    * **annotated_data_source_uri** (`string`) - URI for the annotated :ref:`data source <api_data_sources>`.
-    * **written** (`boolean`) - Whether or not this annotation has been written.
+    An annotation resource is a :ref:`tasked resource <api-tasked-resources>`.
+    The associated server task is calculating frequencies on the linked
+    original data source and writing the annotated data to the linked
+    annotated data source.
     """
     model = Annotation
     instance_name = 'annotation'
@@ -73,88 +74,51 @@ class AnnotationsResource(TaskedResource):
     delete_ensure_options = {'satisfy': any}
 
     @classmethod
+    def serialize(cls, instance, embed=None):
+        """
+        An annotation is represented as an object with the following fields:
+
+        **uri** (`uri`)
+          URI for this resource.
+
+        **task** (`object`)
+          Task information, see :ref:`api-tasked-resources`.
+
+        **original_data_source** (`object`)
+          :ref:`Link <api-links>` to a :ref:`data source
+          <api-resources-data-sources-instances>` resource (embeddable).
+
+        **annotated_data_source** (`object`)
+          :ref:`Link <api-links>` to a :ref:`data source
+          <api-resources-data-sources-instances>` resource (embeddable).
+
+        .. todo:: Include and document the `global_frequency` and
+           `sample_frequency` fields.
+        """
+        return super(AnnotationsResource, cls).serialize(instance, embed=embed)
+
+    @classmethod
     def list_view(cls, *args, **kwargs):
         """
-        Get a collection of annotations.
+        Returns a collection of annotations in the `annotation_collection`
+        field.
 
-        Requires the `admin` role or being the owner of the data source.
+        .. note:: Requires having the `admin` role or being the user specified
+           by the `user` filter.
 
-        :statuscode 200: Respond with a list of :ref:`annotation <api_annotations>`
-            objects as `annotations`.
+        **Available filters:**
 
-        Example request:
-
-        .. sourcecode:: http
-
-            GET /annotations HTTP/1.1
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/json
-
-            {
-              "annotations":
-                [
-                  {
-                    "uri": "/annotations/2",
-                    "original_data_source_uri": "/data_sources/23",
-                    "annotated_data_source_uri": "/data_sources/57",
-                    "written": true
-                  },
-                  {
-                    "uri": "/annotations/3",
-                    "original_data_source_uri": "/data_sources/23",
-                    "annotated_data_source_uri": "/data_sources/58",
-                    "written": true
-                  },
-                  {
-                    "uri": "/annotations/4",
-                    "original_data_source_uri": "/data_sources/23",
-                    "annotated_data_source_uri": "/data_sources/59",
-                    "written": false
-                  }
-                ]
-            }
+        - **user** (`uri`)
         """
         return super(AnnotationsResource, cls).list_view(*args, **kwargs)
 
     @classmethod
     def get_view(cls, *args, **kwargs):
         """
-        Get details for an annotation.
+        Returns the annotation representation in the `annotation` field.
 
-        Requires the `admin` role or being the owner of the annotation.
-
-        :statuscode 200: Respond with an :ref:`annotation <api_annotations>`
-            object as `annotation` and if writing is ongoing its progress in
-            percentages as `progress`.
-
-        Example request:
-
-        .. sourcecode:: http
-
-            GET /annotations/2 HTTP/1.1
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/json
-
-            {
-              "annotation":
-                {
-                  "uri": "/annotations/2",
-                  "original_data_source_uri": "/data_sources/23",
-                  "annotated_data_source_uri": "/data_sources/57",
-                  "written": false
-                },
-              "progress": 98
-            }
+        .. note:: Requires having the `admin` role or being the owner of the
+           annotation.
         """
         return super(AnnotationsResource, cls).get_view(*args, **kwargs)
 
@@ -162,9 +126,25 @@ class AnnotationsResource(TaskedResource):
     def add_view(cls, data_source, name=None, global_frequency=True,
                  sample_frequency=None):
         """
-        Create an annotation.
+        Adds an annotation resource.
 
-        .. todo:: Documentation.
+        .. note:: Requires on or more of the following:
+
+           - Having the `admin` role.
+           - Having the `annotator` role **and** being the owner of the data
+             source specified by the `data_source` field.
+           - Having the `trader` role **and** being the owner of the data
+             source specified by the `data_source` field.
+
+        **Required request data:**
+
+        - **data_source** (`uri`)
+
+        **Accepted request data:**
+
+        - **name** (`string`)
+        - **global_frequency** (`boolean`)
+        - **sample_frequency** (`list` of `uri`)
         """
         # Todo: Check if data source is a VCF file.
         # The `satisfy` keyword argument used here in the `ensure` decorator means
@@ -215,3 +195,23 @@ class AnnotationsResource(TaskedResource):
         response = jsonify(annotation=cls.serialize(annotation))
         response.location = cls.instance_uri(annotation)
         return response, 201
+
+    @classmethod
+    def edit_view(cls, *args, **kwargs):
+        """
+        Updates an annotation resource.
+
+        .. note:: Requires having the `admin` role.
+
+        **Accepted request data:**
+
+        - **task** (`object`)
+        """
+        return super(AnnotationsResource, cls).edit_view(*args, **kwargs)
+
+    @classmethod
+    def delete_view(cls, *args, **kwargs):
+        """
+        Todo: documentation, including how/if we cascade.
+        """
+        return super(AnnotationsResource, cls).delete_view(*args, **kwargs)

@@ -52,8 +52,9 @@ REST API in this section.
 .. toctree::
    :maxdepth: 2
 
-   rest-api/overview
-   rest-api/reference
+   rest-api/intro
+   rest-api/manual
+   rest-api/resources
 
 
 Additional notes

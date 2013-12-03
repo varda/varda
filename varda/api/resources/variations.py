@@ -19,12 +19,11 @@ from .samples import SamplesResource
 
 class VariationsResource(TaskedResource):
     """
-    A set of observations is represented as an object with the following fields:
+    Variation resources model sets of variant observations.
 
-    * **uri** (`string`) - URI for this set of observations.
-    * **sample_uri** (`string`) - URI for the :ref:`sample <api_samples>`.
-    * **data_source_uri** (`string`) - URI for the :ref:`data source <api_data_sources>`.
-    * **imported** (`boolean`) - Whether or not this set of observations is imported.
+    A variation resource is a :ref:`tasked resource <api-tasked-resources>`.
+    The associated server task is importing the variation data from the linked
+    data source in the server database.
     """
     model = Variation
     instance_name = 'variation'
@@ -55,122 +54,85 @@ class VariationsResource(TaskedResource):
     delete_ensure_options = {'satisfy': any}
 
     @classmethod
+    def serialize(cls, instance, embed=None):
+        """
+        A variation is represented as an object with the following fields:
+
+        **uri** (`uri`)
+          URI for this resource.
+
+        **task** (`object`)
+          Task information, see :ref:`api-tasked-resources`.
+
+        **data_source** (`object`)
+          :ref:`Link <api-links>` to a :ref:`data source
+          <api-resources-data-sources-instances>` resource (embeddable).
+
+        **sample** (`object`)
+          :ref:`Link <api-links>` to a :ref:`sample
+          <api-resources-samples-instances>` resource (embeddable).
+        """
+        return super(VariationsResource, cls).serialize(instance, embed=embed)
+
+    @classmethod
     def list_view(cls, *args, **kwargs):
         """
-        Get a collection of sets of observations.
+        Returns a collection of variations in the `variation_collection`
+        field.
 
-        Requires the `admin` role or being the owner of the sample.
+        .. note:: Requires one or more of the following:
 
-        :statuscode 200: Respond with a list of :ref:`set of observations <api_variations>`
-            objects as `variations`.
+           - Having the `admin` role.
+           - Being the owner of the sample specified by the `sample` filter.
+           - Setting the `sample` filter to a public sample.
 
-        Example request:
+        **Available filters:**
 
-        .. sourcecode:: http
-
-            GET /variations HTTP/1.1
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/json
-
-            {
-              "variations":
-                [
-                  {
-                    "uri": "/variations/11",
-                    "sample_uri": "/samples/3",
-                    "data_source_uri": "/data_sources/26"
-                    "imported": true
-                  },
-                  {
-                    "uri": "/variations/12",
-                    "sample_uri": "/samples/4",
-                    "data_source_uri": "/data_sources/27"
-                    "imported": true
-                  }
-                ]
-            }
+        - **sample** (`uri`)
         """
         return super(VariationsResource, cls).list_view(*args, **kwargs)
 
     @classmethod
     def get_view(cls, *args, **kwargs):
         """
-        Get details for a set of observations.
+        Returns the variation representation in the `variation` field.
 
-        Requires the `admin` role or being the owner of the set of
-        observations.
-
-        :statuscode 200: Respond with a :ref:`set of observations <api_variations>`
-            object as `variation` and if importing is ongoing its progress in
-            percentages as `progress`.
-
-        Example request:
-
-        .. sourcecode:: http
-
-            GET /variations/12 HTTP/1.1
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/json
-
-            {
-              "variation":
-                {
-                  "uri": "/variations/12",
-                  "sample_uri": "/samples/4",
-                  "data_source_uri": "/data_sources/27"
-                  "imported": false
-                },
-              "progress": 78
-            }
+        .. note:: Requires having the `admin` role or being the owner of the
+           variation.
         """
         return super(VariationsResource, cls).get_view(*args, **kwargs)
 
     @classmethod
     def add_view(cls, *args, **kwargs):
         """
-        Create a set of observations.
+        Adds a variation resource.
 
-        Requires the `admin` role or being the owner of the sample.
+        .. note:: Requires having the `admin` role or being the owner of the
+           sample specified by the `sample` field.
 
-        :arg sample: URI for the sample to import the set of observations to.
-        :type sample: string
-        :arg data_source: URI for the data source to read the set of observations from.
-        :type data_source: string
-        :statuscode 202: Respond with a URI for the created set of
-            observations as `variation_uri`.
+        **Required request data:**
 
-        Example request:
-
-        .. sourcecode:: http
-
-            POST /variations HTTP/1.1
-            Content-Type: application/json
-
-            {
-              "sample": "/samples/14",
-              "data_source": "/data_sources/18"
-            }
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 202 Accepted
-            Location: https://example.com/variations/3
-            Content-Type: application/json
-
-            {
-              "variation_uri": "/variations/3"
-            }
+        - **data_source** (`uri`)
+        - **sample** (`uri`)
         """
         return super(VariationsResource, cls).add_view(*args, **kwargs)
+
+    @classmethod
+    def edit_view(cls, *args, **kwargs):
+        """
+        Updates a variation resource.
+
+        .. note:: Requires having the `admin` role.
+
+        **Accepted request data:**
+
+        - **task** (`object`)
+        """
+        return super(VariationsResource, cls).edit_view(*args, **kwargs)
+
+    @classmethod
+    def delete_view(cls, *args, **kwargs):
+        """
+        Todo: documentation, including how/if we cascade.
+        """
+        return super(VariationsResource, cls).delete_view(*args, **kwargs)

@@ -17,14 +17,8 @@ from .users import UsersResource
 
 class SamplesResource(ModelResource):
     """
-    A sample is represented as an object with the following fields:
-
-    * **uri** (`string`) - URI for this sample.
-    * **user_uri** (`string`) - URI for the sample :ref:`owner <api_users>`.
-    * **name** (`string`) - Human readable name.
-    * **pool_size** (`integer`) - Number of individuals.
-    * **public** (`boolean`) - Whether or not this sample is public.
-    * **added** (`string`) - Date and time this sample was added.
+    Sample resources model biological samples which can contain one or more
+    individuals.
     """
     model = Sample
     instance_name = 'sample'
@@ -64,196 +58,119 @@ class SamplesResource(ModelResource):
     delete_ensure_options = {'satisfy': any}
 
     @classmethod
+    def serialize(cls, instance, embed=None):
+        """
+        A sample is represented as an object with the following fields:
+
+        **uri** (`uri`)
+          URI for this resource.
+
+        **active** (`boolean`)
+          Whether or not this sample is active.
+
+        **added** (`string`)
+          Date and time this sample was added, see :ref:`api-datetime`.
+
+        **coverage_profile** (`boolean`)
+          Whether or not this sample has a coverage profile.
+
+        **name** (`string`)
+          Human readable sample name.
+
+        **notes** (`string`)
+          Human readable notes in Markdown format.
+
+        **pool_size** (`integer`)
+          Number of individuals in this sample.
+
+        **public** (`boolean`)
+          Whether or not this sample is public.
+
+        **user** (`object`)
+          :ref:`Link <api-links>` to a :ref:`user
+          <api-resources-users-instances>` resource (embeddable).
+        """
+        serialization = super(SamplesResource, cls).serialize(instance, embed=embed)
+        serialization.update(name=instance.name,
+                             pool_size=instance.pool_size,
+                             public=instance.public,
+                             coverage_profile=instance.coverage_profile,
+                             active=instance.active,
+                             notes=instance.notes,
+                             added=str(instance.added.isoformat()))
+        return serialization
+
+    @classmethod
     def list_view(cls, *args, **kwargs):
         """
-        Get a collection of samples.
+        Returns a collection of samples in the `sample_collection` field.
 
-        Requires one of the following:
-         * the `admin` role
-         * being the user specified in the `user` argument
-         * the `public` argument set to ``True``
+        .. note:: Requires one or more of the following:
 
-        :arg public: If set to ``True`` or ``False``, restrict the collection to
-            public or non-public samples, respectively.
-        :type public: boolean
-        :arg user: If set to the URI for a user, restrict the collection to
-            samples owned by this user.
-        :type user: string
-        :statuscode 200: Respond with a list of :ref:`sample <api_samples>`
-            objects as `samples`.
+           - Having the `admin` role.
+           - Being the user specified by the `user` filter.
+           - Setting the `public` filter to `True`.
 
-        Example request:
+        **Available filters:**
 
-        .. sourcecode:: http
+        - **public** (`boolean`)
+        - **user** (`uri`)
 
-            GET /samples?public=true HTTP/1.1
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/json
-
-            {
-              "samples":
-                [
-                  {
-                    "uri": "/samples/3",
-                    "user_uri": "/users/1",
-                    "name": "1KG phase 1 release",
-                    "pool_size": 1092,
-                    "public": true,
-                    "added": "2012-11-23T10:55:12.776706"
-                  },
-                  {
-                    "uri": "/samples/4",
-                    "user_uri": "/users/1",
-                    "name": "GoNL SNP release 4",
-                    "pool_size": 769,
-                    "public": true,
-                    "added": "2012-11-23T10:55:13.776706"
-                  }
-                ]
-            }
+        **Orderable by:** `name`, `pool_size`, `public`, `active`, `added`
         """
         return super(SamplesResource, cls).list_view(*args, **kwargs)
 
     @classmethod
     def get_view(cls, *args, **kwargs):
         """
-        Get details for a sample.
+        Returns the sample representation in the `sample` field.
 
-        Requires the `admin` role or being the owner of the requested sample.
+        .. note:: Requires one or more of the following:
 
-        :statuscode 200: Respond with a :ref:`sample <api_samples>` object as `sample`.
-
-        Example request:
-
-        .. sourcecode:: http
-
-            GET /samples/3 HTTP/1.1
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/json
-
-            {
-              "sample":
-                {
-                  "uri": "/samples/3",
-                  "user_uri": "/users/1",
-                  "name": "1KG phase 1 release",
-                  "pool_size": 1092,
-                  "public": true,
-                  "added": "2012-11-23T10:55:12.776706"
-                }
-            }
+           - Having the `admin` role.
+           - Being the owner of the sample.
+           - The sample is public.
         """
         return super(SamplesResource, cls).get_view(*args, **kwargs)
 
     @classmethod
-    def add_view(cls, **kwargs):
+    def add_view(cls, *args, **kwargs):
         """
-        Create a sample
+        Adds a sample resource.
 
-        Requires the `admin` or `importer` role.
+        .. note:: Requires having the `admin` or `importer` role.
 
-        :arg name: Human readable name.
-        :type name: string
-        :arg pool_size: Number of individuals (default: ``1``).
-        :type pool_size: integer
-        :arg coverage_profile: Whether or not this sample has a coverage profile
-            (default: ``True``).
-        :type coverage_profile: boolean
-        :arg public: Whether or not this sample is public (default: ``False``).
-        :type public: boolean
-        :statuscode 201: Respond with a URI for the created sample as `sample_uri`.
+        **Required request data:**
 
-        Example request:
+        - **name** (`string`)
 
-        .. sourcecode:: http
+        **Accepted request data:**
 
-            POST /samples HTTP/1.1
-            Content-Type: application/json
-
-            {
-              "name": "1KG phase 1 release",
-              "pool_size": 1092,
-              "coverage_profile": false,
-              "public": true
-            }
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 201 Created
-            Location: https://example.com/samples/13
-            Content-Type: application/json
-
-            {
-              "samples_uri": "/samples/13"
-            }
+        - **coverage_profile** (`boolean`)
+        - **notes** (`string`)
+        - **pool_size** (`integer`)
+        - **public** (`boolean`)
         """
         kwargs['user'] = g.user
-        return super(SamplesResource, cls).add_view(**kwargs)
+        return super(SamplesResource, cls).add_view(*args, **kwargs)
 
     # Todo: Document that active will be set to False.
     @classmethod
     def edit_view(cls, *args, **kwargs):
         """
-        Update a sample.
+        Updates a sample resource.
 
-        Requires the `admin` role or being the owner of the requested sample.
+        .. note:: Requires having the `admin` role or being the owner of the
+           sample.
 
-        :arg active: If set to ``True`` or ``False``, activate or de-activate the
-            sample, respectively.
-        :type active: boolean
-        :arg name: Human readable name.
-        :type name: string
-        :arg pool_size: Number of individuals (default: ``1``).
-        :type pool_size: integer
-        :arg coverage_profile: Whether or not this sample has a coverage profile
-            (default: ``True``).
-        :type coverage_profile: boolean
-        :arg public: Whether or not this sample is public (default: ``False``).
-        :type public: boolean
-        :statuscode 200: Respond with a :ref:`sample <api_samples>` object as
-            `sample`.
+        **Accepted request data:**
 
-        Example request:
-
-        .. sourcecode:: http
-
-            PATCH /samples/14 HTTP/1.1
-            Content-Type: application/json
-
-            {
-              "active": true
-            }
-
-        Example response:
-
-        .. sourcecode:: http
-
-            HTTP/1.1 200 OK
-            Content-Type: application/json
-
-            {
-              "sample":
-                {
-                  "uri": "/samples/14",
-                  "user_uri": "/users/1",
-                  "name": "1KG phase 1 release",
-                  "pool_size": 1092,
-                  "public": true,
-                  "added": "2012-11-23T10:55:12.776706"
-                }
-            }
+        - **active** (`boolean`)
+        - **coverage_profile** (`boolean`)
+        - **name** (`string`)
+        - **notes** (`string`)
+        - **pool_size** (`integer`)
+        - **public** (`boolean`)
         """
         if kwargs.get('active'):
             # Todo: Checks, e.g. if there are expected imported data sources
@@ -264,16 +181,11 @@ class SamplesResource(ModelResource):
         else:
             # Todo: Always, even on name change?
             kwargs['active'] = False
-        return super(SamplesResource, cls).edit_view(**kwargs)
+        return super(SamplesResource, cls).edit_view(*args, **kwargs)
 
     @classmethod
-    def serialize(cls, instance, embed=None):
-        serialization = super(SamplesResource, cls).serialize(instance, embed=embed)
-        serialization.update(name=instance.name,
-                             pool_size=instance.pool_size,
-                             public=instance.public,
-                             coverage_profile=instance.coverage_profile,
-                             active=instance.active,
-                             notes=instance.notes,
-                             added=str(instance.added.isoformat()))
-        return serialization
+    def delete_view(cls, *args, **kwargs):
+        """
+        Todo: documentation, including how/if we cascade.
+        """
+        return super(SamplersResource, cls).delete_view(*args, **kwargs)

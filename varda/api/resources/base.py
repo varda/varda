@@ -164,6 +164,28 @@ class Resource(object):
                                   if f not in requested_fields]
 
     @classmethod
+    def serialize(cls, instance, embed=None):
+        embed = embed or []
+        serialization = {'uri': cls.instance_uri(instance)}
+        for field, resource in cls.embeddable.items():
+            if field in embed:
+                s = resource.serialize(getattr(instance, field))
+            else:
+                # Note: By default (i.e., without embedding), we don't want
+                #     to have an extra query for the embedded resource, which
+                #     is what happens if we would write `instance.field.id`.
+                #     So we make sure we really write `instance.field_id`.
+                # Todo: Only do this in `ModelResource`.
+                # Note: We rely on the convention that relationships in our
+                #     models are defined such that the foreign key field is
+                #     the relationship name with ``_id`` suffix.
+                key = field + '_id'
+                s = {'uri': resource.instance_uri_by_key(getattr(instance,
+                                                                 key))}
+            serialization.update({field: s})
+        return serialization
+
+    @classmethod
     def get_view(cls, embed=None, **kwargs):
         instance = kwargs.get(cls.instance_name)
         return jsonify({cls.instance_name: cls.serialize(instance, embed=embed)})
@@ -188,28 +210,6 @@ class Resource(object):
     def instance_uri_by_key(cls, key):
         return url_for('.%s_get' % cls.instance_name,
                        **{cls.instance_name: key})
-
-    @classmethod
-    def serialize(cls, instance, embed=None):
-        embed = embed or []
-        serialization = {'uri': cls.instance_uri(instance)}
-        for field, resource in cls.embeddable.items():
-            if field in embed:
-                s = resource.serialize(getattr(instance, field))
-            else:
-                # Note: By default (i.e., without embedding), we don't want
-                #     to have an extra query for the embedded resource, which
-                #     is what happens if we would write `instance.field.id`.
-                #     So we make sure we really write `instance.field_id`.
-                # Todo: Only do this in `ModelResource`.
-                # Note: We rely on the convention that relationships in our
-                #     models are defined such that the foreign key field is
-                #     the relationship name with ``_id`` suffix.
-                key = field + '_id'
-                s = {'uri': resource.instance_uri_by_key(getattr(instance,
-                                                                 key))}
-            serialization.update({field: s})
-        return serialization
 
 
 class ModelResource(Resource):
@@ -253,8 +253,9 @@ class ModelResource(Resource):
         items = [cls.serialize(r, embed=embed)
                  for r in instances.limit(count).offset(begin)]
         return (instances.count(),
-                jsonify(collection={'uri': cls.collection_uri(),
-                                    'items': items}))
+                jsonify({cls.instance_name + '_collection':
+                             {'uri': cls.collection_uri(),
+                              'items': items}}))
 
     @classmethod
     def add_view(cls, *args, **kwargs):
@@ -305,6 +306,29 @@ class TaskedResource(ModelResource):
         task_schema = {'task': {'type': 'dict', 'schema': {}}}
         cls.edit_schema.update(task_schema)
         return super(ModelResource, cls).__new__(cls, *args, **kwargs)
+
+    @classmethod
+    def serialize(cls, instance, embed=None):
+        serialization = super(TaskedResource, cls).serialize(instance, embed=embed)
+        task = {'done': instance.task_done}
+        if instance.task_uuid:
+            result = cls.task.AsyncResult(instance.task_uuid)
+            task.update(state=result.state.lower())
+            if result.state == 'PROGRESS':
+                task.update(progress=result.info.get('percentage'))
+            if result.state == 'FAILURE':
+                if isinstance(result.result, tasks.TaskError):
+                    error = {'code': result.result.code,
+                             'message': result.result.message}
+                else:
+                    # Todo: Could we somehow serialize this error using the
+                    #     serialization for top-level errors defined with the
+                    #     API?
+                    error = {'code': 'unexpected_error',
+                             'message': 'Unexpected error'}
+                task.update(error=error)
+        serialization.update(task=task)
+        return serialization
 
     @classmethod
     def edit_view(cls, *args, **kwargs):
@@ -361,26 +385,3 @@ class TaskedResource(ModelResource):
         response = jsonify({cls.instance_name: cls.serialize(instance)})
         response.location = cls.instance_uri(instance)
         return response, 201
-
-    @classmethod
-    def serialize(cls, instance, embed=None):
-        serialization = super(TaskedResource, cls).serialize(instance, embed=embed)
-        task = {'done': instance.task_done}
-        if instance.task_uuid:
-            result = cls.task.AsyncResult(instance.task_uuid)
-            task.update(state=result.state.lower())
-            if result.state == 'PROGRESS':
-                task.update(progress=result.info.get('percentage'))
-            if result.state == 'FAILURE':
-                if isinstance(result.result, tasks.TaskError):
-                    error = {'code': result.result.code,
-                             'message': result.result.message}
-                else:
-                    # Todo: Could we somehow serialize this error using the
-                    #     serialization for top-level errors defined with the
-                    #     API?
-                    error = {'code': 'unexpected_error',
-                             'message': 'Unexpected error'}
-                task.update(error=error)
-        serialization.update(task=task)
-        return serialization

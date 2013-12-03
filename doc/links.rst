@@ -31,3 +31,4 @@ Some links to hopefully relevant resources on the web.
 * `Design Beautiful REST + JSON APIs <http://www.slideshare.net/stormpath/rest-jsonapis>`_
 * `GenomeSpace: RESTful Access to Data Manager <http://www.genomespace.org/support/api/restful-access-to-dm>`_
 * `Designing a Pragmatic RESTful API <https://news.ycombinator.com/item?id=5819231>`_
+* `Best Practices for Designing a Pragmatic RESTful API <https://news.ycombinator.com/item?id=6624229>`_
