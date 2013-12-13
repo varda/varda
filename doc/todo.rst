@@ -161,3 +161,8 @@ grepping the source code for ``Todo``.
 
 * Move to `Celery 3.1
   <http://docs.celeryproject.org/en/latest/whatsnew-3.1.html>`_.
+
+* Perhaps use `Factory Boy <http://factoryboy.readthedocs.org>`_ instead of
+  `fixture <http://farmdev.com/projects/fixture/>`_. It looks like we don't
+  have to `monkey patch <https://github.com/fixture-py/fixture/pull/2>`_
+  Factory Boy.
