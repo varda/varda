@@ -158,3 +158,6 @@ grepping the source code for ``Todo``.
   resource using `SingletonResource`.
 
 * See if we can easily compress with bgzip instead of regular gzip.
+
+* Move to `Celery 3.1
+  <http://docs.celeryproject.org/en/latest/whatsnew-3.1.html>`_.
