@@ -8,7 +8,7 @@ REST API views.
 """
 
 
-from flask import Blueprint, current_app, g, jsonify, request, url_for
+from flask import abort, Blueprint, current_app, g, jsonify, request, url_for
 import semantic_version
 
 from .. import genome
