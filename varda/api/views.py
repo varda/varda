@@ -417,7 +417,7 @@ def genome_get():
     """
     if not genome:
         abort(404)
-    return jsonify(genome=genome__serialize())
+    return jsonify(genome=genome_serialize())
 
 
 def genome_serialize():
