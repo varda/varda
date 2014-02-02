@@ -12,8 +12,7 @@ AULE_LOCAL_PATH = None
 AULE_URL_PREFIX = '/aule'
 
 # Directory to store files (uploaded and generated)
-import tempfile
-DATA_DIR = tempfile.mkdtemp()
+DATA_DIR = '/tmp'
 
 # Maximum size for uploaded files
 MAX_CONTENT_LENGTH = 1024 * 1024 * 1024  # 1 gigabyte
