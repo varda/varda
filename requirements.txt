@@ -1,6 +1,6 @@
 Flask==0.10.1
 -e git+https://github.com/martijnvermaat/flask-sqlalchemy.git@record-ops-only-for-signalling-sessions#egg=Flask-SQLAlchemy
--e git+https://github.com/jamescasbon/PyVCF@e347e9178055e1b8ae0f1eb96c7593464b2312da#egg=PyVCF-dev
+PyVCF==0.6.5
 SQLAlchemy==0.8.1
 celery==3.0.19
 celery-with-redis==3.0
