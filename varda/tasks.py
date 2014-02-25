@@ -376,8 +376,8 @@ def annotate_regions(original_regions, annotated_variants,
 
     # Header line in CSV output for global frequencies.
     if global_frequency:
-        header_fields.extend(['GLOBAL_VN', 'GLOBAL_VF', 'GLOBAL_VF',
-                              'GLOBAL_VF_HET', 'GLOBAL_VF_HOM'])
+        header_fields.extend(['GLOBAL_VN', 'GLOBAL_VF', 'GLOBAL_VF_HET',
+                              'GLOBAL_VF_HOM'])
         # Todo: Make sure the count query is correct here.
         annotated_variants.write(
             '##GLOBAL_VN: Number of individuals having this region covered '
