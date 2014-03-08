@@ -188,7 +188,7 @@ for the Varda user. For example::
 Also install some development libraries needed for building the
 ``MySQL-python`` Python package later::
 
-    $ sudo aptitutde install python-dev libmysqlclient-dev
+    $ sudo apt-get install python-dev libmysqlclient-dev
 
 Substitute ``MySQL-python`` for ``psycopg2`` in ``requirements.txt`` before
 you use it in the :ref:`install-virtualenv` section.
