@@ -166,3 +166,6 @@ grepping the source code for ``Todo``.
   `fixture <http://farmdev.com/projects/fixture/>`_. It looks like we don't
   have to `monkey patch <https://github.com/fixture-py/fixture/pull/2>`_
   Factory Boy.
+
+* Use `JSONPatch <http://jsonpatch.com/>`_ for editing resources (`example
+  <http://microcosm-cc.github.io/#comments-single-patch>`_).
