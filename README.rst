@@ -95,6 +95,14 @@ Copyright
 Varda is licensed under the MIT License, see the LICENSE file for details. See
 the AUTHORS file for a list of authors.
 
+The profile picture for the Varda GitHub organisation was cropped from an
+`artist's rendition of Varda Elentári, Queen of the Stars
+<http://commons.wikimedia.org/wiki/File:Varda_Elent%C3%A1ri.jpg>`_ by Dominik
+Matus and is licensed under the `Creative Commons
+<http://en.wikipedia.org/wiki/en:Creative_Commons>`_ `Attribution-Share Alike
+3.0 Unported <http://creativecommons.org/licenses/by-sa/3.0/deed.en>`_
+license.
+
 
 .. _Aulë: https://github.com/martijnvermaat/aule
 .. _Celery: http://celeryproject.org/
