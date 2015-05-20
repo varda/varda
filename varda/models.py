@@ -283,8 +283,8 @@ class Sample(db.Model):
     #: Textual notes.
     #:
     #: .. hint:: If you use `Markdown <http://daringfireball.net/projects/markdown/>`_
-    #:     here, the `Aulë <https://github.com/martijnvermaat/aule>`_ web
-    #:     interface will render it as such.
+    #:     here, the `Aulë <https://github.com/varda/aule>`_ web interface
+    #:     will render it as such.
     notes = db.Column(db.Text)
 
     #: The :class:`User` owning this sample.

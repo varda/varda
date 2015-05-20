@@ -9,7 +9,7 @@ try:
     with open('README.rst') as readme:
         long_description = readme.read()
 except IOError:
-    long_description = 'See https://github.com/martijnvermaat/varda'
+    long_description = 'See https://github.com/varda/varda'
 
 # This is quite the hack, but we don't want to import our package from here
 # since that's recipe for disaster (it might have some uninstalled

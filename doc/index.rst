@@ -81,6 +81,6 @@ Indices and tables
 * :ref:`search`
 
 
-.. _Aulë: https://github.com/martijnvermaat/aule
-.. _Manwë: https://github.com/martijnvermaat/manwe
+.. _Aulë: https://github.com/varda/aule
+.. _Manwë: https://github.com/varda/manwe
 .. _VCF: http://www.1000genomes.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-41

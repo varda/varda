@@ -79,12 +79,12 @@ Long-running actions are executed asynchonously through the `Celery`_
 distributed task queue.
 
 
-.. _Aulë: https://github.com/martijnvermaat/aule
+.. _Aulë: https://github.com/varda/aule
 .. _Celery: http://celeryproject.org/
 .. _FlasK: http://flask.pocoo.org/
 .. _gemini: https://github.com/arq5x/gemini
 .. _LOVD: http://lovd.nl/
-.. _Manwë: https://github.com/martijnvermaat/manwe
+.. _Manwë: https://github.com/varda/manwe
 .. _MySQL: http://www.mysql.com/
 .. _PostgreSQL: http://www.postgresql.org
 .. _REST: http://en.wikipedia.org/wiki/Representational_state_transfer
