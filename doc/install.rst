@@ -151,10 +151,6 @@ user::
 
     $ varda setup
 
-.. warning:: Running ``varda setup`` is destructive: it drops any database
-   tables already present. Only run it once (or twice when you're ready to
-   start over from scratch).
-
 You can now proceed to :ref:`run`.
 
 .. seealso::
