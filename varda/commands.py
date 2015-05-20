@@ -30,7 +30,8 @@ def debugserver(args):
 
     if args.setup:
         database_setup(app, alembic_config=args.alembic_config,
-                       destructive=args.destructive)
+                       destructive=args.destructive,
+                       admin_password_hash=args.admin_password_hash)
 
     app.run(debug=True, use_reloader=False)
 
@@ -40,10 +41,12 @@ def setup(args):
     Setup the database and admin user.
     """
     database_setup(create_app(), alembic_config=args.alembic_config,
-                   destructive=args.destructive)
+                   destructive=args.destructive,
+                   admin_password_hash=args.admin_password_hash)
 
 
-def database_setup(app, alembic_config='alembic.ini', destructive=False):
+def database_setup(app, alembic_config='alembic.ini', destructive=False,
+                   admin_password_hash=None):
     if not os.path.isfile(alembic_config):
         sys.stderr.write('Cannot find Alembic configuration: %s\n'
                          % alembic_config)
@@ -54,7 +57,7 @@ def database_setup(app, alembic_config='alembic.ini', destructive=False):
             db.drop_all()
         db.create_all()
 
-        admin_setup()
+        admin_setup(password_hash=admin_password_hash)
 
         import alembic.command
         import alembic.config
@@ -68,26 +71,36 @@ def database_setup(app, alembic_config='alembic.ini', destructive=False):
             alembic.command.stamp(alembic_config, 'head')
 
 
-def admin_setup():
+def admin_setup(password_hash=None):
     """
     Update the password for the admin user. If the admin user does not exist,
     it is created.
 
-    The user is queried for the new password interactively.
+    If `password_hash` is not specified, the user is queried for the new
+    password interactively.
     """
-    password = getpass.getpass('Please provide a password for the admin user: ')
-    password_control = getpass.getpass('Repeat: ')
+    password = None
 
-    if password != password_control:
-        sys.stderr.write('Passwords did not match\n')
-        sys.exit(1)
+    if not password_hash:
+        password = getpass.getpass('Please provide a password for the admin '
+                                   'user: ')
+        password_control = getpass.getpass('Repeat: ')
+
+        if password != password_control:
+            sys.stderr.write('Passwords did not match\n')
+            sys.exit(1)
 
     try:
         admin = User.query.filter_by(login='admin').one()
-        admin.password = password
+        if password_hash:
+            admin.password_hash = password_hash
+        else:
+            admin.password = password
     except NoResultFound:
-        admin = User('Admin User', 'admin', password, roles=['admin'])
+        admin = User('Admin User', 'admin', password=password,
+                     password_hash=password_hash, roles=['admin'])
         db.session.add(admin)
+
     db.session.commit()
 
 
@@ -103,6 +116,10 @@ def main():
     config_parser.add_argument('--destructive', dest='destructive',
                                action='store_true', help='delete any '
                                'existing tables and data before running setup')
+    config_parser.add_argument('--admin-password', metavar='BCRYPT_HASH',
+                               dest='admin_password_hash', help='use this '
+                               'bcrypt hash instead of querying for the admin '
+                               'password interactively')
 
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0],
                                      parents=[config_parser])
