@@ -135,13 +135,25 @@ class User(db.Model):
     #: Date and time of creation.
     added = db.Column(db.DateTime)
 
-    def __init__(self, name, login, password, email=None, roles=None):
+    def __init__(self, name, login, password='', password_hash=None,
+                 email=None, roles=None):
+        """
+        If `password_hash` is specified, it is used directly as a bcrypt hash.
+        Otherwise, the bcrypt hash of `password` is computed.
+
+        A bcrypt hash for a password can be computed as follows:
+
+            >>> from varda.models import User
+            >>> User.hash_password('my plaintext password')
+            '$2a$12$pGK5H8c74SR0Zx0nqHQEU.6qTICkj1WUn1RMzN9NRBFmZFOGE1HF6'
+
+        """
         roles = roles or []
         self.name = name
         self.login = login
         self.email = email
         self.added = datetime.now()
-        self.password_hash = self._hash_password(password)
+        self.password_hash = password_hash or self.hash_password(password)
         self.roles_bitstring = self._encode_roles(roles)
 
     @detached_session_fix
@@ -149,7 +161,7 @@ class User(db.Model):
         return '<User %r>' % self.login
 
     @staticmethod
-    def _hash_password(password):
+    def hash_password(password):
         return bcrypt.hashpw(password, bcrypt.gensalt())
 
     @staticmethod
@@ -170,7 +182,7 @@ class User(db.Model):
         """
         Change the password for the user.
         """
-        self.password_hash = self._hash_password(password)
+        self.password_hash = self.hash_password(password)
 
     @property
     def roles(self):
