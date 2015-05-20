@@ -12,6 +12,8 @@ import getpass
 import os
 import sys
 
+from sqlalchemy.orm.exc import NoResultFound
+
 from . import create_app, db
 from .models import User
 
@@ -27,43 +29,66 @@ def debugserver(args):
     app = create_app()
 
     if args.setup:
-        database_setup(app, alembic_config=args.alembic_config)
+        database_setup(app, alembic_config=args.alembic_config,
+                       destructive=args.destructive)
 
     app.run(debug=True, use_reloader=False)
 
 
 def setup(args):
     """
-    Setup the database (destructive).
+    Setup the database and admin user.
     """
-    database_setup(create_app(), alembic_config=args.alembic_config)
+    database_setup(create_app(), alembic_config=args.alembic_config,
+                   destructive=args.destructive)
 
 
-def database_setup(app, alembic_config='alembic.ini'):
+def database_setup(app, alembic_config='alembic.ini', destructive=False):
     if not os.path.isfile(alembic_config):
         sys.stderr.write('Cannot find Alembic configuration: %s\n'
                          % alembic_config)
         sys.exit(1)
 
-    admin_password = getpass.getpass('Please provide a password for the admin user: ')
-    admin_password_control = getpass.getpass('Repeat: ')
-
-    if admin_password != admin_password_control:
-        sys.stderr.write('Passwords did not match\n')
-        sys.exit(1)
-
     with app.app_context():
-        db.drop_all()
+        if destructive:
+            db.drop_all()
         db.create_all()
+
+        admin_setup()
 
         import alembic.command
         import alembic.config
-        alembic_config = alembic.config.Config(alembic_config)
-        alembic.command.stamp(alembic_config, 'head')
+        from alembic.migration import MigrationContext
 
-        admin = User('Admin User', 'admin', admin_password, roles=['admin'])
+        context = MigrationContext.configure(db.session.connection())
+        if destructive or context.get_current_revision() is None:
+            # We need to close the current session before running Alembic.
+            db.session.remove()
+            alembic_config = alembic.config.Config(alembic_config)
+            alembic.command.stamp(alembic_config, 'head')
+
+
+def admin_setup():
+    """
+    Update the password for the admin user. If the admin user does not exist,
+    it is created.
+
+    The user is queried for the new password interactively.
+    """
+    password = getpass.getpass('Please provide a password for the admin user: ')
+    password_control = getpass.getpass('Repeat: ')
+
+    if password != password_control:
+        sys.stderr.write('Passwords did not match\n')
+        sys.exit(1)
+
+    try:
+        admin = User.query.filter_by(login='admin').one()
+        admin.password = password
+    except NoResultFound:
+        admin = User('Admin User', 'admin', password, roles=['admin'])
         db.session.add(admin)
-        db.session.commit()
+    db.session.commit()
 
 
 def main():
@@ -75,6 +100,9 @@ def main():
                                dest='alembic_config', help='path to alembic '
                                'configuration file (default: alembic.ini)',
                                default='alembic.ini')
+    config_parser.add_argument('--destructive', dest='destructive',
+                               action='store_true', help='delete any '
+                               'existing tables and data before running setup')
 
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0],
                                      parents=[config_parser])
