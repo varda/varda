@@ -1,5 +1,5 @@
 Flask==0.10.1
--e git+https://github.com/varda/flask-sqlalchemy.git@record-ops-only-for-signalling-sessions#egg=Flask-SQLAlchemy
+-e git+https://github.com/varda/flask-sqlalchemy.git@varda#egg=Flask-SQLAlchemy
 PyVCF==0.6.7
 SQLAlchemy==0.9.3
 celery==3.1.9
