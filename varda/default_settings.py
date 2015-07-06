@@ -27,6 +27,13 @@ SECONDARY_DATA_BY_USER = False
 # Location of reference genome Fasta file
 GENOME = None
 
+# Aliases for chromosome names
+# TODO: Also have mappings between contig names on UCSC and GRCh37, like
+#   contig GL000202.1 etcetera.
+CHROMOSOME_ALIASES = [
+    ['M', 'MT', 'NC_012920.1', 'NC_012920_1', 'NC_012920']
+]
+
 # Abort entire task if a reference mismatch occurs
 REFERENCE_MISMATCH_ABORT = True
 
