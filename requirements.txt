@@ -9,7 +9,7 @@ psycopg2==2.5.3
 py-bcrypt==0.4
 Sphinx==1.2.2
 numpy==1.8.0
-pyfasta==0.5.1
+pyfaidx==0.4.1
 sphinxcontrib-httpdomain==1.2.0
 Cerberus==0.1.0
 alembic==0.6.3

@@ -100,7 +100,7 @@ def create_app(settings=None):
     db.init_app(app)
     celery.conf.add_defaults(app.config)
     if app.config['GENOME'] is not None:
-        genome.init(app.config['GENOME'])
+        genome.init(app.config['GENOME'], as_raw=True)
     from .api import api
     app.register_blueprint(api, url_prefix=app.config['API_URL_PREFIX'])
     if app.config['AULE_LOCAL_PATH'] is not None:
