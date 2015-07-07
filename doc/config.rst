@@ -104,12 +104,14 @@ GENOME
 
   Varda can use a reference genome to check and normalize variant
   descriptions. Specify the location to a FASTA file with the ``GENOME``
-  setting in the configuration file and flatten it in place::
+  setting in the configuration file::
 
       $ cat >> $VARDA_SETTINGS
       GENOME = '/usr/local/genomes/hg19.fa'
       REFERENCE_MISMATCH_ABORT = True
-      $ pyfasta flatten hg19.fa
+
+ A Samtools "faidx" compatible index file will automatically be created if it
+ does not exist yet.
 
 REFERENCE_MISMATCH_ABORT
   Abort entire task if a reference mismatch occurs.
