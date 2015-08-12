@@ -90,6 +90,11 @@ class TestApi():
         return json.loads(r.data)['root']['user_collection']['uri']
 
     @property
+    def uri_groups(self):
+        r = self.client.get(self.uri_root)
+        return json.loads(r.data)['root']['group_collection']['uri']
+
+    @property
     def uri_tokens(self):
         r = self.client.get(self.uri_root)
         return json.loads(r.data)['root']['token_collection']['uri']
@@ -346,9 +351,14 @@ class TestApi():
         """
         Serialized variation can have data source embedded.
         """
+        # Create group
+        r = self.client.post(self.uri_groups, data={'name': 'dummy'}, headers=[auth_header()])
+        group = json.loads(r.data)['group']['uri']
+
         # Create sample
         data = {'name': 'Test sample',
-                'pool_size': 1}
+                'pool_size': 1,
+                'groups': [group]}
         r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample']['uri']
@@ -384,9 +394,14 @@ class TestApi():
         """
         A trader can only annotate after importing and activating.
         """
+        # Create group
+        r = self.client.post(self.uri_groups, data={'name': 'dummy'}, headers=[auth_header()])
+        group = json.loads(r.data)['group']['uri']
+
         # Create sample
         data = {'name': 'Test sample',
-                'pool_size': 1}
+                'pool_size': 1,
+                'groups': [group]}
         r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample']['uri']
@@ -472,10 +487,15 @@ class TestApi():
         Import observations and coverage. Return a tuple with URIs for the
         sample, VCF data source, and BED data source.
         """
+        # Create group
+        r = self.client.post(self.uri_groups, data={'name': 'dummy'}, headers=[auth_header()])
+        group = json.loads(r.data)['group']['uri']
+
         # Create sample
         data = {'name': name,
                 'coverage_profile': bed_file is not None,
-                'pool_size': pool_size}
+                'pool_size': pool_size,
+                'groups': [group]}
         r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample']['uri']

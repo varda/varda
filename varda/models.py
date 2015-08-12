@@ -249,6 +249,35 @@ class Token(db.Model):
         return '<Token %r>' % self.name
 
 
+group_membership = db.Table(
+    'group_membership', db.Model.metadata,
+    db.Column('sample_id', db.Integer,
+              db.ForeignKey('sample.id', ondelete='CASCADE'),
+              nullable=False),
+    db.Column('group_id', db.Integer,
+              db.ForeignKey('group.id', ondelete='CASCADE'),
+              nullable=False))
+
+
+class Group(db.Model):
+    """
+    Sample group (e.g., disease type).
+    """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    #: Human-readable name.
+    name = db.Column(db.String(200))
+
+    def __init__(self, name):
+        self.name = name
+
+    @detached_session_fix
+    def __repr__(self):
+        return '<Group %r>' % (self.name)
+
+
 class Sample(db.Model):
     """
     Sample (of one or more individuals).
@@ -291,8 +320,14 @@ class Sample(db.Model):
     user = db.relationship(User,
                            backref=db.backref('samples', lazy='dynamic'))
 
+    #: A link to each :class:`Group` the sample is a member of.
+    groups = db.relationship(Group, secondary=group_membership,
+                             cascade='all', passive_deletes=True)
+
     def __init__(self, user, name, pool_size=1, coverage_profile=True,
-                 public=False, notes=None):
+                 public=False, notes=None, groups=None):
+        groups = groups or []
+
         self.user = user
         self.name = name
         self.pool_size = pool_size
@@ -300,6 +335,7 @@ class Sample(db.Model):
         self.coverage_profile = coverage_profile
         self.public = public
         self.notes = notes
+        self.groups = groups
 
     @detached_session_fix
     def __repr__(self):
