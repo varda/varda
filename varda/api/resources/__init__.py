@@ -10,6 +10,7 @@ REST server API resource definitions.
 from .annotations import AnnotationsResource
 from .coverages import CoveragesResource
 from .data_sources import DataSourcesResource
+from .groups import GroupsResource
 from .samples import SamplesResource
 from .tokens import TokensResource
 from .users import UsersResource

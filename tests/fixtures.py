@@ -53,19 +53,28 @@ class UserData(DataSet):
         password = 'test_password'
 
 
+class GroupData(DataSet):
+    class test_group:
+        name = 'test_group'
+
+
 class SampleData(DataSet):
     class exome_sample:
         user = UserData.test_user
         name = 'Exome sample'
+        groups = [GroupData.test_group]
     class exome_subset_sample:
         user = UserData.test_user
         name = 'Exome (subset) sample'
+        groups = [GroupData.test_group]
     class gonl_sample:
         user = UserData.test_user
         name = 'GoNL sample'
+        groups = [GroupData.test_group]
     class gonl_summary_sample:
         user = UserData.test_user
         name = 'GoNL (summary) sample'
+        groups = [GroupData.test_group]
 
 
 class DataSourceData(DataSet):

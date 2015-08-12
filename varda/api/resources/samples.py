@@ -7,11 +7,12 @@ REST API samples model resource.
 """
 
 
-from flask import g, url_for
+from flask import g
 
 from ...models import Sample
 from ..security import is_user, has_role, owns_sample, public_sample, true
 from .base import ModelResource
+from .groups import GroupsResource
 from .users import UsersResource
 
 
@@ -26,8 +27,9 @@ class SamplesResource(ModelResource):
 
     views = ['list', 'get', 'add', 'edit', 'delete']
 
-    embeddable = {'user': UsersResource}
-    filterable = {'public': 'boolean',
+    embeddable = {'user': UsersResource, 'groups': GroupsResource}
+    filterable = {'groups': 'group',
+                  'public': 'boolean',
                   'user': 'user'}
     orderable = ['name', 'pool_size', 'public', 'active', 'added']
 
@@ -43,7 +45,10 @@ class SamplesResource(ModelResource):
                   'pool_size': {'type': 'integer'},
                   'coverage_profile': {'type': 'boolean'},
                   'public': {'type': 'boolean'},
-                  'notes': {'type': 'string', 'maxlength': 10000}}
+                  'notes': {'type': 'string', 'maxlength': 10000},
+                  'groups': {'type': 'list',
+                             'maxlength': 30,
+                             'schema': {'type': 'group'}}}
 
     edit_ensure_conditions = [has_role('admin'), owns_sample]
     edit_ensure_options = {'satisfy': any}
@@ -52,7 +57,10 @@ class SamplesResource(ModelResource):
                    'pool_size': {'type': 'integer'},
                    'coverage_profile': {'type': 'boolean'},
                    'public': {'type': 'boolean'},
-                   'notes': {'type': 'string', 'maxlength': 10000}}
+                   'notes': {'type': 'string', 'maxlength': 10000},
+                   'groups': {'type': 'list',
+                              'maxlength': 30,
+                              'schema': {'type': 'group'}}}
 
     delete_ensure_conditions = [has_role('admin'), owns_sample]
     delete_ensure_options = {'satisfy': any}
@@ -89,6 +97,10 @@ class SamplesResource(ModelResource):
         **user** (`object`)
           :ref:`Link <api-links>` to a :ref:`user
           <api-resources-users-instances>` resource (embeddable).
+
+        **groups** (`list` of `object`)
+          :ref:`Links <api-links>` to :ref:`group
+          <api-resources-groups-instances>` resources (embeddable).
         """
         serialization = super(SamplesResource, cls).serialize(instance, embed=embed)
         serialization.update(name=instance.name,
@@ -113,6 +125,7 @@ class SamplesResource(ModelResource):
 
         **Available filters:**
 
+        - **groups** (`uri`)
         - **public** (`boolean`)
         - **user** (`uri`)
 
@@ -147,6 +160,7 @@ class SamplesResource(ModelResource):
         **Accepted request data:**
 
         - **coverage_profile** (`boolean`)
+        - **groups** (`list` of `uri`)
         - **notes** (`string`)
         - **pool_size** (`integer`)
         - **public** (`boolean`)
@@ -167,6 +181,7 @@ class SamplesResource(ModelResource):
 
         - **active** (`boolean`)
         - **coverage_profile** (`boolean`)
+        - **groups** (`list` of `uri`)
         - **name** (`string`)
         - **notes** (`string`)
         - **pool_size** (`integer`)

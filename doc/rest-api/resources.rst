@@ -177,6 +177,46 @@ Blobs
    .. automethoddoc:: varda.api.views.data_sources_resource.data_view
 
 
+.. _api-resources-groups:
+
+Groups
+------
+
+.. autodatadoc:: varda.api.views.groups_resource
+
+.. automethoddoc:: varda.api.views.groups_resource.serialize
+
+
+.. _api-resources-groups-collection:
+
+Collection
+^^^^^^^^^^
+
+.. seealso:: :ref:`Collection resources <api-collection-resources>`
+
+.. http:get:: /groups/
+
+   .. automethoddoc:: varda.api.views.groups_resource.list_view
+
+.. http:post:: /groups/
+
+   .. automethoddoc:: varda.api.views.groups_resource.add_view
+
+
+.. _api-resources-groups-instances:
+
+Instances
+^^^^^^^^^
+
+.. http:get:: /groups/<id>
+
+   .. automethoddoc:: varda.api.views.groups_resource.get_view
+
+.. http:patch:: /groups/<id>
+
+   .. automethoddoc:: varda.api.views.groups_resource.edit_view
+
+
 .. _api-resources-samples:
 
 Samples

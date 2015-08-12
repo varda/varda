@@ -15,8 +15,8 @@ from werkzeug.datastructures import ContentRange
 from werkzeug.exceptions import HTTPException
 from werkzeug.http import parse_range_header
 
-from ..models import (Annotation, Coverage, DataSource, Sample, Token, User,
-                      Variation)
+from ..models import (Annotation, Coverage, DataSource, Group, Sample, Token,
+                      User, Variation)
 from .errors import ValidationError
 
 
@@ -119,6 +119,17 @@ def sample_by_uri(app, uri):
     except ValueError:
         return None
     return Sample.query.get(args['sample'])
+
+
+def group_by_uri(app, uri):
+    """
+    Get a group from its URI.
+    """
+    try:
+        args = parse_args(app, 'api.group_get', uri)
+    except ValueError:
+        return None
+    return Group.query.get(args['group'])
 
 
 def token_by_uri(app, uri):
