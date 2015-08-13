@@ -104,7 +104,7 @@ def annotate_data_source(original, annotated_variants,
 
 def annotate_variants(original_variants, annotated_variants,
                       original_filetype='vcf', annotated_filetype='vcf',
-                      global_frequency=True, sample_frequency=None,
+                      global_frequency=True, sample_frequencies=None,
                       original_records=1, exclude_checksum=None):
     """
     Read variants from a file and write them to another file with frequency
@@ -122,8 +122,8 @@ def annotate_variants(original_variants, annotated_variants,
     :type annotated_filetype: str
     :arg global_frequency: Whether or not to compute global frequencies.
     :type global_frequency: bool
-    :arg sample_frequency: List of samples to compute frequencies for.
-    :type sample_frequency: list of Sample
+    :arg sample_frequencies: List of samples to compute frequencies for.
+    :type sample_frequencies: list of Sample
     :arg original_records: Number of records in original variants file.
     :type original_records: int
     :arg exclude_checksum: Checksum of data source(s) to exclude variation
@@ -173,7 +173,7 @@ def annotate_variants(original_variants, annotated_variants,
     """
     # Todo: Here we should check again if the samples we use are active, since
     #     it could be a long time ago when this task was submitted.
-    sample_frequency = sample_frequency or []
+    sample_frequencies = sample_frequencies or []
 
     if original_filetype != 'vcf':
         raise ReadError('Original data must be in VCF format')
@@ -204,11 +204,11 @@ def annotate_variants(original_variants, annotated_variants,
             'Ratio of individuals in which the allele was observed as '
             'homozygous.')
 
-    # S1, S2, ... etcetera (one for each entry in `sample_frequency`).
-    labels = ['S' + str(i + 1) for i, _ in enumerate(sample_frequency)]
+    # S1, S2, ... etcetera (one for each entry in `sample_frequencies`).
+    labels = ['S' + str(i + 1) for i, _ in enumerate(sample_frequencies)]
 
     # Header lines in VCF output for sample frequencies.
-    for sample, label in zip(sample_frequency, labels):
+    for sample, label in zip(sample_frequencies, labels):
         if sample.coverage_profile:
             description = ('having this region covered (out of %i considered)'
                            % sample.pool_size)
@@ -255,7 +255,7 @@ def annotate_variants(original_variants, annotated_variants,
             old_percentage = percentage
 
         global_result = []
-        sample_results = [[] for _ in sample_frequency]
+        sample_results = [[] for _ in sample_frequencies]
         for index, allele in enumerate(record.ALT):
             try:
                 chromosome, position, reference, observed = normalize_variant(
@@ -270,7 +270,7 @@ def annotate_variants(original_variants, annotated_variants,
 
             # Todo: Instead of doing it separately per sample, it can probably
             #     be done much more efficiently in one go.
-            for i, sample in enumerate(sample_frequency):
+            for i, sample in enumerate(sample_frequencies):
                 sample_results[i].append(calculate_frequency(
                         chromosome, position, reference, observed,
                         sample=sample, exclude_checksum=exclude_checksum))
@@ -291,7 +291,7 @@ def annotate_variants(original_variants, annotated_variants,
 
 def annotate_regions(original_regions, annotated_variants,
                      original_filetype='bed', annotated_filetype='csv',
-                     global_frequency=True, sample_frequency=None,
+                     global_frequency=True, sample_frequencies=None,
                      original_records=1, exclude_checksum=None):
     """
     Read regions from a file and write variant frequencies to another file.
@@ -308,8 +308,8 @@ def annotate_regions(original_regions, annotated_variants,
     :type annotated_filetype: str
     :arg global_frequency: Whether or not to compute global frequencies.
     :type global_frequency: bool
-    :arg sample_frequency: List of samples to compute frequencies for.
-    :type sample_frequency: list of Sample
+    :arg sample_frequencies: List of samples to compute frequencies for.
+    :type sample_frequencies: list of Sample
     :arg original_records: Number of records in original regions file.
     :type original_records: int
     :arg exclude_checksum: Checksum of data source(s) to exclude variation
@@ -364,7 +364,7 @@ def annotate_regions(original_regions, annotated_variants,
     """
     # Todo: Here we should check again if the samples we use are active, since
     #     it could be a long time ago when this task was submitted.
-    sample_frequency = sample_frequency or []
+    sample_frequencies = sample_frequencies or []
 
     if original_filetype != 'bed':
         raise ReadError('Original data must be in BED format')
@@ -393,11 +393,11 @@ def annotate_regions(original_regions, annotated_variants,
             '##GLOBAL_VF_HOM: Ratio of individuals in which the allele was '
             'observed as homozygous.\n')
 
-    # S1, S2, ... etcetera (one for each entry in `sample_frequency`).
-    labels = ['S' + str(i + 1) for i, _ in enumerate(sample_frequency)]
+    # S1, S2, ... etcetera (one for each entry in `sample_frequencies`).
+    labels = ['S' + str(i + 1) for i, _ in enumerate(sample_frequencies)]
 
     # Header lines in CSV output for sample frequencies.
-    for sample, label in zip(sample_frequency, labels):
+    for sample, label in zip(sample_frequencies, labels):
         header_fields.extend([label + '_VN', label + '_VF', label + '_VF_HET',
                               label + '_VF_HOM'])
         if sample.coverage_profile:
@@ -436,7 +436,7 @@ def annotate_regions(original_regions, annotated_variants,
             old_percentage = percentage
 
         global_result = []
-        sample_results = [[] for _ in sample_frequency]
+        sample_results = [[] for _ in sample_frequencies]
 
         bins = all_bins(begin, end)
         observations = Observation.query.filter(
@@ -447,7 +447,7 @@ def annotate_regions(original_regions, annotated_variants,
 
         # Only observations from selected samples, or from samples with
         # coverage profiles if global frequency is selected.
-        clauses = [Sample.id.in_(s.id for s in sample_frequency)]
+        clauses = [Sample.id.in_(s.id for s in sample_frequencies)]
         if global_frequency:
             clauses.append(and_(Sample.active == True, Sample.coverage_profile == True))
         observations = observations.join(Variation).join(Sample).filter(or_(*clauses))
@@ -477,7 +477,7 @@ def annotate_regions(original_regions, annotated_variants,
 
             # Todo: Instead of doing it separately per sample, it can probably
             #     be done much more efficiently in one go.
-            for _, sample in enumerate(sample_frequency):
+            for _, sample in enumerate(sample_frequencies):
                 vn, vf = calculate_frequency(
                     observation.chromosome, observation.position,
                     observation.reference, observation.observed,
@@ -898,7 +898,7 @@ def write_annotation(annotation_id):
                                  original_filetype=original_data_source.filetype,
                                  annotated_filetype=annotated_data_source.filetype,
                                  global_frequency=annotation.global_frequency,
-                                 sample_frequency=annotation.sample_frequency,
+                                 sample_frequencies=annotation.sample_frequencies,
                                  original_records=original_data_source.records,
                                  exclude_checksum=original_data_source.checksum)
     except ReadError as e:

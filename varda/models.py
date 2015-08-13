@@ -624,8 +624,8 @@ class Annotation(db.Model):
 
     #: A link to each :class:`Sample` for which observation frequencies are
     #: annotated.
-    sample_frequency = db.relationship(Sample, secondary=sample_frequency,
-                                       cascade='all', passive_deletes=True)
+    sample_frequencies = db.relationship(Sample, secondary=sample_frequency,
+                                         cascade='all', passive_deletes=True)
 
     #: The original :class:`DataSource` that is being annotated.
     original_data_source = db.relationship(
@@ -640,13 +640,13 @@ class Annotation(db.Model):
         backref=db.backref('annotation', uselist=False, lazy='select'))
 
     def __init__(self, original_data_source, annotated_data_source,
-                 global_frequency=True, sample_frequency=None):
-        sample_frequency = sample_frequency or []
+                 global_frequency=True, sample_frequencies=None):
+        sample_frequencies = sample_frequencies or []
 
         self.original_data_source = original_data_source
         self.annotated_data_source = annotated_data_source
         self.global_frequency = global_frequency
-        self.sample_frequency = sample_frequency
+        self.sample_frequencies = sample_frequencies
 
     @detached_session_fix
     def __repr__(self):

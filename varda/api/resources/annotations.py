@@ -66,9 +66,9 @@ class AnnotationsResource(TaskedResource):
     add_schema = {'data_source': {'type': 'data_source', 'required': True},
                   'name': {'type': 'string', 'maxlength': 200},
                   'global_frequency': {'type': 'boolean'},
-                  'sample_frequency': {'type': 'list',
-                                       'maxlength': 30,
-                                       'schema': {'type': 'sample'}}}
+                  'sample_frequencies': {'type': 'list',
+                                         'maxlength': 30,
+                                         'schema': {'type': 'sample'}}}
 
     delete_ensure_conditions = [has_role('admin'), owns_annotation]
     delete_ensure_options = {'satisfy': any}
@@ -93,7 +93,7 @@ class AnnotationsResource(TaskedResource):
           <api-resources-data-sources-instances>` resource (embeddable).
 
         .. todo:: Include and document the `global_frequency` and
-           `sample_frequency` fields.
+           `sample_frequencies` fields.
         """
         return super(AnnotationsResource, cls).serialize(instance, embed=embed)
 
@@ -124,7 +124,7 @@ class AnnotationsResource(TaskedResource):
 
     @classmethod
     def add_view(cls, data_source, name=None, global_frequency=True,
-                 sample_frequency=None):
+                 sample_frequencies=None):
         """
         Adds an annotation resource.
 
@@ -144,7 +144,7 @@ class AnnotationsResource(TaskedResource):
 
         - **name** (`string`)
         - **global_frequency** (`boolean`)
-        - **sample_frequency** (`list` of `uri`)
+        - **sample_frequencies** (`list` of `uri`)
         """
         # Todo: Check if data source is a VCF file.
         # The `satisfy` keyword argument used here in the `ensure` decorator means
@@ -152,10 +152,10 @@ class AnnotationsResource(TaskedResource):
         # - admin
         # - owns_data_source AND annotator
         # - owns_data_source AND trader
-        sample_frequency = sample_frequency or []
+        sample_frequencies = sample_frequencies or []
         name = name or '%s (annotated)' % data_source.name
 
-        for sample in sample_frequency:
+        for sample in sample_frequencies:
             if not (sample.public or
                     sample.user is g.user or
                     'admin' in g.user.roles):
@@ -182,7 +182,7 @@ class AnnotationsResource(TaskedResource):
         db.session.add(annotated_data_source)
         annotation = Annotation(data_source, annotated_data_source,
                                 global_frequency=global_frequency,
-                                sample_frequency=sample_frequency)
+                                sample_frequencies=sample_frequencies)
         db.session.add(annotation)
         db.session.commit()
         current_app.logger.info('Added data source: %r', annotated_data_source)

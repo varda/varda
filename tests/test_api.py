@@ -258,7 +258,7 @@ class TestApi():
         All annotations should have observation and coverage 1.
         """
         sample, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome.vcf', 'tests/data/exome.bed')
-        annotated_data_source = self._annotate(vcf_data_source, sample_frequency=[sample])
+        annotated_data_source = self._annotate(vcf_data_source, sample_frequencies=[sample])
 
         # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotated_data_source, headers=[auth_header()])
@@ -453,15 +453,15 @@ class TestApi():
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 201)
 
-    def _annotate(self, vcf_data_source, sample_frequency=None):
+    def _annotate(self, vcf_data_source, sample_frequencies=None):
         """
         Annotate observations and return the annotated data source URI.
         """
-        sample_frequency = sample_frequency or []
+        sample_frequencies = sample_frequencies or []
 
         # Annotate observations
         data = {'data_source': vcf_data_source,
-                'sample_frequency': sample_frequency}
+                'sample_frequencies': sample_frequencies}
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 201)
         annotation = json.loads(r.data)['annotation']['uri']
