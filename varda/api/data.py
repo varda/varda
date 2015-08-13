@@ -16,8 +16,9 @@ from cerberus import ValidationError as CerberusValidationError, Validator
 import cerberus.errors
 from flask import abort, current_app, g, json, request
 
-from ..models import (Annotation, Coverage, DataSource, Group, Sample, Token,
-                      User, Variation)
+from .. import expressions
+from ..models import (Annotation, Coverage, DataSource, Group, Query, Sample,
+                      Token, User, Variation)
 from .errors import ValidationError
 from .utils import (annotation_by_uri, coverage_by_uri, data_source_by_uri,
                     group_by_uri, sample_by_uri, token_by_uri, user_by_uri,
@@ -57,6 +58,7 @@ def cast(document, schema):
                'integer':         _cast_integer,
                'boolean':         _cast_boolean,
                'directed_string': _cast_directed_string,
+               'query':           _cast_query,
                'annotation':      _cast_annotation,
                'coverage':        _cast_coverage,
                'data_source':     _cast_data_source,
@@ -137,6 +139,31 @@ def _cast_directed_string(value, definition):
         if value.startswith('+'):
             return value[1:], 'asc'
         return value, 'asc'
+    return value
+
+
+def _cast_query(value, definition):
+    # Convert sample or group URI to corresponding primary key.
+    def uri_to_id(instance_type, uri):
+        if instance_type == 'sample':
+            return sample_by_uri(current_app, uri).id
+        if instance_type == 'group':
+            return group_by_uri(current_app, uri).id
+        raise ValueError('can only query on sample or group')
+
+    # We expect a dictionary with `name` and `expression` fields, so first
+    # just try to cast it to a dictionary as usual.
+    value = _cast_dict(value, definition)
+
+    if isinstance(value, dict):
+        try:
+            name = value['name']
+            expression = expressions.parse(value['expression'])
+            expression = expressions.update_clause_values(expression,
+                                                          uri_to_id)
+            return Query(name, expression)
+        except (KeyError, SyntaxError, ValueError):
+            pass
     return value
 
 
@@ -251,6 +278,10 @@ class ApiValidator(Validator):
                 isinstance(value[0], basestring)
                 or value[1] in ('asc', 'desc')):
             self._error(cerberus.errors.ERROR_BAD_TYPE % (field, 'directed string'))
+
+    def _validate_type_query(self, field, value):
+        if not isinstance(self.document[field], Query):
+            self._error(cerberus.errors.ERROR_BAD_TYPE % (field, 'query'))
 
     def _validate_type_annotation(self, field, value):
         if not isinstance(self.document[field], Annotation):

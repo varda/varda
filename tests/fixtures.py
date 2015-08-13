@@ -67,6 +67,10 @@ class SampleData(DataSet):
         user = UserData.test_user
         name = 'Exome (subset) sample'
         groups = [GroupData.test_group]
+    class exome_subsubset_sample:
+        user = UserData.test_user
+        name = 'Exome (subsubset) sample'
+        groups = [GroupData.test_group]
     class gonl_sample:
         user = UserData.test_user
         name = 'GoNL sample'
@@ -103,6 +107,16 @@ class DataSourceData(DataSet):
         name = 'Exome (subset) variants'
         filetype = 'vcf'
         local_file = 'exome-subset.vcf'
+    class exome_subsubset_coverage:
+        user = UserData.test_user
+        name = 'Exome (subsubset) coverage'
+        filetype = 'bed'
+        local_file = 'exome-subsubset.bed'
+    class exome_subsubset_variation:
+        user = UserData.test_user
+        name = 'Exome (subsubset) variants'
+        filetype = 'vcf'
+        local_file = 'exome-subsubset.vcf'
     class gonl_variation:
         user = UserData.test_user
         name = 'GoNL variants'
@@ -130,6 +144,9 @@ class CoverageData(DataSet):
     class exome_subset_coverage:
         sample = SampleData.exome_subset_sample
         data_source = DataSourceData.exome_subset_coverage
+    class exome_subsubset_coverage:
+        sample = SampleData.exome_subsubset_sample
+        data_source = DataSourceData.exome_subsubset_coverage
 
 
 class VariationData(DataSet):
@@ -145,6 +162,9 @@ class VariationData(DataSet):
     class exome_subset_variation:
         sample = SampleData.exome_subset_sample
         data_source = DataSourceData.exome_subset_variation
+    class exome_subsubset_variation:
+        sample = SampleData.exome_subsubset_sample
+        data_source = DataSourceData.exome_subsubset_variation
 
 
 class AnnotationData(DataSet):

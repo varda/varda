@@ -7,7 +7,7 @@ REST API variants resource.
 """
 
 
-from flask import g, jsonify
+from flask import abort, g, jsonify
 
 from ...models import Observation, Sample, Variation
 from ...region_binning import all_bins
@@ -19,14 +19,30 @@ from .base import Resource
 from .samples import SamplesResource
 
 
-def _satisfy_lookup(conditions):
-    sample_selected, is_admin, is_annotator, owns_sample, public_sample\
-        = conditions
-    if is_admin:
-        return True
-    if sample_selected:
-        return owns_sample or public_sample
-    return is_annotator
+def _authorize_query(query):
+    if query.singleton:
+        try:
+            sample = query.samples[0]
+        except IndexError:
+            # This should not really be possible, we already checked the
+            # sample exists.
+            abort(400)
+        if not sample.public:
+            if g.user is None:
+                abort(401)
+            if not (sample.user is g.user or 'admin' in g.user.roles):
+                abort(400)
+    else:
+        if g.user is None:
+            abort(401)
+        if not ('admin' in g.user.roles or 'annotator' in g.user.roles):
+            abort(400)
+        if not query.tautology:
+            roles = ['admin', 'querier']
+            if query.only_group_clauses:
+                roles.append('group-querier')
+            if not any(role in g.user.roles for role in roles):
+                abort(400)
 
 
 class VariantsResource(Resource):
@@ -49,22 +65,20 @@ class VariantsResource(Resource):
                      ('observed', 'asc'),
                      ('id', 'asc')]
 
-    list_ensure_conditions = [true('sample'), has_role('admin'),
-                              has_role('annotator'), owns_sample,
-                              public_sample]
-    list_ensure_options = {'satisfy': _satisfy_lookup}
+    list_ensure_conditions = []
     list_schema = {'region': {'type': 'dict',
                               'schema': {'chromosome': {'type': 'string', 'required': True, 'maxlength': 30},
                                          'begin': {'type': 'integer', 'required': True},
                                          'end': {'type': 'integer', 'required': True}},
                               'required': True},
-                   'sample': {'type': 'sample'}}
+                   'queries': {'type': 'list',
+                               'maxlength': 10,
+                               'schema': {'type': 'query'}}}
 
-    get_ensure_conditions = [true('sample'), has_role('admin'),
-                             has_role('annotator'), owns_sample,
-                             public_sample]
-    get_ensure_options = {'satisfy': _satisfy_lookup}
-    get_schema = {'sample': {'type': 'sample'}}
+    get_ensure_conditions = []
+    get_schema = {'queries': {'type': 'list',
+                              'maxlength': 10,
+                              'schema': {'type': 'query'}}}
 
     add_ensure_conditions = []
     add_schema = {'chromosome': {'type': 'string', 'required': True, 'maxlength': 30},
@@ -79,7 +93,7 @@ class VariantsResource(Resource):
         return '%s:%d%s>%s' % variant
 
     @classmethod
-    def serialize(cls, variant, sample=None):
+    def serialize(cls, variant, queries=None):
         """
         A variant is represented as an object with the following fields:
 
@@ -87,31 +101,36 @@ class VariantsResource(Resource):
           URI for this resource.
         """
         chromosome, position, reference, observed = variant
+        queries = queries or []
 
-        coverage, frequency = calculate_frequency(
-            chromosome, position, reference, observed, sample=sample)
+        serialization = {'uri': cls.instance_uri(variant),
+                         'chromosome': chromosome,
+                         'position': position,
+                         'reference': reference,
+                         'observed': observed}
 
-        if sample is not None:
-            sample_uri = SamplesResource.instance_uri(sample)
-        else:
-            sample_uri = None
+        annotations = {}
+        for query in queries:
+            coverage, frequency = calculate_frequency(
+                chromosome, position, reference, observed,
+                samples=query.samples)
+            annotations[query.name] = {'coverage': coverage,
+                                       'frequency': sum(frequency.values()),
+                                       'frequency_het': frequency['heterozygous'],
+                                       'frequency_hom': frequency['homozygous']}
 
-        return {'uri': cls.instance_uri(variant),
-                'sample_uri': sample_uri,
-                'chromosome': chromosome,
-                'position': position,
-                'reference': reference,
-                'observed': observed,
-                'coverage': coverage,
-                'frequency': sum(frequency.values()),
-                'frequency_het': frequency['heterozygous'],
-                'frequency_hom': frequency['homozygous']}
+        if annotations:
+            serialization['annotations'] = annotations
+
+        return serialization
 
     @classmethod
-    def list_view(cls, begin, count, region, sample=None, order=None):
+    def list_view(cls, begin, count, region, queries=None, order=None):
         """
         Returns a collection of variants in the `variant_collection` field.
         """
+        queries = queries or []
+
         # Todo: Document that `begin` and `end` are 1-based and inclusive. Or,
         #     perhaps we should change that to conform to BED track regions.
         try:
@@ -120,43 +139,56 @@ class VariantsResource(Resource):
         except ReferenceMismatch as e:
             raise ValidationError(str(e))
 
+        for query in queries:
+            if query.singleton:
+                query.require_active = False
+                query.require_coverage_profile = False
+            _authorize_query(query)
+
+        # Set of samples IDs considered by all queries together.
+        all_sample_ids = {sample.id
+                          for query in queries
+                          for sample in query.samples}
+
+        # Set of observations considered by all queries together.
         bins = all_bins(begin_position, end_position)
         observations = Observation.query.filter(
             Observation.chromosome == chromosome,
             Observation.position >= begin_position,
             Observation.position <= end_position,
-            Observation.bin.in_(bins))
-
-        # Filter by sample, or by samples with coverage profile otherwise.
-        if sample:
-            observations = observations \
-                .join(Variation).filter_by(sample=sample)
-        else:
-            observations = observations \
-                .join(Variation).join(Sample).filter_by(active=True,
-                                                        coverage_profile=True)
-
-        observations = observations.distinct(Observation.chromosome,
-                                             Observation.position,
-                                             Observation.reference,
-                                             Observation.observed)
-
-        observations = observations.order_by(*[getattr(getattr(Observation, f), d)()
+            Observation.bin.in_(bins)
+        ).join(Variation).join(Sample).filter(
+            Sample.id.in_(all_sample_ids)
+        ).distinct(
+            Observation.chromosome,
+            Observation.position,
+            Observation.reference,
+            Observation.observed
+        ).order_by(
+            *[getattr(getattr(Observation, f), d)()
                                                for f, d in cls.get_order(order)])
 
         items = [cls.serialize((o.chromosome, o.position, o.reference, o.observed),
-                               sample=sample)
+                               queries=queries)
                  for o in observations.limit(count).offset(begin)]
         return (observations.count(),
                 jsonify(variant_collection={'uri': cls.collection_uri(),
                                             'items': items}))
 
     @classmethod
-    def get_view(cls, variant, sample=None):
+    def get_view(cls, variant, queries=None):
         """
         Returns the variant representation in the `variant` field.
         """
-        return jsonify(variant=cls.serialize(variant, sample=sample))
+        queries = queries or []
+
+        for query in queries:
+            if query.singleton:
+                query.require_active = False
+                query.require_coverage_profile = False
+            _authorize_query(query)
+
+        return jsonify(variant=cls.serialize(variant, queries=queries))
 
     @classmethod
     def add_view(cls, chromosome, position, reference='', observed=''):
@@ -168,11 +200,7 @@ class VariantsResource(Resource):
             variant = normalize_variant(chromosome, position, reference, observed)
         except ReferenceMismatch as e:
             raise ValidationError(str(e))
-        uri = cls.instance_uri(variant)
-        # Note: It doesn't really make sense to calculate global frequencies
-        #     here (the client might only be interested in frequencies for
-        #     some specific sample), so we only return the URI instead of a
-        #     full serialization.
-        response = jsonify(variant={'uri': uri})
-        response.location = uri
+
+        response = jsonify(variant=cls.serialize(variant))
+        response.location = cls.instance_uri(variant)
         return response, 201
