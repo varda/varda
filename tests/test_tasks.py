@@ -16,10 +16,10 @@ from sqlalchemy import create_engine
 import vcf
 
 from varda import create_app, db, models
-from varda.models import Annotation, Coverage, DataSource, Observation, Region, User, Variation
+from varda.models import Annotation, Coverage, DataSource, Observation, QueryFrequency, Region, User, Variation
 from varda import tasks, utils
 
-from fixtures import AnnotationData, CoverageData, DataSourceData, VariationData
+from fixtures import AnnotationData, CoverageData, DataSourceData, QueryFrequencyData, VariationData
 
 
 TEST_SETTINGS = {
@@ -526,3 +526,385 @@ class TestTasks(TestCase):
                           ([1], [0.0]),
                           ([1], [1.0]),
                           ([1], [1.0])])
+
+    def test_annotate_variants_multi(self):
+        """
+        Annotate a file with observation frequencies against multiple samples.
+
+        We first import two subsets of the observations with coverage.
+        """
+        with self.fixture.data(CoverageData, DataSourceData, VariationData) as data:
+            coverage = Coverage.query.get(
+                data.CoverageData.exome_subset_coverage.id)
+            result = tasks.import_coverage.delay(coverage.id)
+            assert coverage.task_done
+
+            variation = Variation.query.get(
+                data.VariationData.exome_subset_variation.id)
+            result = tasks.import_variation.delay(variation.id)
+            assert variation.task_done
+
+            variation.sample.active = True
+
+            coverage = Coverage.query.get(
+                data.CoverageData.exome_subsubset_coverage.id)
+            result = tasks.import_coverage.delay(coverage.id)
+            assert coverage.task_done
+
+            variation = Variation.query.get(
+                data.VariationData.exome_subsubset_variation.id)
+            result = tasks.import_variation.delay(variation.id)
+            assert variation.task_done
+
+            variation.sample.active = True
+
+            db.session.commit()
+
+            data_source = DataSource.query.get(
+                data.DataSourceData.exome_variation.id)
+            annotated_file = StringIO.StringIO()
+
+            with data_source.data() as data:
+                checksum, records = utils.digest(data)
+
+            with data_source.data() as data:
+                tasks.annotate_variants(data, annotated_file,
+                                        original_filetype=data_source.filetype,
+                                        annotated_filetype='vcf',
+                                        original_records=records,
+                                        exclude_checksum=checksum)
+
+            lines = annotated_file.getvalue().split('\n')
+            reader = vcf.Reader(lines)
+
+            assert_equal([(record.INFO['GLOBAL_VN'], record.INFO['GLOBAL_VF']) for record in reader],
+                         [([2], [1.0]),
+                          ([2], [0.5]),
+                          ([2], [1.0]),
+                          ([0], [0.0]),
+                          ([0], [0.0]),
+                          ([0], [0.0]),
+                          ([2], [1.0]),
+                          ([1], [1.0]),
+                          ([2], [1.0]),
+                          ([2], [0.5]),
+                          ([2], [1.0]),
+                          ([2, 2], [1.0, 0.0]),
+                          ([0], [0.0]),
+                          ([2], [0.0]),
+                          ([2], [0.5]),
+                          ([2], [0.5])])
+
+    def test_annotate_variants_multi_sample_one(self):
+        """
+        Annotate a file with observation frequencies against multiple samples
+        selecting one.
+
+        We first import two subsets of the observations with coverage.
+        """
+        with self.fixture.data(CoverageData, DataSourceData, VariationData) as data:
+            coverage = Coverage.query.get(
+                data.CoverageData.exome_subset_coverage.id)
+            result = tasks.import_coverage.delay(coverage.id)
+            assert coverage.task_done
+
+            variation = Variation.query.get(
+                data.VariationData.exome_subset_variation.id)
+            result = tasks.import_variation.delay(variation.id)
+            assert variation.task_done
+
+            sample_a = variation.sample
+
+            coverage = Coverage.query.get(
+                data.CoverageData.exome_subsubset_coverage.id)
+            result = tasks.import_coverage.delay(coverage.id)
+            assert coverage.task_done
+
+            variation = Variation.query.get(
+                data.VariationData.exome_subsubset_variation.id)
+            result = tasks.import_variation.delay(variation.id)
+            assert variation.task_done
+
+            sample_b = variation.sample
+
+            sample_a.active = True
+            sample_b.active = True
+            db.session.commit()
+
+            data_source = DataSource.query.get(
+                data.DataSourceData.exome_variation.id)
+            annotated_file = StringIO.StringIO()
+
+            with data_source.data() as data:
+                checksum, records = utils.digest(data)
+
+            with data_source.data() as data:
+                tasks.annotate_variants(data, annotated_file,
+                                        original_filetype=data_source.filetype,
+                                        annotated_filetype='vcf',
+                                        original_records=records,
+                                        global_frequency=False,
+                                        sample_frequencies=[sample_a],
+                                        exclude_checksum=checksum)
+
+            lines = annotated_file.getvalue().split('\n')
+            reader = vcf.Reader(lines)
+
+            assert_equal([(record.INFO['S1_VN'], record.INFO['S1_VF']) for record in reader],
+                         [([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([0], [0.0]),
+                          ([0], [0.0]),
+                          ([0], [0.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1, 1], [1.0, 0.0]),
+                          ([0], [0.0]),
+                          ([1], [0.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0])])
+
+    def test_annotate_variants_multi_sample_two(self):
+        """
+        Annotate a file with observation frequencies against multiple samples
+        selecting two.
+
+        We first import two subsets of the observations with coverage.
+        """
+        with self.fixture.data(CoverageData, DataSourceData, VariationData) as data:
+            coverage = Coverage.query.get(
+                data.CoverageData.exome_subset_coverage.id)
+            result = tasks.import_coverage.delay(coverage.id)
+            assert coverage.task_done
+
+            variation = Variation.query.get(
+                data.VariationData.exome_subset_variation.id)
+            result = tasks.import_variation.delay(variation.id)
+            assert variation.task_done
+
+            sample_a = variation.sample
+
+            coverage = Coverage.query.get(
+                data.CoverageData.exome_subsubset_coverage.id)
+            result = tasks.import_coverage.delay(coverage.id)
+            assert coverage.task_done
+
+            variation = Variation.query.get(
+                data.VariationData.exome_subsubset_variation.id)
+            result = tasks.import_variation.delay(variation.id)
+            assert variation.task_done
+
+            sample_b = variation.sample
+
+            sample_a.active = True
+            sample_b.active = True
+            db.session.commit()
+
+            data_source = DataSource.query.get(
+                data.DataSourceData.exome_variation.id)
+            annotated_file = StringIO.StringIO()
+
+            with data_source.data() as data:
+                checksum, records = utils.digest(data)
+
+            with data_source.data() as data:
+                tasks.annotate_variants(data, annotated_file,
+                                        original_filetype=data_source.filetype,
+                                        annotated_filetype='vcf',
+                                        original_records=records,
+                                        global_frequency=False,
+                                        sample_frequencies=[sample_a, sample_b],
+                                        exclude_checksum=checksum)
+
+            lines = annotated_file.getvalue().split('\n')
+            reader = vcf.Reader(lines)
+
+            assert_equal([(record.INFO['S1_VN'], record.INFO['S1_VF']) for record in reader],
+                         [([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([0], [0.0]),
+                          ([0], [0.0]),
+                          ([0], [0.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1, 1], [1.0, 0.0]),
+                          ([0], [0.0]),
+                          ([1], [0.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0])])
+
+            reader = vcf.Reader(lines)
+
+            assert_equal([(record.INFO['S2_VN'], record.INFO['S2_VF']) for record in reader],
+                         [([1], [1.0]),
+                          ([1], [0.0]),
+                          ([1], [1.0]),
+                          ([0], [0.0]),
+                          ([0], [0.0]),
+                          ([0], [0.0]),
+                          ([1], [1.0]),
+                          ([0], [0.0]),
+                          ([1], [1.0]),
+                          ([1], [0.0]),
+                          ([1], [1.0]),
+                          ([1, 1], [1.0, 0.0]),
+                          ([0], [0.0]),
+                          ([1], [0.0]),
+                          ([1], [0.0]),
+                          ([1], [0.0])])
+
+    def test_annotate_variants_multi_samples_one(self):
+        """
+        Annotate a file with observation frequencies against multiple samples
+        querying one.
+
+        We first import two subsets of the observations with coverage.
+        """
+        with self.fixture.data(CoverageData, DataSourceData, QueryFrequencyData, VariationData) as data:
+            coverage = Coverage.query.get(
+                data.CoverageData.exome_subset_coverage.id)
+            result = tasks.import_coverage.delay(coverage.id)
+            assert coverage.task_done
+
+            variation = Variation.query.get(
+                data.VariationData.exome_subset_variation.id)
+            result = tasks.import_variation.delay(variation.id)
+            assert variation.task_done
+
+            variation.sample.active = True
+
+            coverage = Coverage.query.get(
+                data.CoverageData.exome_subsubset_coverage.id)
+            result = tasks.import_coverage.delay(coverage.id)
+            assert coverage.task_done
+
+            variation = Variation.query.get(
+                data.VariationData.exome_subsubset_variation.id)
+            result = tasks.import_variation.delay(variation.id)
+            assert variation.task_done
+
+            variation.sample.active = True
+
+            db.session.commit()
+
+            query_frequency = QueryFrequency.query.get(
+                data.QueryFrequencyData.exome_query_frequency_for_exome_subset.id)
+
+            data_source = DataSource.query.get(
+                data.DataSourceData.exome_variation.id)
+            annotated_file = StringIO.StringIO()
+
+            with data_source.data() as data:
+                checksum, records = utils.digest(data)
+
+            with data_source.data() as data:
+                tasks.annotate_variants(data, annotated_file,
+                                        original_filetype=data_source.filetype,
+                                        annotated_filetype='vcf',
+                                        original_records=records,
+                                        global_frequency=False,
+                                        query_frequencies=[query_frequency],
+                                        exclude_checksum=checksum)
+
+            lines = annotated_file.getvalue().split('\n')
+            reader = vcf.Reader(lines)
+
+            assert_equal([(record.INFO['Q1_VN'], record.INFO['Q1_VF']) for record in reader],
+                         [([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([0], [0.0]),
+                          ([0], [0.0]),
+                          ([0], [0.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0]),
+                          ([1, 1], [1.0, 0.0]),
+                          ([0], [0.0]),
+                          ([1], [0.0]),
+                          ([1], [1.0]),
+                          ([1], [1.0])])
+
+    def test_annotate_variants_multi_samples_two(self):
+        """
+        Annotate a file with observation frequencies against multiple samples
+        querying two.
+
+        We first import two subsets of the observations with coverage.
+        """
+        with self.fixture.data(CoverageData, DataSourceData, QueryFrequencyData, VariationData) as data:
+            coverage = Coverage.query.get(
+                data.CoverageData.exome_subset_coverage.id)
+            result = tasks.import_coverage.delay(coverage.id)
+            assert coverage.task_done
+
+            variation = Variation.query.get(
+                data.VariationData.exome_subset_variation.id)
+            result = tasks.import_variation.delay(variation.id)
+            assert variation.task_done
+
+            variation.sample.active = True
+
+            coverage = Coverage.query.get(
+                data.CoverageData.exome_subsubset_coverage.id)
+            result = tasks.import_coverage.delay(coverage.id)
+            assert coverage.task_done
+
+            variation = Variation.query.get(
+                data.VariationData.exome_subsubset_variation.id)
+            result = tasks.import_variation.delay(variation.id)
+            assert variation.task_done
+
+            variation.sample.active = True
+
+            db.session.commit()
+
+            query_frequency = QueryFrequency.query.get(
+                data.QueryFrequencyData.exome_query_frequency_for_exome_subset_and_exome_subsubset.id)
+
+            data_source = DataSource.query.get(
+                data.DataSourceData.exome_variation.id)
+            annotated_file = StringIO.StringIO()
+
+            with data_source.data() as data:
+                checksum, records = utils.digest(data)
+
+            with data_source.data() as data:
+                tasks.annotate_variants(data, annotated_file,
+                                        original_filetype=data_source.filetype,
+                                        annotated_filetype='vcf',
+                                        original_records=records,
+                                        global_frequency=False,
+                                        query_frequencies=[query_frequency],
+                                        exclude_checksum=checksum)
+
+            lines = annotated_file.getvalue().split('\n')
+            reader = vcf.Reader(lines)
+
+            assert_equal([(record.INFO['Q1_VN'], record.INFO['Q1_VF']) for record in reader],
+                         [([2], [1.0]),
+                          ([2], [0.5]),
+                          ([2], [1.0]),
+                          ([0], [0.0]),
+                          ([0], [0.0]),
+                          ([0], [0.0]),
+                          ([2], [1.0]),
+                          ([1], [1.0]),
+                          ([2], [1.0]),
+                          ([2], [0.5]),
+                          ([2], [1.0]),
+                          ([2, 2], [1.0, 0.0]),
+                          ([0], [0.0]),
+                          ([2], [0.0]),
+                          ([2], [0.5]),
+                          ([2], [0.5])])

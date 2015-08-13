@@ -654,6 +654,50 @@ class Annotation(db.Model):
                                                             self.task_uuid)
 
 
+query_membership = db.Table(
+    'query_membership', db.Model.metadata,
+    db.Column('query_frequency_id', db.Integer,
+              db.ForeignKey('query_frequency.id', ondelete='CASCADE'),
+              nullable=False),
+    db.Column('sample_id', db.Integer,
+              db.ForeignKey('sample.id', ondelete='CASCADE'),
+              nullable=False))
+
+
+class QueryFrequency(db.Model):
+    """
+    A set of samples over which observation frequencies are annotated.
+    """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    annotation_id = db.Column(db.Integer,
+                              db.ForeignKey('annotation.id', ondelete='CASCADE'),
+                              nullable=False)
+
+    #: Human-readable name.
+    name = db.Column(db.String(200))
+
+    #: A link to each :class:`Sample` which is included in this query.
+    samples = db.relationship(Sample, secondary=query_membership,
+                              cascade='all', passive_deletes=True)
+
+    #: The :class:`Annotation` this query belongs to.
+    annotation = db.relationship(Annotation,
+                                 backref=db.backref('query_frequencies', lazy='dynamic',
+                                                    cascade='all, delete-orphan',
+                                                    passive_deletes=True))
+
+    def __init__(self, annotation, name, samples):
+        self.annotation = annotation
+        self.name = name
+        self.samples = samples
+
+    @detached_session_fix
+    def __repr__(self):
+        return '<QueryFrequency>'
+
+
 class Observation(db.Model):
     """
     Observation of a variant in a sample (one or more individuals).

@@ -105,7 +105,8 @@ def annotate_data_source(original, annotated_variants,
 def annotate_variants(original_variants, annotated_variants,
                       original_filetype='vcf', annotated_filetype='vcf',
                       global_frequency=True, sample_frequencies=None,
-                      original_records=1, exclude_checksum=None):
+                      query_frequencies=None, original_records=1,
+                      exclude_checksum=None):
     """
     Read variants from a file and write them to another file with frequency
     annotation.
@@ -124,6 +125,8 @@ def annotate_variants(original_variants, annotated_variants,
     :type global_frequency: bool
     :arg sample_frequencies: List of samples to compute frequencies for.
     :type sample_frequencies: list of Sample
+    :arg query_frequencies: List of queries to compute frequencies for.
+    :type query_frequencies: list of QueryFrequency
     :arg original_records: Number of records in original variants file.
     :type original_records: int
     :arg exclude_checksum: Checksum of data source(s) to exclude variation
@@ -165,6 +168,21 @@ def annotate_variants(original_variants, annotated_variants,
       frequency, i.e., the ratio of individuals in which the allele was
       observed homozygous.
 
+    For the per-query frequencies, we use the following fields, where the
+    ``Q1`` prefix identifies the query:
+
+    - ``Q1_VN``: For each alternate allele, the number of individuals used for
+      calculating ``Q1_VF``, i.e., the number of individuals that have this
+      region covered.
+    - ``Q1_VF``: For each alternate allele, the observed frequency, i.e., the
+      ratio of individuals in which the allele was observed.
+    - ``Q1_VF_HET``: For each alternate allele, the observed heterozygous
+      frequency, i.e., the ratio of individuals in which the allele was
+      observed heterozygous.
+    - ``Q1_VF_HOM``: For each alternate allele, the observed homozygous
+      frequency, i.e., the ratio of individuals in which the allele was
+      observed homozygous.
+
     Remember that in our model, `sample` is not the same as `individual`. A
     given sample might contain any number of individuals. For example, a
     population study such as 1KG can be modelled as one sample containing
@@ -174,6 +192,7 @@ def annotate_variants(original_variants, annotated_variants,
     # Todo: Here we should check again if the samples we use are active, since
     #     it could be a long time ago when this task was submitted.
     sample_frequencies = sample_frequencies or []
+    query_frequencies = query_frequencies or []
 
     if original_filetype != 'vcf':
         raise ReadError('Original data must be in VCF format')
@@ -205,10 +224,10 @@ def annotate_variants(original_variants, annotated_variants,
             'homozygous.')
 
     # S1, S2, ... etcetera (one for each entry in `sample_frequencies`).
-    labels = ['S' + str(i + 1) for i, _ in enumerate(sample_frequencies)]
+    sample_labels = ['S' + str(i + 1) for i, _ in enumerate(sample_frequencies)]
 
     # Header lines in VCF output for sample frequencies.
-    for sample, label in zip(sample_frequencies, labels):
+    for sample, label in zip(sample_frequencies, sample_labels):
         if sample.coverage_profile:
             description = ('having this region covered (out of %i considered)'
                            % sample.pool_size)
@@ -231,6 +250,35 @@ def annotate_variants(original_variants, annotated_variants,
             'Ratio of individuals in %s in which the allele was observed as '
             'homozygous.'
             % sample.name)
+
+    # Q1, Q2, ... etcetera (one for each entry in `query_frequencies`).
+    query_labels = ['Q' + str(i + 1) for i, _ in enumerate(query_frequencies)]
+
+    # Header lines in VCF output for query frequencies.
+    for query, label in zip(query_frequencies, query_labels):
+        # TODO: The number of samples considered is those listed in the query
+        # minus:
+        #  - observations imported from data source with `exclude_checksum`
+        #  - samples without coverage profile
+        #  - samples not activated
+        reader.infos[label + '_VN'] = VcfInfo(
+            label + '_VN', vcf_field_counts['A'], 'Integer',
+            'Number of individuals in %s having this region covered (out of '
+            '%i considered)' % (query.name, len(query.samples)))
+        reader.infos[label + '_VF'] = VcfInfo(
+            label + '_VF', vcf_field_counts['A'], 'Float',
+            'Ratio of individuals in %s in which the allele was observed.'
+            % query.name)
+        reader.infos[label + '_VF_HET'] = VcfInfo(
+            label + '_VF_HET', vcf_field_counts['A'], 'Float',
+            'Ratio of individuals in %s in which the allele was observed as '
+            'heterozygous.'
+            % query.name)
+        reader.infos[label + '_VF_HOM'] = VcfInfo(
+            label + '_VF_HOM', vcf_field_counts['A'], 'Float',
+            'Ratio of individuals in %s in which the allele was observed as '
+            'homozygous.'
+            % query.name)
 
     writer = vcf.Writer(annotated_variants, reader, lineterminator='\n')
 
@@ -256,6 +304,7 @@ def annotate_variants(original_variants, annotated_variants,
 
         global_result = []
         sample_results = [[] for _ in sample_frequencies]
+        query_results = [[] for _ in query_frequencies]
         for index, allele in enumerate(record.ALT):
             try:
                 chromosome, position, reference, observed = normalize_variant(
@@ -275,16 +324,26 @@ def annotate_variants(original_variants, annotated_variants,
                         chromosome, position, reference, observed,
                         sample=sample, exclude_checksum=exclude_checksum))
 
+            for i, query in enumerate(query_frequencies):
+                query_results[i].append(calculate_frequency(
+                        chromosome, position, reference, observed,
+                        samples=query.samples, exclude_checksum=exclude_checksum))
+
         if global_frequency:
             record.add_info('GLOBAL_VN', [vn for vn, _ in global_result])
             record.add_info('GLOBAL_VF', [sum(vf.values()) for _, vf in global_result])
             record.add_info('GLOBAL_VF_HET', [vf['heterozygous'] for _, vf in global_result])
             record.add_info('GLOBAL_VF_HOM', [vf['homozygous'] for _, vf in global_result])
-        for sample_result, label in zip(sample_results, labels):
+        for sample_result, label in zip(sample_results, sample_labels):
             record.add_info(label + '_VN', [vn for vn, _ in sample_result])
             record.add_info(label + '_VF', [sum(vf.values()) for _, vf in sample_result])
             record.add_info(label + '_VF_HET', [vf['heterozygous'] for _, vf in sample_result])
             record.add_info(label + '_VF_HOM', [vf['homozygous'] for _, vf in sample_result])
+        for query_result, label in zip(query_results, query_labels):
+            record.add_info(label + '_VN', [vn for vn, _ in query_result])
+            record.add_info(label + '_VF', [sum(vf.values()) for _, vf in query_result])
+            record.add_info(label + '_VF_HET', [vf['heterozygous'] for _, vf in query_result])
+            record.add_info(label + '_VF_HOM', [vf['homozygous'] for _, vf in query_result])
 
         writer.write_record(record)
 
@@ -292,7 +351,8 @@ def annotate_variants(original_variants, annotated_variants,
 def annotate_regions(original_regions, annotated_variants,
                      original_filetype='bed', annotated_filetype='csv',
                      global_frequency=True, sample_frequencies=None,
-                     original_records=1, exclude_checksum=None):
+                     query_frequencies=None, original_records=1,
+                     exclude_checksum=None):
     """
     Read regions from a file and write variant frequencies to another file.
 
@@ -310,6 +370,8 @@ def annotate_regions(original_regions, annotated_variants,
     :type global_frequency: bool
     :arg sample_frequencies: List of samples to compute frequencies for.
     :type sample_frequencies: list of Sample
+    :arg query_frequencies: List of queries to compute frequencies for.
+    :type query_frequencies: list of QueryFrequency
     :arg original_records: Number of records in original regions file.
     :type original_records: int
     :arg exclude_checksum: Checksum of data source(s) to exclude variation
@@ -356,6 +418,18 @@ def annotate_regions(original_regions, annotated_variants,
     - ``S1_VF_HOM``: The observed homozygous frequency, i.e., the ratio of
       individuals in which the alternate allele was observed homozygous.
 
+    For the per-query frequencies, we use the following fields, where the
+    ``Q1`` prefix identifies the query:
+
+    - ``Q1_VN``: The number of individuals used for calculating ``Q1_VF``,
+      i.e., the number of individuals that have this region covered.
+    - ``Q1_VF``: The observed frequency, i.e., the ratio of individuals in
+      which the alternate allele was observed.
+    - ``Q1_VF_HET``: The observed heterozygous frequency, i.e., the ratio of
+      individuals in which the alternate allele was observed heterozygous.
+    - ``Q1_VF_HOM``: The observed homozygous frequency, i.e., the ratio of
+      individuals in which the alternate allele was observed homozygous.
+
     Remember that in our model, `sample` is not the same as `individual`. A
     given sample might contain any number of individuals. For example, a
     population study such as 1KG can be modelled as one sample containing
@@ -365,6 +439,7 @@ def annotate_regions(original_regions, annotated_variants,
     # Todo: Here we should check again if the samples we use are active, since
     #     it could be a long time ago when this task was submitted.
     sample_frequencies = sample_frequencies or []
+    query_frequencies = query_frequencies or []
 
     if original_filetype != 'bed':
         raise ReadError('Original data must be in BED format')
@@ -394,10 +469,10 @@ def annotate_regions(original_regions, annotated_variants,
             'observed as homozygous.\n')
 
     # S1, S2, ... etcetera (one for each entry in `sample_frequencies`).
-    labels = ['S' + str(i + 1) for i, _ in enumerate(sample_frequencies)]
+    sample_labels = ['S' + str(i + 1) for i, _ in enumerate(sample_frequencies)]
 
     # Header lines in CSV output for sample frequencies.
-    for sample, label in zip(sample_frequencies, labels):
+    for sample, label in zip(sample_frequencies, sample_labels):
         header_fields.extend([label + '_VN', label + '_VF', label + '_VF_HET',
                               label + '_VF_HOM'])
         if sample.coverage_profile:
@@ -418,6 +493,32 @@ def annotate_regions(original_regions, annotated_variants,
             '##' + label + '_VF_HOM: Ratio of individuals in %s in which the '
             'allele was observed as homozygous.\n' % sample.name)
 
+    # Q1, Q2, ... etcetera (one for each entry in `query_frequencies`).
+    query_labels = ['S' + str(i + 1) for i, _ in enumerate(query_frequencies)]
+
+    # Header lines in CSV output for query frequencies.
+    for query, label in zip(query_frequencies, query_labels):
+        header_fields.extend([label + '_VN', label + '_VF', label + '_VF_HET',
+                              label + '_VF_HOM'])
+        # TODO: The number of samples considered is those listed in the query
+        # minus:
+        #  - observations imported from data source with `exclude_checksum`
+        #  - samples without coverage profile
+        #  - samples not activated
+        annotated_variants.write(
+            '##' + label + '_VN: Number of individuals in %s having this '
+            'region covered (out of %i considered).\n' %
+            (query.name, len(query.samples)))
+        annotated_variants.write(
+            '##' + label + '_VF: Ratio of individuals in %s in which the '
+            'allele was observed.\n' % query.name)
+        annotated_variants.write(
+            '##' + label + '_VF_HET: Ratio of individuals in %s in which the '
+            'allele was observed as heterozygous.\n' % query.name)
+        annotated_variants.write(
+            '##' + label + '_VF_HOM: Ratio of individuals in %s in which the '
+            'allele was observed as homozygous.\n' % query.name)
+
     annotated_variants.write('#' + '\t'.join(header_fields) + '\n')
 
     old_percentage = -1
@@ -437,6 +538,7 @@ def annotate_regions(original_regions, annotated_variants,
 
         global_result = []
         sample_results = [[] for _ in sample_frequencies]
+        query_results = [[] for _ in query_frequencies]
 
         bins = all_bins(begin, end)
         observations = Observation.query.filter(
@@ -445,9 +547,12 @@ def annotate_regions(original_regions, annotated_variants,
             Observation.position <= end,
             Observation.bin.in_(bins))
 
-        # Only observations from selected samples, or from samples with
-        # coverage profiles if global frequency is selected.
+        # Only observations from queried samples:
+        # - Samples with coverage profiles if global frequency is selected
+        # - Samples listed in `sample_frequencies`.
+        # - Samples included in `query_frequencies`.
         clauses = [Sample.id.in_(s.id for s in sample_frequencies)]
+        clauses += [Sample.id.in_(s.id for q in query_frequencies for s in q.samples)]
         if global_frequency:
             clauses.append(and_(Sample.active == True, Sample.coverage_profile == True))
         observations = observations.join(Variation).join(Sample).filter(or_(*clauses))
@@ -482,6 +587,14 @@ def annotate_regions(original_regions, annotated_variants,
                     observation.chromosome, observation.position,
                     observation.reference, observation.observed,
                     sample=sample, exclude_checksum=exclude_checksum)
+                fields.extend([vn, sum(vf.values()), vf['heterozygous'],
+                               vf['homozygous']])
+
+            for _, query in enumerate(query_frequencies):
+                vn, vf = calculate_frequency(
+                    observation.chromosome, observation.position,
+                    observation.reference, observation.observed,
+                    samples=query.samples, exclude_checksum=exclude_checksum)
                 fields.extend([vn, sum(vf.values()), vf['heterozygous'],
                                vf['homozygous']])
 
@@ -899,6 +1012,7 @@ def write_annotation(annotation_id):
                                  annotated_filetype=annotated_data_source.filetype,
                                  global_frequency=annotation.global_frequency,
                                  sample_frequencies=annotation.sample_frequencies,
+                                 query_frequencies=annotation.query_frequencies,
                                  original_records=original_data_source.records,
                                  exclude_checksum=original_data_source.checksum)
     except ReadError as e:

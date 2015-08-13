@@ -340,9 +340,11 @@ def read_genotype(call, prefer_likelihoods=False):
 
 
 def calculate_frequency(chromosome, position, reference, observed,
-                        sample=None, exclude_checksum=None):
+                        sample=None, samples=None, exclude_checksum=None):
     """
     Calculate frequency for a variant.
+
+    The `sample` and `samples` arguments are mutually exclusive.
 
     :arg chromosome: Chromosome name.
     :type chromosome: str
@@ -353,6 +355,10 @@ def calculate_frequency(chromosome, position, reference, observed,
     :type reference: str
     :arg observed: Observed sequence.
     :type observed: str
+    :arg sample: If set, calculate the frequency within this sample.
+    :type sample: Sample
+    :arg samples: If set, calculate the frequency within these samples.
+    :type samples: list of Sample
 
     :return: A tuple of the number of individuals having coverage and a
         dictionary with for every zygosity the ratio of individuals with
@@ -365,7 +371,7 @@ def calculate_frequency(chromosome, position, reference, observed,
     if sample:
         observations = collections.Counter(dict(
             db.session.query(Observation.zygosity,
-                          func.sum(Observation.support)).
+                             func.sum(Observation.support)).
             filter(Observation.bin.in_(bins)).
             filter_by(chromosome=chromosome,
                       position=position,
@@ -388,7 +394,7 @@ def calculate_frequency(chromosome, position, reference, observed,
             coverage = sample.pool_size
 
     else:
-        # Frequency over entire database, except:
+        # Frequency over entire database or selected samples, except:
         #  - observations imported from data source with `exclude_checksum`
         #  - samples without coverage profile
         #  - samples not activated
@@ -397,9 +403,11 @@ def calculate_frequency(chromosome, position, reference, observed,
         # Todo: More seriously, also the corresponding region should be
         #     excluded. I see no real other way to do this than by excluding
         #     the entire sample.
+        sample_filters = [Sample.id.in_(s.id for s in samples)] if samples else []
+
         observations = collections.Counter(dict(
             db.session.query(Observation.zygosity,
-                          func.sum(Observation.support)).
+                             func.sum(Observation.support)).
             filter(Observation.bin.in_(bins)).
             filter_by(chromosome=chromosome,
                       position=position,
@@ -407,6 +415,7 @@ def calculate_frequency(chromosome, position, reference, observed,
                       observed=observed).
             join(Variation).
             join(Sample).
+            filter(*sample_filters).
             filter_by(active=True,
                       coverage_profile=True).
             join(DataSource).
@@ -417,7 +426,8 @@ def calculate_frequency(chromosome, position, reference, observed,
             Region.chromosome == chromosome,
             Region.begin <= position,
             Region.end >= end_position,
-            Region.bin.in_(bins)).join(Sample).filter_by(
+            Region.bin.in_(bins)).join(Sample).filter(
+            *sample_filters).filter_by(
             active=True).count()
 
     # Todo: Use constant definition for zygosity, probably shared with the
