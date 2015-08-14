@@ -12,7 +12,8 @@ import re
 from flask import abort, current_app, g, jsonify, url_for
 
 from ... import db
-from ...models import Annotation, DataSource, InvalidDataSource, Sample
+from ...models import (Annotation, DataSource, InvalidDataSource,
+                       QueryFrequency, Sample)
 from ... import tasks
 from ..security import has_role, is_user, owns_annotation, owns_data_source
 from .base import TaskedResource
@@ -68,7 +69,10 @@ class AnnotationsResource(TaskedResource):
                   'global_frequency': {'type': 'boolean'},
                   'sample_frequencies': {'type': 'list',
                                          'maxlength': 30,
-                                         'schema': {'type': 'sample'}}}
+                                         'schema': {'type': 'sample'}},
+                  'query_frequencies': {'type': 'list',
+                                        'maxlength': 30,
+                                        'schema': {'type': 'string'}}}
 
     delete_ensure_conditions = [has_role('admin'), owns_annotation]
     delete_ensure_options = {'satisfy': any}
@@ -124,7 +128,7 @@ class AnnotationsResource(TaskedResource):
 
     @classmethod
     def add_view(cls, data_source, name=None, global_frequency=True,
-                 sample_frequencies=None):
+                 sample_frequencies=None, query_frequencies=None):
         """
         Adds an annotation resource.
 
@@ -145,6 +149,7 @@ class AnnotationsResource(TaskedResource):
         - **name** (`string`)
         - **global_frequency** (`boolean`)
         - **sample_frequencies** (`list` of `uri`)
+        - **query_frequencies** (`list` of `string`)
         """
         # Todo: Check if data source is a VCF file.
         # The `satisfy` keyword argument used here in the `ensure` decorator means
@@ -153,6 +158,7 @@ class AnnotationsResource(TaskedResource):
         # - owns_data_source AND annotator
         # - owns_data_source AND trader
         sample_frequencies = sample_frequencies or []
+        query_frequencies = query_frequencies or []
         name = name or '%s (annotated)' % data_source.name
 
         for sample in sample_frequencies:
@@ -184,6 +190,21 @@ class AnnotationsResource(TaskedResource):
                                 global_frequency=global_frequency,
                                 sample_frequencies=sample_frequencies)
         db.session.add(annotation)
+
+        for query in query_frequencies:
+            # TODO: Custom argument type for query which is just a string
+            # automatically parsed into a query object.
+            # All group URIs should be resolved to their model instance.
+            # From that query object, build an SQL query.
+            # For now, we should only support boolean queries on group
+            # membership, but as our backend is more general (storing just
+            # the matching samples), we might support other operands in the
+            # future.
+            samples = get_matching_samples(query)
+            # TODO: How to provide or generate a meaningful name?
+            query_frequency = QueryFrequency(annotation, query, samples)
+            db.session.add(query_frequency)
+
         db.session.commit()
         current_app.logger.info('Added data source: %r', annotated_data_source)
         current_app.logger.info('Added annotation: %r', annotation)
