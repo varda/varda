@@ -1,17 +1,17 @@
 Flask==0.10.1
 -e git+https://github.com/varda/flask-sqlalchemy.git@varda#egg=Flask-SQLAlchemy
 PyVCF==0.6.7
-SQLAlchemy==0.9.3
+SQLAlchemy==1.0.8
 celery==3.1.9
 celery-with-redis==3.0
 nose==1.3.0
-psycopg2==2.5.3
+psycopg2==2.6.1
 py-bcrypt==0.4
 Sphinx==1.2.2
 pyfaidx==0.4.1
 sphinxcontrib-httpdomain==1.2.0
 Cerberus==0.1.0
-alembic==0.6.3
+alembic==0.8.2
 semantic-version==2.2.2
 Flask-Testing==0.4.1
 fixture==1.5

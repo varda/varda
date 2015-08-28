@@ -55,7 +55,11 @@ def database_setup(app, alembic_config='alembic.ini', destructive=False,
     with app.app_context():
         if destructive:
             db.drop_all()
-        db.create_all()
+
+        if destructive or not db.engine.has_table(User.__tablename__):
+            # We assume our migrations will take care of everything if at
+            # least the User table eists.
+            db.create_all()
 
         admin_setup(password_hash=admin_password_hash)
 
