@@ -268,14 +268,35 @@ class ModelResource(Resource):
         # [1] http://www.postgresql.org/docs/8.0/static/queries-limit.html
         # [2] http://www.sqlalchemy.org/trac/wiki/UsageRecipes/WindowedRangeQuery
         # [3] http://stackoverflow.com/questions/6618366/improving-offset-performance-in-postgresql
+        #
+        # Todo: We might want to allow lists as filter values and interpret
+        #     them as a disjunction.
         instances = cls.model.query
         for field, value in filter.items():
             try:
-                model, field = field.split('.')
-                instances = instances.filter(
-                    getattr(cls.model, model).has(**{field: value}))
+                # We can filter on a field of a linked resource by using the
+                # syntax ``<link>.<field>``.
+                link, field = field.split('.')
+                filter_method = lambda criterion: instances.filter(
+                    getattr(cls.model, link).has(criterion))
+                model = getattr(cls.model, link).mapper.class_
             except ValueError:
-                instances = instances.filter_by(**{field: value})
+                filter_method = instances.filter
+                model = cls.model
+            # This is a bit of a hack to detect *lists* of filterable fields.
+            # This currently only works for relationship fields. A better way
+            # would be perhaps to have this information in the resource class.
+            # The current approach also doesn't generalize to other `Resource`
+            # implementations since it's specific to `ModelResource` with
+            # SQLAlchemy.
+            try:
+                if getattr(model, field).property.uselist:
+                    criterion = getattr(model, field).contains(value)
+                else:
+                    criterion = getattr(model, field) == value
+            except AttributeError:
+                criterion = getattr(model, field) == value
+            instances = filter_method(criterion)
         instances = instances.order_by(*[getattr(getattr(cls.model, f), d)()
                                          for f, d in cls.get_order(order)])
         items = [cls.serialize(r, embed=embed)
