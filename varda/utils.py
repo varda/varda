@@ -87,7 +87,7 @@ def normalize_chromosome(chromosome):
         chromosome = chromosome[3:]
 
     if not genome:
-        for aliases in current_app.conf['CHROMOSOME_ALIASES']:
+        for aliases in current_app.config['CHROMOSOME_ALIASES']:
             if chromosome in aliases or 'chr' + chromosome in aliases:
                 return aliases[0]
         return chromosome
@@ -97,7 +97,7 @@ def normalize_chromosome(chromosome):
     elif 'chr' + chromosome in genome:
         return 'chr' + chromosome
 
-    for aliases in current_app.conf['CHROMOSOME_ALIASES']:
+    for aliases in current_app.config['CHROMOSOME_ALIASES']:
         if chromosome in aliases or 'chr' + chromosome in aliases:
             for alias in aliases:
                 if alias in genome:
