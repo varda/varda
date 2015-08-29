@@ -14,7 +14,7 @@ import urllib
 
 from cerberus import ValidationError as CerberusValidationError, Validator
 import cerberus.errors
-from flask import abort, current_app, g, request
+from flask import abort, current_app, g, json, request
 
 from ..models import (Annotation, Coverage, DataSource, Sample, Token, User,
                       Variation)
@@ -316,6 +316,13 @@ def data(**schema):
         def data_rule(*args, **kwargs):
             # Todo: Look into Flask's `request.on_json_loading_failed`.
             raw_data = request.json or request.values.to_dict()
+            try:
+                # We provide a workaround for clients that are unable to send
+                # a body with GET requests (i.e., browsers). They can send a
+                # JSON-encoded string in the `__json__` query parameter.
+                raw_data.update(**json.loads(raw_data.pop('__json__')))
+            except (KeyError, TypeError, ValueError):
+                pass
             raw_data.update(**kwargs)
             data = cast(raw_data, schema)
             try:
