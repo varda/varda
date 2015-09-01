@@ -12,20 +12,12 @@ import re
 from flask import abort, current_app, g, jsonify, url_for
 
 from ... import db
-from ...models import Annotation, DataSource, InvalidDataSource, Sample
-from ... import tasks
+from ...models import (Annotation, DataSource, InvalidDataSource, Sample,
+                       Variation)
+from ... import expressions, tasks
 from ..security import has_role, is_user, owns_annotation, owns_data_source
 from .base import TaskedResource
 from .data_sources import DataSourcesResource
-
-
-def _satisfy_add(conditions):
-    is_admin, is_annotator, is_trader, owns_data_source = conditions
-    if is_admin:
-        return True
-    if owns_data_source:
-        return is_annotator or is_trader
-    return False
 
 
 class AnnotationsResource(TaskedResource):
@@ -60,15 +52,13 @@ class AnnotationsResource(TaskedResource):
     get_ensure_conditions = [has_role('admin'), owns_annotation]
     get_ensure_options = {'satisfy': any}
 
-    add_ensure_conditions = [has_role('admin'), has_role('annotator'),
-                             has_role('trader'), owns_data_source]
-    add_ensure_options = {'satisfy': _satisfy_add}
+    add_ensure_conditions = [has_role('admin'), owns_data_source]
+    add_ensure_options = {'satisfy': any}
     add_schema = {'data_source': {'type': 'data_source', 'required': True},
                   'name': {'type': 'string', 'maxlength': 200},
-                  'global_frequency': {'type': 'boolean'},
-                  'sample_frequency': {'type': 'list',
-                                       'maxlength': 30,
-                                       'schema': {'type': 'sample'}}}
+                  'queries': {'type': 'list',
+                              'maxlength': 10,
+                              'schema': {'type': 'query'}}}
 
     delete_ensure_conditions = [has_role('admin'), owns_annotation]
     delete_ensure_options = {'satisfy': any}
@@ -92,8 +82,7 @@ class AnnotationsResource(TaskedResource):
           :ref:`Link <api-links>` to a :ref:`data source
           <api-resources-data-sources-instances>` resource (embeddable).
 
-        .. todo:: Include and document the `global_frequency` and
-           `sample_frequency` fields.
+        .. todo:: Include and document the associated queries.
         """
         return super(AnnotationsResource, cls).serialize(instance, embed=embed)
 
@@ -123,18 +112,35 @@ class AnnotationsResource(TaskedResource):
         return super(AnnotationsResource, cls).get_view(*args, **kwargs)
 
     @classmethod
-    def add_view(cls, data_source, name=None, global_frequency=True,
-                 sample_frequency=None):
+    def add_view(cls, data_source, name=None, queries=None):
         """
         Adds an annotation resource.
 
-        .. note:: Requires on or more of the following:
+        .. note:: Requires having the `admin` role or being the owner of the
+           data source specified by the `data_source` field.
 
-           - Having the `admin` role.
-           - Having the `annotator` role **and** being the owner of the data
-             source specified by the `data_source` field.
-           - Having the `trader` role **and** being the owner of the data
-             source specified by the `data_source` field.
+           Queries may have additional requirements depending on their
+           expression:
+
+           1. Query expressions of the form ``sample:<uri>`` require one of
+              the following:
+
+              - Having the `admin` role.
+              - Owning the sample specified by ``<uri>``.
+              - The sample specified by ``<uri>`` being public.
+
+           2. Query expressions of the form ``*`` require having the `admin`,
+              `annotator`, or `trader` role, where the `trader` role
+              additionally requires that `data_source` has been imported as
+              variation in an active sample.
+
+           3. Query expressions containing only group clauses require the same
+              as those of the form ``*``, where the `annotator` and `trader`
+              roles additionally require having the `group-querier` role.
+
+           4. Other query expressions require the same as those containing only
+              group clauses, where the `annotator` and `trader` roles require
+              having the `querier` role instead of the `group-querier` role.
 
         **Required request data:**
 
@@ -143,33 +149,63 @@ class AnnotationsResource(TaskedResource):
         **Accepted request data:**
 
         - **name** (`string`)
-        - **global_frequency** (`boolean`)
-        - **sample_frequency** (`list` of `uri`)
+        - **queries** (`list` of `object`)
+
+        Every object in the `queries` list defines a
+        :ref:`query <api-queries>`; a set of samples over which observation
+        frequencies are annotated. When annotating a VCF data source, any
+        samples having this data source as variation are excluded.
         """
-        # Todo: Check if data source is a VCF file.
-        # The `satisfy` keyword argument used here in the `ensure` decorator means
-        # that we ensure at least one of:
-        # - admin
-        # - owns_data_source AND annotator
-        # - owns_data_source AND trader
-        sample_frequency = sample_frequency or []
+        queries = queries or []
         name = name or '%s (annotated)' % data_source.name
 
-        for sample in sample_frequency:
-            if not (sample.public or
-                    sample.user is g.user or
-                    'admin' in g.user.roles):
-                # Todo: Meaningful error message.
-                abort(400)
+        # Samples that have this data source as an imported VCF file.
+        data_source_samples = Sample.query.join(Variation).filter_by(
+            data_source_id=data_source.id).all()
 
-        if 'admin' not in g.user.roles and 'annotator' not in g.user.roles:
-            # This is a trader, so check if the data source has been imported in
-            # an active sample.
-            # Todo: Anyone should be able to annotate against the public samples.
-            # Todo: This check is bogus when annotating a BED file.
-            if not data_source.variations.join(Sample).filter_by(active=True).count():
-                raise InvalidDataSource('inactive_data_source', 'Data source '
-                    'cannot be annotated unless it is imported in an active sample')
+        # Todo: Meaningful error messages instead of abort(400).
+        for query in queries:
+            if query.singleton:
+                query.require_active = False
+                query.require_coverage_profile = False
+
+                try:
+                    sample = query.samples[0]
+                except IndexError:
+                    # This should not really be possible, we already checked
+                    # the sample exists.
+                    abort(400)
+
+                if not (sample.public or
+                        sample.user is g.user or
+                        'admin' in g.user.roles):
+                    abort(400)
+
+            else:
+                if not ('admin' in g.user.roles or 'annotator' in g.user.roles):
+                    if 'trader' in g.user.roles:
+                        if not data_source.variations.join(Sample).filter_by(active=True).count():
+                            raise InvalidDataSource(
+                                'inactive_data_source', 'Data source cannot '
+                                'be annotated unless it is imported in an '
+                                'active sample')
+                    else:
+                        abort(400)
+
+                if not query.tautology:
+                    roles = ['admin', 'querier']
+                    if query.only_group_clauses:
+                        roles.append('group-querier')
+
+                    if not any(role in g.user.roles for role in roles):
+                        abort(400)
+
+            # If we are annotating a VCF file that is part of an imported
+            # sample, we should exclude that sample.
+            for sample in data_source_samples:
+                query.expression = expressions.make_conjunction(
+                    expressions.parse('not sample:%d' % sample.id),
+                    query.expression)
 
         # For now, we only support VCF->VCF and BED->CSV.
         if data_source.filetype == 'vcf':
@@ -181,9 +217,9 @@ class AnnotationsResource(TaskedResource):
                                            empty=True, gzipped=True)
         db.session.add(annotated_data_source)
         annotation = Annotation(data_source, annotated_data_source,
-                                global_frequency=global_frequency,
-                                sample_frequency=sample_frequency)
+                                queries=queries)
         db.session.add(annotation)
+
         db.session.commit()
         current_app.logger.info('Added data source: %r', annotated_data_source)
         current_app.logger.info('Added annotation: %r', annotation)

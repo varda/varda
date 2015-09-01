@@ -167,23 +167,25 @@ class Resource(object):
     def serialize(cls, instance, embed=None):
         embed = embed or []
         serialization = {'uri': cls.instance_uri(instance)}
-        for field, resource in cls.embeddable.items():
-            if field in embed:
-                s = resource.serialize(getattr(instance, field))
-            else:
-                # Note: By default (i.e., without embedding), we don't want
-                #     to have an extra query for the embedded resource, which
-                #     is what happens if we would write `instance.field.id`.
-                #     So we make sure we really write `instance.field_id`.
-                # Todo: Only do this in `ModelResource`.
-                # Note: We rely on the convention that relationships in our
-                #     models are defined such that the foreign key field is
-                #     the relationship name with ``_id`` suffix.
-                key = field + '_id'
-                s = {'uri': resource.instance_uri_by_key(getattr(instance,
-                                                                 key))}
-            serialization.update({field: s})
+        serialization.update({field: resource.serialize_in_parent(instance,
+                                                                  field,
+                                                                  embedded=field in embed)
+                              for field, resource in cls.embeddable.items()})
         return serialization
+
+    @classmethod
+    def serialize_in_parent(cls, parent_instance, field, embedded=False):
+        """
+        To be implemented by a subclass.
+
+        If `field` is a scalar resource in `parent_instance`, this should
+        return a dictionary with the resource uri for key `uri`. Other data
+        may be added to the dictionary if `embedded=True`.
+
+        If `field` is a list of resources in `parent_instance`, this should
+        return a list of the same.
+        """
+        raise NotImplementedError
 
     @classmethod
     def get_view(cls, embed=None, **kwargs):
@@ -232,6 +234,32 @@ class ModelResource(Resource):
     default_order = [('id', 'asc')]
 
     @classmethod
+    def serialize_in_parent(cls, parent_instance, field, embedded=False):
+        # This is a bit of a hack to detect *lists* of embeddable fields. A
+        # better way would be perhaps to have this information in the resource
+        # class of the parent, or have a separate resource class for lists.
+        # The current approach also doesn't generalize to other `Resource`
+        # implementations since it's specific to `ModelResource` with
+        # SQLAlchemy.
+        if getattr(type(parent_instance), field).property.uselist:
+            return [cls.serialize(instance) if embedded
+                    else {'uri': cls.instance_uri(instance)}
+                    for instance in getattr(parent_instance, field)]
+
+        if embedded:
+            return cls.serialize(getattr(parent_instance, field))
+
+        # By default (i.e., without embedding), we don't want to have an extra
+        # query for the embedded resource, which is what happens if we would
+        # write `instance.field.id`. So we make sure we really write
+        # `instance.field_id`.
+        # We rely on the convention that relationships in our models are
+        # defined such that the foreign key field is the relationship name
+        # with ``_id`` suffix.
+        key = field + '_id'
+        return {'uri': cls.instance_uri_by_key(getattr(parent_instance, key))}
+
+    @classmethod
     def list_view(cls, begin, count, embed=None, order=None, **filter):
         # Todo: On large collections, LIMIT/OFFSET may get slow on many rows
         #     [1], so perhaps it's worth considering a recipe like [2] or [3]
@@ -240,14 +268,35 @@ class ModelResource(Resource):
         # [1] http://www.postgresql.org/docs/8.0/static/queries-limit.html
         # [2] http://www.sqlalchemy.org/trac/wiki/UsageRecipes/WindowedRangeQuery
         # [3] http://stackoverflow.com/questions/6618366/improving-offset-performance-in-postgresql
+        #
+        # Todo: We might want to allow lists as filter values and interpret
+        #     them as a disjunction.
         instances = cls.model.query
         for field, value in filter.items():
             try:
-                model, field = field.split('.')
-                instances = instances.filter(
-                    getattr(cls.model, model).has(**{field: value}))
+                # We can filter on a field of a linked resource by using the
+                # syntax ``<link>.<field>``.
+                link, field = field.split('.')
+                filter_method = lambda criterion: instances.filter(
+                    getattr(cls.model, link).has(criterion))
+                model = getattr(cls.model, link).mapper.class_
             except ValueError:
-                instances = instances.filter_by(**{field: value})
+                filter_method = instances.filter
+                model = cls.model
+            # This is a bit of a hack to detect *lists* of filterable fields.
+            # This currently only works for relationship fields. A better way
+            # would be perhaps to have this information in the resource class.
+            # The current approach also doesn't generalize to other `Resource`
+            # implementations since it's specific to `ModelResource` with
+            # SQLAlchemy.
+            try:
+                if getattr(model, field).property.uselist:
+                    criterion = getattr(model, field).contains(value)
+                else:
+                    criterion = getattr(model, field) == value
+            except AttributeError:
+                criterion = getattr(model, field) == value
+            instances = filter_method(criterion)
         instances = instances.order_by(*[getattr(getattr(cls.model, f), d)()
                                          for f, d in cls.get_order(order)])
         items = [cls.serialize(r, embed=embed)

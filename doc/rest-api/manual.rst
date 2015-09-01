@@ -182,6 +182,54 @@ All date and time values are formatted as strings following ISO 8601.
    <http://en.wikipedia.org/wiki/ISO_8601>`_
 
 
+.. _api-queries:
+
+Queries
+-------
+
+A *query* defines a set of samples, used to calculate observation frequencies
+over when annotationg variants. A query is represented as an object with two
+fields:
+
+**name** (`string`)
+  Name for this query (alphanumeric).
+
+**expression** (`string`)
+  Search query string.
+
+The `expression` field is a boolean search query string in which clauses can
+reference :ref:`sample <api-resources-samples>` resources and :ref:`group
+<api-resources-groups>` resources. This is the grammar for query expressions::
+
+    <expression> ::= <tautology>
+                   | <clause>
+                   | "(" <expression> ")"
+                   | "not" <expression>
+                   | <expression> "and" <expression>
+                   | <expression> "or" <expression>
+
+    <tautology> ::= "*"
+
+    <clause> ::= <resource-type> ":" <uri>
+
+    <resource-type> ::= "sample" | "group"
+
+The tautology query ``*`` matches all samples. A clause of the form
+``sample:<uri>`` matches the sample with the given URI. A clause of the form
+``group:<uri>`` matches samples that are in the group with the given URI.
+
+When creating the set of samples matched by a query expression, only active
+samples with a coverage profile are considered. The exception to this are
+expressions of the form ``sample:<uri>``, which can match inactive samples or
+samples without coverage profile.
+
+As an example, the following is an expression matching the sample with URI
+``/samples/5`` and samples that are in the group with URI ``/groups/3`` but
+not in the group with URI ``/groups/17``::
+
+    sample:/samples/5 or (group:/groups/3 and not group:/groups/17)
+
+
 .. _api-links:
 
 Linked resources and embeddings

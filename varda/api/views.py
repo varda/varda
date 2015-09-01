@@ -18,12 +18,13 @@ from ..utils import chromosome_compare_key
 from .errors import (AcceptError, ActivationFailure, BasicAuthRequiredError,
                      IntegrityError, ValidationError)
 from .resources import (AnnotationsResource, CoveragesResource,
-                        DataSourcesResource, SamplesResource, TokensResource,
-                        UsersResource, VariantsResource, VariationsResource)
+                        DataSourcesResource, GroupsResource, SamplesResource,
+                        TokensResource, UsersResource, VariantsResource,
+                        VariationsResource)
 from .utils import user_by_login, user_by_token
 
 
-API_VERSION = semantic_version.Version('1.0.0')
+API_VERSION = semantic_version.Version('2.0.0')
 
 
 api = Blueprint('api', 'api')
@@ -210,6 +211,7 @@ def error_(error):
 users_resource = UsersResource(api, url_prefix='/users')
 tokens_resource = TokensResource(api, url_prefix='/tokens')
 samples_resource = SamplesResource(api, url_prefix='/samples')
+groups_resource = GroupsResource(api, url_prefix='/groups')
 variations_resource = VariationsResource(api, url_prefix='/variations')
 coverages_resource = CoveragesResource(api, url_prefix='/coverages')
 data_sources_resource = DataSourcesResource(api, url_prefix='/data_sources')
@@ -342,6 +344,7 @@ def root_serialize():
                                  coverages_resource,
                                  data_sources_resource,
                                  samples_resource,
+                                 groups_resource,
                                  tokens_resource,
                                  users_resource,
                                  variants_resource,

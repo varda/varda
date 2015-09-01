@@ -16,11 +16,13 @@ from cerberus import ValidationError as CerberusValidationError, Validator
 import cerberus.errors
 from flask import abort, current_app, g, json, request
 
-from ..models import (Annotation, Coverage, DataSource, Sample, Token, User,
-                      Variation)
+from .. import expressions
+from ..models import (Annotation, Coverage, DataSource, Group, Query, Sample,
+                      Token, User, Variation)
 from .errors import ValidationError
 from .utils import (annotation_by_uri, coverage_by_uri, data_source_by_uri,
-                    sample_by_uri, token_by_uri, user_by_uri, variation_by_uri)
+                    group_by_uri, sample_by_uri, token_by_uri, user_by_uri,
+                    variation_by_uri)
 
 
 # Todo: Rename cast to coerce.
@@ -56,10 +58,12 @@ def cast(document, schema):
                'integer':         _cast_integer,
                'boolean':         _cast_boolean,
                'directed_string': _cast_directed_string,
+               'query':           _cast_query,
                'annotation':      _cast_annotation,
                'coverage':        _cast_coverage,
                'data_source':     _cast_data_source,
                'sample':          _cast_sample,
+               'group':           _cast_group,
                'token':           _cast_token,
                'user':            _cast_user,
                'variant':         _cast_variant,
@@ -138,6 +142,31 @@ def _cast_directed_string(value, definition):
     return value
 
 
+def _cast_query(value, definition):
+    # Convert sample or group URI to corresponding primary key.
+    def uri_to_id(instance_type, uri):
+        if instance_type == 'sample':
+            return sample_by_uri(current_app, uri).id
+        if instance_type == 'group':
+            return group_by_uri(current_app, uri).id
+        raise ValueError('can only query on sample or group')
+
+    # We expect a dictionary with `name` and `expression` fields, so first
+    # just try to cast it to a dictionary as usual.
+    value = _cast_dict(value, definition)
+
+    if isinstance(value, dict):
+        try:
+            name = value['name']
+            expression = expressions.parse(value['expression'])
+            expression = expressions.update_clause_values(expression,
+                                                          uri_to_id)
+            return Query(name, expression)
+        except (KeyError, SyntaxError, ValueError):
+            pass
+    return value
+
+
 # Todo: We'd like to get rid of the `current_app`. Unfortunately, it's also
 #     not really attractive to pass the app as extra argument to all cast
 #     functions.
@@ -170,6 +199,14 @@ def _cast_sample(value, definition):
         return Sample.query.get(value)
     elif isinstance(value, basestring):
         return sample_by_uri(current_app, value)
+    return value
+
+
+def _cast_group(value, definition):
+    if isinstance(value, int):
+        return Group.query.get(value)
+    elif isinstance(value, basestring):
+        return group_by_uri(current_app, value)
     return value
 
 
@@ -242,6 +279,10 @@ class ApiValidator(Validator):
                 or value[1] in ('asc', 'desc')):
             self._error(cerberus.errors.ERROR_BAD_TYPE % (field, 'directed string'))
 
+    def _validate_type_query(self, field, value):
+        if not isinstance(self.document[field], Query):
+            self._error(cerberus.errors.ERROR_BAD_TYPE % (field, 'query'))
+
     def _validate_type_annotation(self, field, value):
         if not isinstance(self.document[field], Annotation):
             self._error(cerberus.errors.ERROR_BAD_TYPE % (field, 'annotation'))
@@ -257,6 +298,10 @@ class ApiValidator(Validator):
     def _validate_type_sample(self, field, value):
         if not isinstance(self.document[field], Sample):
             self._error(cerberus.errors.ERROR_BAD_TYPE % (field, 'sample'))
+
+    def _validate_type_group(self, field, value):
+        if not isinstance(self.document[field], Group):
+            self._error(cerberus.errors.ERROR_BAD_TYPE % (field, 'group'))
 
     def _validate_type_token(self, field, value):
         if not isinstance(self.document[field], Token):

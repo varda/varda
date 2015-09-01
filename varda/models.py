@@ -16,17 +16,19 @@ import gzip
 from hashlib import sha1
 import hmac
 import os
+import re
 import sqlite3
 import uuid
 
 import bcrypt
 from flask import current_app
-from sqlalchemy import event, Index
+from sqlalchemy import event, Index, TypeDecorator
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm.exc import DetachedInstanceError
 import werkzeug
 
 from . import db
+from . import expressions
 from .region_binning import assign_bin
 
 
@@ -37,10 +39,12 @@ OBSERVATION_ZYGOSITIES = ('heterozygous', 'homozygous')
 
 # Note: Add new roles at the end.
 USER_ROLES = (
-    'admin',       # Can do anything.
-    'importer',    # Can import samples.
-    'annotator',   # Can annotate samples.
-    'trader'       # Can annotate samples if they are also imported.
+    'admin',         # Can do anything.
+    'importer',      # Can import samples.
+    'annotator',     # Can annotate variants.
+    'trader',        # Can annotate variants if they are in an active sample.
+    'querier',       # Can use any query expression when annotating.
+    'group-querier'  # Can use group query expressions when annotating.
 )
 
 
@@ -80,6 +84,27 @@ def detached_session_fix(method):
         except DetachedInstanceError:
             return None
     return fixed_method
+
+
+class Expression(TypeDecorator):
+    """
+    Represents a query expression AST as a pretty-printed string.
+
+    Adapted from the `Marshal JSON Strings
+    <http://docs.sqlalchemy.org/en/latest/core/types.html#marshal-json-strings>`_
+    example in the SQLAlchemy documentation.
+    """
+    impl = db.Text
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            value = expressions.pretty_print(value)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return expressions.parse(value)
 
 
 class InvalidDataSource(Exception):
@@ -249,6 +274,35 @@ class Token(db.Model):
         return '<Token %r>' % self.name
 
 
+group_membership = db.Table(
+    'group_membership', db.Model.metadata,
+    db.Column('sample_id', db.Integer,
+              db.ForeignKey('sample.id', ondelete='CASCADE'),
+              nullable=False),
+    db.Column('group_id', db.Integer,
+              db.ForeignKey('group.id', ondelete='CASCADE'),
+              nullable=False))
+
+
+class Group(db.Model):
+    """
+    Sample group (e.g., disease type).
+    """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    #: Human-readable name.
+    name = db.Column(db.String(200))
+
+    def __init__(self, name):
+        self.name = name
+
+    @detached_session_fix
+    def __repr__(self):
+        return '<Group %r>' % (self.name)
+
+
 class Sample(db.Model):
     """
     Sample (of one or more individuals).
@@ -291,8 +345,14 @@ class Sample(db.Model):
     user = db.relationship(User,
                            backref=db.backref('samples', lazy='dynamic'))
 
+    #: A link to each :class:`Group` the sample is a member of.
+    groups = db.relationship(Group, secondary=group_membership,
+                             cascade='all', passive_deletes=True)
+
     def __init__(self, user, name, pool_size=1, coverage_profile=True,
-                 public=False, notes=None):
+                 public=False, notes=None, groups=None):
+        groups = groups or []
+
         self.user = user
         self.name = name
         self.pool_size = pool_size
@@ -300,6 +360,7 @@ class Sample(db.Model):
         self.coverage_profile = coverage_profile
         self.public = public
         self.notes = notes
+        self.groups = groups
 
     @detached_session_fix
     def __repr__(self):
@@ -557,14 +618,110 @@ class Coverage(db.Model):
                                                           self.task_uuid)
 
 
-sample_frequency = db.Table(
-    'sample_frequency', db.Model.metadata,
+annotation_query = db.Table(
+    'annotation_query', db.Model.metadata,
     db.Column('annotation_id', db.Integer,
               db.ForeignKey('annotation.id', ondelete='CASCADE'),
               nullable=False),
-    db.Column('sample_id', db.Integer,
-              db.ForeignKey('sample.id', ondelete='CASCADE'),
+    db.Column('query_id', db.Integer,
+              db.ForeignKey('query.id', ondelete='CASCADE'),
               nullable=False))
+
+
+class Query(db.Model):
+    """
+    A set of samples defined by a search query.
+    """
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8'}
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    #: Identifier for this query (alphanumeric).
+    name = db.Column(db.String(200))
+
+    #: Query expression. Note that this can contain primary keys for
+    #: non-existing :class:`Sample` or :class:`Group` instances, since
+    #: referential integrity is not preserved.
+    expression = db.Column(Expression)
+
+    #: Set to `True` iff the queried samples must be active.
+    require_active = db.Column(db.Boolean)
+
+    #: Set to `True` iff the queried samples must have a coverage profile.
+    require_coverage_profile = db.Column(db.Boolean)
+
+    def __init__(self, name, expression, require_active=True,
+                 require_coverage_profile=True):
+        if not re.match('^[a-zA-Z0-9_]+$', name):
+            raise ValueError('todo')
+
+        self.name = name
+        self.expression = expression
+        self.require_active = require_active
+        self.require_coverage_profile = require_coverage_profile
+
+        self._samples = None
+
+    @db.reconstructor
+    def init_on_load(self):
+        self._samples = None
+
+    @property
+    def tautology(self):
+        """
+        `True` iff the query expression is a tautology (syntactically).
+        """
+        return expressions.is_tautology(self.expression)
+
+    @property
+    def singleton(self):
+        """
+        `True` iff the query expression matches exactly one sample
+        (syntactically).
+        """
+        return expressions.is_singleton(self.expression)
+
+    @property
+    def only_group_clauses(self):
+        """
+        `True` iff the query expression considers only groups in its clauses
+        (i.e., it does not deal with samples).
+        """
+        def is_group_clause(field, value):
+            return field == 'group'
+
+        return expressions.test_clauses(self.expression, is_group_clause)
+
+    @property
+    def samples(self):
+        """
+        List of :class:`Sample` primary keys matched by this query.
+        """
+        def build_clause(field, value):
+            if field == 'sample':
+                return Sample.id == int(value)
+            if field == 'group':
+                return Sample.groups.any(Group.id == int(value))
+            raise ValueError('can only query on sample or group')
+
+        if self._samples is None:
+            criteria = [expressions.build_query_criterion(self.expression,
+                                                          build_clause)]
+
+            if self.require_active:
+                criteria.append(Sample.active)
+
+            if self.require_coverage_profile:
+                criteria.append(Sample.coverage_profile)
+
+            self._samples = Sample.query.filter(*criteria).all()
+
+        return self._samples
+
+    @detached_session_fix
+    def __repr__(self):
+        return '<Query %r, expression=%r>' \
+            % (self.name, expressions.pretty_print(self.expression))
 
 
 class Annotation(db.Model):
@@ -583,14 +740,6 @@ class Annotation(db.Model):
     task_done = db.Column(db.Boolean, default=False)
     task_uuid = db.Column(db.String(36))
 
-    #: Set to `True` iff global observation frequencies are annotated.
-    global_frequency = db.Column(db.Boolean)
-
-    #: A link to each :class:`Sample` for which observation frequencies are
-    #: annotated.
-    sample_frequency = db.relationship(Sample, secondary=sample_frequency,
-                                       cascade='all', passive_deletes=True)
-
     #: The original :class:`DataSource` that is being annotated.
     original_data_source = db.relationship(
         DataSource,
@@ -603,14 +752,16 @@ class Annotation(db.Model):
         primaryjoin='DataSource.id==Annotation.annotated_data_source_id',
         backref=db.backref('annotation', uselist=False, lazy='select'))
 
-    def __init__(self, original_data_source, annotated_data_source,
-                 global_frequency=True, sample_frequency=None):
-        sample_frequency = sample_frequency or []
+    #: A link to each :class:`Query` the annotation has.
+    queries = db.relationship(Query, secondary=annotation_query,
+                              cascade='all', passive_deletes=True)
+
+    def __init__(self, original_data_source, annotated_data_source, queries=None):
+        queries = queries or []
 
         self.original_data_source = original_data_source
         self.annotated_data_source = annotated_data_source
-        self.global_frequency = global_frequency
-        self.sample_frequency = sample_frequency
+        self.queries = queries
 
     @detached_session_fix
     def __repr__(self):

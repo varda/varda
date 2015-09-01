@@ -90,6 +90,11 @@ class TestApi():
         return json.loads(r.data)['root']['user_collection']['uri']
 
     @property
+    def uri_groups(self):
+        r = self.client.get(self.uri_root)
+        return json.loads(r.data)['root']['group_collection']['uri']
+
+    @property
     def uri_tokens(self):
         r = self.client.get(self.uri_root)
         return json.loads(r.data)['root']['token_collection']['uri']
@@ -253,7 +258,7 @@ class TestApi():
         All annotations should have observation and coverage 1.
         """
         sample, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome.vcf', 'tests/data/exome.bed')
-        annotated_data_source = self._annotate(vcf_data_source, sample_frequency=[sample])
+        annotated_data_source = self._annotate(vcf_data_source, queries=['sample:%s' % sample])
 
         # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotated_data_source, headers=[auth_header()])
@@ -262,9 +267,25 @@ class TestApi():
         r = self.client.get(annotated_data_source_data, headers=[auth_header()])
         assert_equal(r.status_code, 200)
         assert_equal(r.content_type, 'application/x-gzip')
-        open('/tmp/test_exome.vcf.gz', 'w').write(r.data)
-        for _ in vcf.Reader(StringIO(r.data), compressed=True):
-            pass
+
+        reader = vcf.Reader(StringIO(r.data), compressed=True)
+        assert_equal([(record.INFO['Q1_VN'], record.INFO['Q1_VF']) for record in reader],
+                     [([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1, 1], [1.0, 0.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0])])
 
     def test_variant(self):
         """
@@ -281,20 +302,23 @@ class TestApi():
         assert_equal(r.status_code, 201)
         variant = json.loads(r.data)['variant']['uri']
 
-        r = self.client.get(variant, headers=[auth_header(login='admin', password='test')])
+        data = {'queries': [{'name': 'GLOBAL', 'expression': '*'}]}
+        r = self.client.get(variant, data=json.dumps(data),
+                            content_type='application/json',
+                            headers=[auth_header(login='admin', password='test')])
         assert_equal(r.status_code, 200)
-        assert_equal(1.0, json.loads(r.data)['variant']['frequency'])
+        assert_equal(1.0, json.loads(r.data)['variant']['annotations']['GLOBAL']['frequency'])
 
     def test_exome_subset(self):
         """
         Import exome sample with coverage track and import and annotate a
         subset of it.
 
-        All annotations should have observation and coverage 2.
+        All annotations should have observation and coverage 1.
         """
         self._import('Test sample', 'tests/data/exome.vcf', 'tests/data/exome.bed')
         sample, vcf_data_source, _ = self._import('Test subset', 'tests/data/exome-subset.vcf', 'tests/data/exome-subset.bed')
-        annotated_data_source = self._annotate(vcf_data_source)
+        annotated_data_source = self._annotate(vcf_data_source, queries=['*'])
 
         # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotated_data_source, headers=[auth_header()])
@@ -303,20 +327,32 @@ class TestApi():
         r = self.client.get(annotated_data_source_data, headers=[auth_header()])
         assert_equal(r.status_code, 200)
         assert_equal(r.content_type, 'application/x-gzip')
-        open('/tmp/test_exome_subset.vcf.gz', 'w').write(r.data)
-        for _ in vcf.Reader(StringIO(r.data), compressed=True):
-            pass
+
+        reader = vcf.Reader(StringIO(r.data), compressed=True)
+        assert_equal([(record.INFO['Q1_VN'], record.INFO['Q1_VF']) for record in reader],
+                     [([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1, 1], [1.0, 0.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0])])
 
     def test_exome_superset(self):
         """
         Import exome sample with coverage track and import and annotate a
         superset of it.
 
-        All annotations should have observation and coverage (2, 2), (1, 2), or (1, 1).
+        All annotations should have observation and coverage (0, 0) or (1, 0)
+        or (1, 1).
         """
         sample, vcf_data_source, _ = self._import('Test sample', 'tests/data/exome.vcf', 'tests/data/exome.bed')
         self._import('Test subset', 'tests/data/exome-subset.vcf', 'tests/data/exome-subset.bed')
-        annotated_data_source = self._annotate(vcf_data_source)
+        annotated_data_source = self._annotate(vcf_data_source, queries=['*'])
 
         # Download annotation and see if we can parse it as VCF
         r = self.client.get(annotated_data_source, headers=[auth_header()])
@@ -325,9 +361,25 @@ class TestApi():
         r = self.client.get(annotated_data_source_data, headers=[auth_header()])
         assert_equal(r.status_code, 200)
         assert_equal(r.content_type, 'application/x-gzip')
-        open('/tmp/test_exome_superset.vcf.gz', 'w').write(r.data)
-        for _ in vcf.Reader(StringIO(r.data), compressed=True):
-            pass
+
+        reader = vcf.Reader(StringIO(r.data), compressed=True)
+        assert_equal([(record.INFO['Q1_VN'], record.INFO['Q1_VF']) for record in reader],
+                     [([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([0], [0.0]),
+                      ([0], [0.0]),
+                      ([0], [0.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0]),
+                      ([1, 1], [1.0, 0.0]),
+                      ([0], [0.0]),
+                      ([1], [0.0]),
+                      ([1], [1.0]),
+                      ([1], [1.0])])
 
     def test_duplicate_import(self):
         """
@@ -346,9 +398,14 @@ class TestApi():
         """
         Serialized variation can have data source embedded.
         """
+        # Create group
+        r = self.client.post(self.uri_groups, data={'name': 'dummy'}, headers=[auth_header()])
+        group = json.loads(r.data)['group']['uri']
+
         # Create sample
         data = {'name': 'Test sample',
-                'pool_size': 1}
+                'pool_size': 1,
+                'groups': [group]}
         r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample']['uri']
@@ -384,9 +441,14 @@ class TestApi():
         """
         A trader can only annotate after importing and activating.
         """
+        # Create group
+        r = self.client.post(self.uri_groups, data={'name': 'dummy'}, headers=[auth_header()])
+        group = json.loads(r.data)['group']['uri']
+
         # Create sample
         data = {'name': 'Test sample',
-                'pool_size': 1}
+                'pool_size': 1,
+                'groups': [group]}
         r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample']['uri']
@@ -401,7 +463,7 @@ class TestApi():
         vcf_data_source = r.headers['Location'].replace('http://localhost', '')
 
         # Annotate observations
-        data = {'data_source': vcf_data_source}
+        data = {'data_source': vcf_data_source, 'queries': [{'name': 'GLOBAL', 'expression': '*'}]}
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 400)
 
@@ -424,7 +486,7 @@ class TestApi():
             assert False
 
         # Annotate observations
-        data = {'data_source': vcf_data_source}
+        data = {'data_source': vcf_data_source, 'queries': [{'name': 'GLOBAL', 'expression': '*'}]}
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 400)
 
@@ -434,19 +496,20 @@ class TestApi():
         assert_equal(r.status_code, 200)
 
         # Annotate observations
-        data = {'data_source': vcf_data_source}
+        data = {'data_source': vcf_data_source, 'queries': [{'name': 'GLOBAL', 'expression': '*'}]}
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header(login='trader', password='test')])
         assert_equal(r.status_code, 201)
 
-    def _annotate(self, vcf_data_source, sample_frequency=None):
+    def _annotate(self, vcf_data_source, queries=None):
         """
         Annotate observations and return the annotated data source URI.
         """
-        sample_frequency = sample_frequency or []
+        queries = queries or []
 
         # Annotate observations
         data = {'data_source': vcf_data_source,
-                'sample_frequency': sample_frequency}
+                'queries': [{'name': 'Q%s' % (i + 1), 'expression': query}
+                            for i, query in enumerate(queries)]}
         r = self.client.post(self.uri_annotations, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 201)
         annotation = json.loads(r.data)['annotation']['uri']
@@ -472,10 +535,15 @@ class TestApi():
         Import observations and coverage. Return a tuple with URIs for the
         sample, VCF data source, and BED data source.
         """
+        # Create group
+        r = self.client.post(self.uri_groups, data={'name': 'dummy'}, headers=[auth_header()])
+        group = json.loads(r.data)['group']['uri']
+
         # Create sample
         data = {'name': name,
                 'coverage_profile': bed_file is not None,
-                'pool_size': pool_size}
+                'pool_size': pool_size,
+                'groups': [group]}
         r = self.client.post(self.uri_samples, data=json.dumps(data), content_type='application/json', headers=[auth_header()])
         assert_equal(r.status_code, 201)
         sample = json.loads(r.data)['sample']['uri']
