@@ -14,7 +14,7 @@ from nose.tools import *
 import vcf
 
 from varda import create_app, db
-from varda.models import User
+from varda.models import Group, Sample, User
 
 
 TEST_SETTINGS = {
@@ -646,3 +646,188 @@ class TestApi():
         r = self.client.get(wait, headers=[auth_header()])
         assert_equal(r.status_code, 200)
         ok_(json.loads(r.data)['observations']['ready'])
+
+    def test_sample_collection(self):
+        """
+        List all samples.
+        """
+        with self.app.test_request_context():
+            admin = User.query.filter_by(login='admin').one()
+            db.session.add_all(Sample(admin, 'Sample %d' % i)
+                               for i in range(10))
+            db.session.commit()
+
+        r = self.client.get(self.uri_samples,
+                            headers=[auth_header(), ('Range', 'items=0-20')])
+        assert_equal(r.status_code, 206)
+        samples = json.loads(r.data)['sample_collection']['items']
+        assert_equal(len(samples), 10)
+
+    def test_sample_collection_no_range(self):
+        """
+        List all samples without range header.
+        """
+        r = self.client.get(self.uri_samples, headers=[auth_header()])
+        assert_equal(r.status_code, 400)
+
+    def test_sample_collection_first_page(self):
+        """
+        List first few samples.
+        """
+        with self.app.test_request_context():
+            admin = User.query.filter_by(login='admin').one()
+            db.session.add_all(Sample(admin, 'Sample %d' % i)
+                               for i in range(10))
+            db.session.commit()
+
+        r = self.client.get(self.uri_samples,
+                            headers=[auth_header(), ('Range', 'items=0-4')])
+        assert_equal(r.status_code, 206)
+        samples = json.loads(r.data)['sample_collection']['items']
+        assert_equal(len(samples), 5)
+
+    def test_sample_collection_middle_page(self):
+        """
+        List middle few samples.
+        """
+        with self.app.test_request_context():
+            admin = User.query.filter_by(login='admin').one()
+            db.session.add_all(Sample(admin, 'Sample %d' % i)
+                               for i in range(10))
+            db.session.commit()
+
+        r = self.client.get(self.uri_samples,
+                            headers=[auth_header(), ('Range', 'items=4-8')])
+        assert_equal(r.status_code, 206)
+        samples = json.loads(r.data)['sample_collection']['items']
+        assert_equal(len(samples), 5)
+
+    def test_sample_collection_last_page(self):
+        """
+        List last few samples.
+        """
+        with self.app.test_request_context():
+            admin = User.query.filter_by(login='admin').one()
+            db.session.add_all(Sample(admin, 'Sample %d' % i)
+                               for i in range(10))
+            db.session.commit()
+
+        r = self.client.get(self.uri_samples,
+                            headers=[auth_header(), ('Range', 'items=5-9')])
+        assert_equal(r.status_code, 206)
+        samples = json.loads(r.data)['sample_collection']['items']
+        assert_equal(len(samples), 5)
+
+    def test_sample_collection_no_page(self):
+        """
+        List nonexisting samples.
+        """
+        with self.app.test_request_context():
+            admin = User.query.filter_by(login='admin').one()
+            db.session.add_all(Sample(admin, 'Sample %d' % i)
+                               for i in range(10))
+            db.session.commit()
+
+        r = self.client.get(self.uri_samples,
+                            headers=[auth_header(), ('Range', 'items=80-90')])
+        assert_equal(r.status_code, 416)
+
+    def test_sample_collection_user(self):
+        """
+        List samples by user.
+        """
+        with self.app.test_request_context():
+            admin = User.query.filter_by(login='admin').one()
+            user = User.query.filter_by(login='user').one()
+
+            db.session.add_all(Sample(admin, 'Sample admin %d' % i)
+                               for i in range(10))
+            db.session.add_all(Sample(user, 'Sample user %d' % i)
+                               for i in range(10))
+            db.session.commit()
+
+            # This is a bit of a hack
+            admin_uri = '/users/%d' % admin.id
+            user_uri = '/users/%d' % user.id
+
+        # All samples
+        r = self.client.get(self.uri_samples,
+                            headers=[auth_header(), ('Range', 'items=0-50')])
+        assert_equal(r.status_code, 206)
+        samples = json.loads(r.data)['sample_collection']['items']
+        assert_equal(len(samples), 20)
+
+        # Admin samples
+        r = self.client.get(self.uri_samples, data={'user': admin_uri},
+                            headers=[auth_header(), ('Range', 'items=0-50')])
+        assert_equal(r.status_code, 206)
+        samples = json.loads(r.data)['sample_collection']['items']
+        assert_equal(len(samples), 10)
+        for sample in samples:
+            assert sample['name'].startswith('Sample admin ')
+
+        # User samples
+        r = self.client.get(self.uri_samples, data={'user': user_uri},
+                            headers=[auth_header(), ('Range', 'items=0-50')])
+        assert_equal(r.status_code, 206)
+        samples = json.loads(r.data)['sample_collection']['items']
+        assert_equal(len(samples), 10)
+        for sample in samples:
+            assert sample['name'].startswith('Sample user ')
+
+    def test_sample_collection_groups(self):
+        """
+        List samples by groups.
+        """
+        with self.app.test_request_context():
+            admin = User.query.filter_by(login='admin').one()
+            group_a = Group('Group A')
+            group_b = Group('Group B')
+
+            db.session.add(group_a)
+            db.session.add(group_b)
+            db.session.add_all(Sample(admin, 'Sample A %d' % i, groups=[group_a])
+                               for i in range(10))
+            db.session.add_all(Sample(admin, 'Sample B %d' % i, groups=[group_b])
+                               for i in range(10))
+            db.session.add_all(Sample(admin, 'Sample AB %d' % i, groups=[group_a, group_b])
+                               for i in range(10))
+            db.session.commit()
+
+            # This is a bit of a hack
+            group_a_uri = '/groups/%d' % group_a.id
+            group_b_uri = '/groups/%d' % group_b.id
+
+        # All samples
+        r = self.client.get(self.uri_samples,
+                            headers=[auth_header(), ('Range', 'items=0-50')])
+        assert_equal(r.status_code, 206)
+        samples = json.loads(r.data)['sample_collection']['items']
+        assert_equal(len(samples), 30)
+
+        # Group A samples
+        r = self.client.get(self.uri_samples, data={'groups': group_a_uri},
+                            headers=[auth_header(), ('Range', 'items=0-50')])
+        assert_equal(r.status_code, 206)
+        samples = json.loads(r.data)['sample_collection']['items']
+        assert_equal(len(samples), 20)
+        for sample in samples:
+            assert sample['name'].startswith('Sample A ') or sample['name'].startswith('Sample AB')
+
+        # Group B samples
+        r = self.client.get(self.uri_samples, data={'groups': group_b_uri},
+                            headers=[auth_header(), ('Range', 'items=0-50')])
+        assert_equal(r.status_code, 206)
+        samples = json.loads(r.data)['sample_collection']['items']
+        assert_equal(len(samples), 20)
+        for sample in samples:
+            assert sample['name'].startswith('Sample B ') or sample['name'].startswith('Sample AB')
+
+        # Group A and B samples
+        r = self.client.get(self.uri_samples, data={'groups': group_a_uri + ',' + group_b_uri},
+                            headers=[auth_header(), ('Range', 'items=0-50')])
+        assert_equal(r.status_code, 206)
+        samples = json.loads(r.data)['sample_collection']['items']
+        assert_equal(len(samples), 10)
+        for sample in samples:
+            assert sample['name'].startswith('Sample AB')

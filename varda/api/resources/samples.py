@@ -28,9 +28,10 @@ class SamplesResource(ModelResource):
     views = ['list', 'get', 'add', 'edit', 'delete']
 
     embeddable = {'user': UsersResource, 'groups': GroupsResource}
-    filterable = {'groups': 'group',
-                  'public': 'boolean',
-                  'user': 'user'}
+    filterable = {'groups': {'type': 'list',
+                             'schema': {'type': 'group'}},
+                  'public': {'type': 'boolean'},
+                  'user': {'type': 'user'}}
     orderable = ['name', 'pool_size', 'public', 'active', 'added']
 
     list_ensure_conditions = [has_role('admin'), is_user, true('public')]
