@@ -40,7 +40,7 @@ class AnnotationsResource(TaskedResource):
 
     embeddable = {'original_data_source': DataSourcesResource,
                   'annotated_data_source': DataSourcesResource}
-    filterable = {'annotated_data_source.user': 'user'}
+    filterable = {'annotated_data_source.user': {'type': 'user'}}
 
     # Note: We consider an annotation's owner to be the owner of the attached
     #     annotated_data_source, not the owner of the original_data_source.

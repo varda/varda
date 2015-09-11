@@ -30,7 +30,7 @@ class DataSourcesResource(ModelResource):
     views = ['list', 'get', 'add', 'edit', 'delete', 'data']
 
     embeddable = {'user': UsersResource}
-    filterable = {'user': 'user'}
+    filterable = {'user': {'type': 'user'}}
     orderable = ['name', 'filetype', 'added']
 
     list_ensure_conditions = [has_role('admin'), is_user]

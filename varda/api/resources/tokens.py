@@ -25,7 +25,7 @@ class TokensResource(ModelResource):
     instance_type = 'token'
 
     embeddable = {'user': UsersResource}
-    filterable = {'user': 'user'}
+    filterable = {'user': {'type': 'user'}}
     orderable = ['name', 'added']
 
     list_ensure_conditions = [has_role('admin'), is_user]

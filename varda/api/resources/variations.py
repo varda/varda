@@ -34,7 +34,7 @@ class VariationsResource(TaskedResource):
     views = ['list', 'get', 'add', 'edit', 'delete']
 
     embeddable = {'data_source': DataSourcesResource, 'sample': SamplesResource}
-    filterable = {'sample': 'sample'}
+    filterable = {'sample': {'type': 'sample'}}
 
     list_ensure_conditions = [has_role('admin'), owns_sample, public_sample]
     list_ensure_options = {'satisfy': any}

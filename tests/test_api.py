@@ -822,3 +822,12 @@ class TestApi():
         assert_equal(len(samples), 20)
         for sample in samples:
             assert sample['name'].startswith('Sample B ') or sample['name'].startswith('Sample AB')
+
+        # Group A and B samples
+        r = self.client.get(self.uri_samples, data={'groups': group_a_uri + ',' + group_b_uri},
+                            headers=[auth_header(), ('Range', 'items=0-50')])
+        assert_equal(r.status_code, 206)
+        samples = json.loads(r.data)['sample_collection']['items']
+        assert_equal(len(samples), 10)
+        for sample in samples:
+            assert sample['name'].startswith('Sample AB')

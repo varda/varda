@@ -25,6 +25,7 @@ from functools import wraps
 
 import celery.exceptions
 from flask import current_app, g, jsonify, Response, url_for
+import sqlalchemy
 import sqlalchemy.exc
 
 from ... import db
@@ -107,8 +108,7 @@ class Resource(object):
             cls.list_schema.update(embed_schema)
             cls.get_schema.update(embed_schema)
         if cls.filterable:
-            filter_schema = {k: {'type': v} for k, v in cls.filterable.items()}
-            cls.list_schema.update(filter_schema)
+            cls.list_schema.update(cls.filterable)
         if cls.orderable:
             order_schema = {'order': {'type': 'list',
                                       'schema': {'type': 'directed_string'},
@@ -268,9 +268,6 @@ class ModelResource(Resource):
         # [1] http://www.postgresql.org/docs/8.0/static/queries-limit.html
         # [2] http://www.sqlalchemy.org/trac/wiki/UsageRecipes/WindowedRangeQuery
         # [3] http://stackoverflow.com/questions/6618366/improving-offset-performance-in-postgresql
-        #
-        # Todo: We might want to allow lists as filter values and interpret
-        #     them as a disjunction.
         instances = cls.model.query
         for field, value in filter.items():
             try:
@@ -283,18 +280,13 @@ class ModelResource(Resource):
             except ValueError:
                 filter_method = instances.filter
                 model = cls.model
-            # This is a bit of a hack to detect *lists* of filterable fields.
-            # This currently only works for relationship fields. A better way
-            # would be perhaps to have this information in the resource class.
-            # The current approach also doesn't generalize to other `Resource`
-            # implementations since it's specific to `ModelResource` with
-            # SQLAlchemy.
-            try:
-                if getattr(model, field).property.uselist:
-                    criterion = getattr(model, field).contains(value)
-                else:
-                    criterion = getattr(model, field) == value
-            except AttributeError:
+            # If the filter value is a list, filter by its conjunction. This
+            # currently only works on relationship fields, where we require
+            # the relationship to contain all filter values.
+            if isinstance(value, list):
+                criterion = sqlalchemy.and_(getattr(model, field).contains(v)
+                                            for v in value)
+            else:
                 criterion = getattr(model, field) == value
             instances = filter_method(criterion)
         instances = instances.order_by(*[getattr(getattr(cls.model, f), d)()
