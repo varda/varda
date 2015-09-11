@@ -75,7 +75,7 @@ class DataSourcesResource(ModelResource):
           Whether or not the data is compressed using gzip.
 
         **name** (`string`)
-          Human readable sample name.
+          Human readable data source name.
 
         **filetype** (`string`)
           Data filetype. Possible values for this field are `bed`, `vcf`, and
