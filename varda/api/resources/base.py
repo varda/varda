@@ -24,7 +24,7 @@ information about the state of the task.
 from functools import wraps
 
 import celery.exceptions
-from flask import current_app, g, jsonify, Response, url_for
+from flask import abort, current_app, g, jsonify, Response, url_for
 import sqlalchemy
 import sqlalchemy.exc
 
