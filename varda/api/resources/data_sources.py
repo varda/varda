@@ -69,7 +69,7 @@ class DataSourcesResource(ModelResource):
           URI for this resource.
 
         **added** (`string`)
-          Date and time this sample was added, see :ref:`api-datetime`.
+          Date and time this data source was added, see :ref:`api-datetime`.
 
         **gzipped** (`boolean`)
           Whether or not the data is compressed using gzip.
