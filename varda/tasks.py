@@ -21,7 +21,7 @@ import os
 import time
 import uuid
 
-from celery import current_task, current_app, Task
+from celery import current_task, current_app, Task, states
 from celery.utils.log import get_task_logger
 from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
@@ -62,7 +62,24 @@ class TaskError(Exception):
         super(TaskError, self).__init__(code, message)
 
 
-class CleanTask(Task):
+class VardaTask(Task):
+    """
+    Celery base task class that should be used for all tasks.
+    """
+    abstract = True
+
+    # https://gist.github.com/winhamwr/2719812
+    def on_success(self, retval, task_id, args, kwargs):
+        """
+        Store results in the backend even if we're always eager. This helps
+        for testing.
+        """
+        if current_app.conf.get('CELERY_ALWAYS_EAGER', False):
+            # Store the result because Celery wouldn't otherwise.
+            self.backend.store_result(task_id, retval, status=states.SUCCESS)
+
+
+class CleanTask(VardaTask):
     """
     Ordinary Celery task, but with a way of registering cleanup routines that
     are executed after the task failed (on the worker node).
@@ -739,7 +756,7 @@ def import_coverage(coverage_id):
     logger.info('Finished task: import_coverage(%d)', coverage_id)
 
 
-@celery.task
+@celery.task(base=VardaTask)
 def write_annotation(annotation_id):
     """
     Annotate variants with frequencies from the database.
@@ -797,7 +814,7 @@ def write_annotation(annotation_id):
     logger.info('Finished task: write_annotation(%d)', annotation_id)
 
 
-@celery.task
+@celery.task(base=VardaTask)
 def ping():
     """
     Ping-pong task useful for testing purposes.
