@@ -83,20 +83,21 @@ def create_app(settings=None):
     file specified by the ``VARDA_SETTINGS`` environment variable, if it
     exists.
 
-    :arg settings: Dictionary of configuration settings. These take precedence
-        over settings read from the file pointed to by the ``VARDA_SETTINGS``
-        environment variable.
+    :arg settings: Dictionary of configuration settings. If present, reading
+        settings from the file pointed to by the ``VARDA_SETTINGS``
+        environment variable is skipped.
     :type settings: dict
 
     :return: Flask application instance.
     """
     app = Flask('varda')
     app.config.from_object('varda.default_settings')
-    app.config.from_envvar('VARDA_SETTINGS', silent=True)
-    # Todo: Print a warning if no configuration other than the default is in
-    #     use.
     if settings:
         app.config.update(settings)
+    else:
+        app.config.from_envvar('VARDA_SETTINGS', silent=True)
+    # Todo: Print a warning if no configuration other than the default is in
+    #     use.
     db.init_app(app)
     celery.conf.add_defaults(app.config)
     if app.config['GENOME'] is not None:
