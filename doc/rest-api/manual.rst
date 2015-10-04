@@ -421,12 +421,12 @@ Tasked resources
 ----------------
 
 A tasked resource is a type of resource associated with a server task. This
-task is scheduled upon creation of a new resource instance (i.e., via a `POST`
+task is submitted upon creation of a new resource instance (i.e., via a `POST`
 request on the corresponding collection resource).
 
 Information on the server task can be obtained with a `GET` request on the
-instance resource. A task can be re-scheduled by setting the `state` field to
-the empty object in a `PATCH` request (this requires the `admin` role).
+instance resource. A task can be resubmitted by setting its `state` field to
+`submitted` in a `PATCH` request (this requires the `admin` role).
 
 
 Representation

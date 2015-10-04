@@ -344,7 +344,8 @@ class TaskedResource(ModelResource):
     task = None
 
     def __new__(cls, *args, **kwargs):
-        task_schema = {'task': {'type': 'dict', 'schema': {}}}
+        task_schema = {'task': {'type': 'dict', 'schema': {
+            'state': {'type': 'string', 'allowed': 'submitted'}}}}
         cls.edit_schema.update(task_schema)
         return super(ModelResource, cls).__new__(cls, *args, **kwargs)
 
@@ -391,7 +392,9 @@ class TaskedResource(ModelResource):
 
     @classmethod
     def edit_view(cls, *args, **kwargs):
-        if kwargs.pop('task', None) == {}:
+        # Tasks can be resubmitted by setting their state field to
+        # `submitted`.
+        if kwargs.pop('task', {}).get('state') == 'submitted':
             if not 'admin' in g.user.roles:
                 # Todo: Better error message.
                 abort(403)
@@ -405,8 +408,8 @@ class TaskedResource(ModelResource):
             if instance.task_uuid:
                 result = cls.task.AsyncResult(instance.task_uuid)
                 if result.state in ('STARTED', 'PROGRESS'):
-                    raise IntegrityError('Cannot start task because a linked '
-                                         'task is running')
+                    raise IntegrityError('Cannot submit task because a '
+                                         'linked task is running')
                 # Todo: Implement http://docs.celeryproject.org/en/latest/userguide/workers.html#persistent-revokes
                 result.revoke(terminate=True)
             instance.task_done = False
