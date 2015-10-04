@@ -582,7 +582,10 @@ def import_variation(variation_id):
     if variation.task_done:
         raise TaskError('variation_imported', 'Variation already imported')
 
-    if variation.task_uuid and variation.task_uuid != current_task.request.id:
+    # If running eagerly, task id cannot have been stored yet. But perhaps
+    # this is not a good check anyway...
+    if (not current_task.request.is_eager and variation.task_uuid
+            and variation.task_uuid != current_task.request.id):
         raise TaskError('variation_importing', 'Variation is being imported '
                         'by another task instance')
 
@@ -698,7 +701,10 @@ def import_coverage(coverage_id):
     if coverage.task_done:
         raise TaskError('coverage_imported', 'Coverage already imported')
 
-    if coverage.task_uuid and coverage.task_uuid != current_task.request.id:
+    # If running eagerly, task id cannot have been stored yet. But perhaps
+    # this is not a good check anyway...
+    if (not current_task.request.is_eager and coverage.task_uuid
+            and coverage.task_uuid != current_task.request.id):
         raise TaskError('coverage_importing', 'Coverage is being imported '
                         'by another task instance')
 
@@ -775,7 +781,10 @@ def write_annotation(annotation_id):
     if annotation.task_done:
         raise TaskError('annotation_written', 'Annotation already written')
 
-    if annotation.task_uuid and annotation.task_uuid != current_task.request.id:
+    # If running eagerly, task id cannot have been stored yet. But perhaps
+    # this is not a good check anyway...
+    if (not current_task.request.is_eager and annotation.task_uuid
+            and annotation.task_uuid != current_task.request.id):
         raise TaskError('annotation_writing', 'Annotation is being written '
                         'by another task instance')
 
