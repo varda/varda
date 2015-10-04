@@ -435,21 +435,17 @@ Representation
 A tasked resource representation has a field `task` containing an object with
 the following fields:
 
-**done** (`boolean`)
-  Whether or not the task has succesfully completed.
-
 **state** (`string`)
-  Task state. Possible values for this field are `pending`, `received`,
-  `started`, `progress`, `success`, `failure`, `revoked`, and `retry` (but in
-  practice you will usually just see `pending`, `progress`, `success`, or
-  `failure`).
+  Task state. Possible values for this field are `waiting`, `running`,
+  `succes`, and `failure`.
 
 **progress** (`integer`)
-  If the `state` field is set to `progress`, this field contains the task
-  progress as an integer in the range 0 to 100.
+  Task progress as an integer in the range 0 to 100. Only present if the
+  `state` field is set to `running`.
 
 **error** (`object`)
-  An :ref:`error object <api-errors>` if the task resulted in error.
+  An :ref:`error object <api-errors>`. Only present if the `state` field is
+  set to `failure`.
 
 
 .. _api-versioning:

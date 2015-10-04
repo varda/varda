@@ -479,7 +479,7 @@ class TestApi():
         for _ in range(5):
             r = self.client.get(variation, headers=[auth_header(login='trader', password='test')])
             assert_equal(r.status_code, 200)
-            if json.loads(r.data)['variation']['task']['done']:
+            if json.loads(r.data)['variation']['task']['state'] == 'success':
                 break
             time.sleep(1)
         else:
@@ -519,7 +519,7 @@ class TestApi():
         for _ in range(5):
             r = self.client.get(annotation, headers=[auth_header()])
             assert_equal(r.status_code, 200)
-            if json.loads(r.data)['annotation']['task']['done']:
+            if json.loads(r.data)['annotation']['task']['state'] == 'success':
                 break
             time.sleep(1)
         else:
@@ -581,7 +581,7 @@ class TestApi():
         for _ in range(5):
             r = self.client.get(variation, headers=[auth_header()])
             assert_equal(r.status_code, 200)
-            if json.loads(r.data)['variation']['task']['done']:
+            if json.loads(r.data)['variation']['task']['state'] == 'success':
                 break
             time.sleep(1)
         else:
@@ -600,7 +600,7 @@ class TestApi():
             for _ in range(5):
                 r = self.client.get(coverage, headers=[auth_header()])
                 assert_equal(r.status_code, 200)
-                if json.loads(r.data)['coverage']['task']['done']:
+                if json.loads(r.data)['coverage']['task']['state'] == 'success':
                     break
                 time.sleep(1)
             else:

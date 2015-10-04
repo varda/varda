@@ -350,15 +350,32 @@ class TaskedResource(ModelResource):
 
     @classmethod
     def serialize(cls, instance, embed=None):
+        # For simplicity we try not to expose the details of the Celery task
+        # and provide just three fields:
+        #
+        # 1. state: One of `waiting`, `running`, `success`, `failure`.
+        # 2. progress: If state is `running`, this is an integer.
+        # 3. error: If state is failure, this is the error object.
         serialization = super(TaskedResource, cls).serialize(instance, embed=embed)
-        task = {'done': instance.task_done}
-        if instance.task_uuid:
+        if instance.task_done:
+            # No need to check the Celery task state.
+            task = {'state': 'success'}
+        else:
             result = cls.task.AsyncResult(instance.task_uuid)
-            task.update(state=result.state.lower())
-            if result.state == 'PROGRESS':
-                task.update(progress=result.info.get('percentage'))
-            if result.state == 'FAILURE':
-                if isinstance(result.result, tasks.TaskError):
+            if result.state in ('PENDING', 'RECEIVED', 'STARTED', 'RETRY'):
+                task = {'state': 'waiting'}
+            elif result.state == 'PROGRESS':
+                task = {'state': 'running',
+                        'progress': result.info.get('percentage')}
+            elif result.state == 'SUCCESS':
+                task = {'state': 'success'}
+            else:
+                # This handles states `FAILURE` and `REVOKED` and the case
+                # when no known state is found.
+                if result.state == 'REVOKED':
+                    error = {'code': 'task_revoked',
+                             'message': 'Task was revoked'}
+                elif isinstance(result.result, tasks.TaskError):
                     error = {'code': result.result.code,
                              'message': result.result.message}
                 else:
@@ -367,7 +384,8 @@ class TaskedResource(ModelResource):
                     #     API?
                     error = {'code': 'unexpected_error',
                              'message': 'Unexpected error'}
-                task.update(error=error)
+                task = {'state': 'failure',
+                        'error': error}
         serialization.update(task=task)
         return serialization
 
