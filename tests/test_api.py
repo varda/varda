@@ -14,7 +14,7 @@ from nose.tools import *
 import vcf
 
 from varda import create_app, db
-from varda.models import Group, Sample, User
+from varda.models import Annotation, Group, Sample, User
 
 
 TEST_SETTINGS = {
@@ -479,7 +479,7 @@ class TestApi():
         for _ in range(5):
             r = self.client.get(variation, headers=[auth_header(login='trader', password='test')])
             assert_equal(r.status_code, 200)
-            if json.loads(r.data)['variation']['task']['done']:
+            if json.loads(r.data)['variation']['task']['state'] == 'success':
                 break
             time.sleep(1)
         else:
@@ -519,7 +519,7 @@ class TestApi():
         for _ in range(5):
             r = self.client.get(annotation, headers=[auth_header()])
             assert_equal(r.status_code, 200)
-            if json.loads(r.data)['annotation']['task']['done']:
+            if json.loads(r.data)['annotation']['task']['state'] == 'success':
                 break
             time.sleep(1)
         else:
@@ -581,7 +581,7 @@ class TestApi():
         for _ in range(5):
             r = self.client.get(variation, headers=[auth_header()])
             assert_equal(r.status_code, 200)
-            if json.loads(r.data)['variation']['task']['done']:
+            if json.loads(r.data)['variation']['task']['state'] == 'success':
                 break
             time.sleep(1)
         else:
@@ -600,7 +600,7 @@ class TestApi():
             for _ in range(5):
                 r = self.client.get(coverage, headers=[auth_header()])
                 assert_equal(r.status_code, 200)
-                if json.loads(r.data)['coverage']['task']['done']:
+                if json.loads(r.data)['coverage']['task']['state'] == 'success':
                     break
                 time.sleep(1)
             else:
@@ -831,3 +831,56 @@ class TestApi():
         assert_equal(len(samples), 10)
         for sample in samples:
             assert sample['name'].startswith('Sample AB')
+
+    def test_annotate_resubmit(self):
+        """
+        Resubmit an annotation task.
+        """
+        _, vcf_data_source, _ = self._import(
+            'Test sample', 'tests/data/exome.vcf', 'tests/data/exome.bed')
+
+        # Annotate observations
+        data = {'data_source': vcf_data_source,
+                'queries': [{'name': 'GLOBAL', 'expression': '*'}]}
+        r = self.client.post(
+            self.uri_annotations, data=json.dumps(data),
+            content_type='application/json', headers=[auth_header()])
+        assert_equal(r.status_code, 201)
+        annotation = json.loads(r.data)['annotation']['uri']
+
+        # Remember original task id
+        with self.app.test_request_context():
+            task_uuid = Annotation.query.one().task_uuid
+
+        # Wait for writing
+        # Note: Bogus since during testing tasks return synchronously
+        for _ in range(5):
+            r = self.client.get(annotation, headers=[auth_header()])
+            assert_equal(r.status_code, 200)
+            if json.loads(r.data)['annotation']['task']['state'] == 'success':
+                break
+            time.sleep(1)
+        else:
+            assert False
+
+        # Resubmit annotation
+        data = {'task': {'state': 'submitted'}}
+        r = self.client.patch(
+            annotation, data=json.dumps(data), content_type='application/json',
+            headers=[auth_header()])
+        assert_equal(r.status_code, 200)
+
+        # Wait for writing
+        # Note: Bogus since during testing tasks return synchronously
+        for _ in range(5):
+            r = self.client.get(annotation, headers=[auth_header()])
+            assert_equal(r.status_code, 200)
+            if json.loads(r.data)['annotation']['task']['state'] == 'success':
+                break
+            time.sleep(1)
+        else:
+            assert False
+
+        # Remember original task id
+        with self.app.test_request_context():
+            assert Annotation.query.one().task_uuid != task_uuid
