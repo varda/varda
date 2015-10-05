@@ -69,12 +69,13 @@ class VardaTask(Task):
     abstract = True
 
     # https://gist.github.com/winhamwr/2719812
+    # TODO: We might want to have the same for failure.
     def on_success(self, retval, task_id, args, kwargs):
         """
-        Store results in the backend even if we're always eager. This helps
-        for testing.
+        Store results in the backend even if we're eager. This helps for
+        testing.
         """
-        if current_app.conf.get('CELERY_ALWAYS_EAGER', False):
+        if current_task.request.is_eager:
             # Store the result because Celery wouldn't otherwise.
             self.backend.store_result(task_id, retval, status=states.SUCCESS)
 
