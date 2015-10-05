@@ -1,6 +1,6 @@
 Flask==0.10.1
 -e git+https://github.com/varda/flask-sqlalchemy.git@varda#egg=Flask-SQLAlchemy
-PyVCF==0.6.7
+-e git+https://github.com/jamescasbon/PyVCF.git@12977db5e4a4bcb1ed39fbe1c7384aeda71006f7#egg=PyVCF-master
 SQLAlchemy==1.0.8
 celery==3.1.9
 celery-with-redis==3.0

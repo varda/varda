@@ -185,19 +185,20 @@ def annotate_variants(original_variants, annotated_variants,
         description += ' (out of %i considered)' % sum(sample.pool_size for
                                                        sample in query.samples)
         reader.infos[query.name + '_VN'] = VcfInfo(
-            query.name + '_VN', vcf_field_counts['A'], 'Integer', description)
+            query.name + '_VN', vcf_field_counts['A'], 'Integer', description,
+            None, None)
         reader.infos[query.name + '_VF'] = VcfInfo(
             query.name + '_VF', vcf_field_counts['A'], 'Float',
             'Ratio of individuals in %s in which the allele was observed.' %
-            query.name)
+            query.name, None, None)
         reader.infos[query.name + '_VF_HET'] = VcfInfo(
             query.name + '_VF_HET', vcf_field_counts['A'], 'Float',
             'Ratio of individuals in %s in which the allele was observed as '
-            'heterozygous.' % query.name)
+            'heterozygous.' % query.name, None, None)
         reader.infos[query.name + '_VF_HOM'] = VcfInfo(
             query.name + '_VF_HOM', vcf_field_counts['A'], 'Float',
             'Ratio of individuals in %s in which the allele was observed as '
-            'homozygous.' % query.name)
+            'homozygous.' % query.name, None, None)
 
     writer = vcf.Writer(annotated_variants, reader, lineterminator='\n')
 
