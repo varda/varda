@@ -14,6 +14,8 @@ from . import create_app, genome
 
 @worker_process_init.connect
 def init_genome(**kwargs):
+    if not genome:
+        return
     # Duplicate the open file object of the reference genome. This is needed
     # because file descriptors are inherited after fork, and thus shared
     # between worker processes, causing race conditions with seek and read.
