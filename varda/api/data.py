@@ -145,10 +145,18 @@ def _cast_directed_string(value, definition):
 def _cast_query(value, definition):
     # Convert sample or group URI to corresponding primary key.
     def uri_to_id(instance_type, uri):
+        # TODO: Exceptions raised are lost, see not below about silent
+        # failure.
         if instance_type == 'sample':
-            return sample_by_uri(current_app, uri).id
+            try:
+                return sample_by_uri(current_app, uri).id
+            except AttributeError:
+                raise ValueError('sample not found: %s' % uri)
         if instance_type == 'group':
-            return group_by_uri(current_app, uri).id
+            try:
+                return group_by_uri(current_app, uri).id
+            except AttributeError:
+                raise ValueError('group not found: %s' % uri)
         raise ValueError('can only query on sample or group')
 
     # We expect a dictionary with `name` and `expression` fields, so first
@@ -163,6 +171,16 @@ def _cast_query(value, definition):
                                                           uri_to_id)
             return Query(name, expression)
         except (KeyError, SyntaxError, ValueError):
+            # TODO: Casting is currently expected to be silent on failure. The
+            # error is only created in the validation step.
+            # This is somewhat unsatisfactory for queries, because the best
+            # error message we can get is therefore:
+            #
+            #     value of field 'query' must be of query type
+            #
+            # Queries can become quite complex, so it would be nice to give
+            # more specific errors, for example if a sample referenced in the
+            # query doesn't exist.
             pass
     return value
 
