@@ -11,6 +11,10 @@ AULE_LOCAL_PATH = None
 # URL prefix to serve Aulë under
 AULE_URL_PREFIX = '/aule'
 
+# A URI (or *) that may access resources via CORS
+# https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS#Access-Control-Allow-Origin
+CORS_ALLOW_ORIGIN = None
+
 # Directory to store files (uploaded and generated)
 DATA_DIR = '/tmp'
 
