@@ -67,6 +67,33 @@ def add_api_version(response):
     return response
 
 
+@api.after_request
+def add_cors_headers(response):
+    """
+    Allow cross-origin resource sharing (CORS).
+    """
+    allow_origin = current_app.config['CORS_ALLOW_ORIGIN']
+    if not allow_origin:
+        return response
+
+    response.headers.extend({
+        'Access-Control-Allow-Origin': allow_origin,
+        'Access-Control-Allow-Methods': 'OPTIONS, GET, POST, PATCH, DELETE',
+        'Access-Control-Allow-Headers': 'Accept-Version, Range, Authorization, Content-Type',
+        'Access-Control-Expose-Headers': 'Api-Version, Content-Range',
+        'Access-Control-Max-Age': 60 * 60 * 24 * 7 * 2})
+
+    if allow_origin != '*':
+        try:
+            vary = [v.strip() for v in response.headers.get('Vary').split(',')]
+        except AttributeError:
+            vary = []
+        vary.append('Origin')
+        response.headers.set('Vary', ', '.join(vary))
+
+    return response
+
+
 @api.before_request
 def register_user():
     """

@@ -81,6 +81,13 @@ MAX_CONTENT_LENGTH
 Data files settings
 ^^^^^^^^^^^^^^^^^^^
 
+CORS_ALLOW_ORIGIN
+  A URI (or ``*``) that may access resources via `cross-origin resource
+  sharing (CORS) <>`_, used in the `Access-Control-Allow-Origin response
+  header <https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS#Access-Control-Allow-Origin>`_.
+
+  `Default value:` `None`
+
 DATA_DIR
   Directory to store files (uploaded and generated).
 
