@@ -181,8 +181,8 @@ def error_unsatisfiable_range(error):
 # Note: It is currently not possible to register a 500 internal server error
 #     on a per-blueprint level in Flask, so we have no other choice than to
 #     register it on the application. The downside in our case is small, since
-#     we only serve Aulë static files (if configured) besides our API. It is
-#     important for clients that they get 500 error codes encoded as JSON.
+#     we don't serve anything apart from our API. It is important for clients
+#     that they get 500 error codes encoded as JSON.
 @api.app_errorhandler(500)
 def error_internal(error):
     return jsonify(error={

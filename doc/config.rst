@@ -64,14 +64,6 @@ HTTP server settings
 API_URL_PREFIX
   URL prefix to serve the Varda server API under.
 
-AULE_LOCAL_PATH
-  Path to serve the Aulë application from.
-
-AULE_URL_PREFIX
-  URL prefix to serve Aulë under.
-
-  `Default value:` ``/aule``
-
 MAX_CONTENT_LENGTH
   Maximum size for uploaded files.
 

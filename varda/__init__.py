@@ -104,12 +104,6 @@ def create_app(settings=None):
         genome.init(app.config['GENOME'], as_raw=True)
     from .api import api
     app.register_blueprint(api, url_prefix=app.config['API_URL_PREFIX'])
-    if app.config['AULE_LOCAL_PATH'] is not None:
-        assert (app.config['API_URL_PREFIX'] !=
-                app.config['AULE_URL_PREFIX'])
-        from .web import web
-        app.register_blueprint(web,
-                               url_prefix=app.config['AULE_URL_PREFIX'])
     return app
 
 
