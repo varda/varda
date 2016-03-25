@@ -4,13 +4,6 @@ Todo list
 These are some general todo notes. More specific notes can be found by
 grepping the source code for ``Todo``.
 
-* Authentication using single-purpose issued tokens in addition to
-  login/password. Have a notice in the docs to only deploy on HTTPS and close
-  port 80 entirely (to prevent any requests with credentials being sent)
-  instead of redirecting to HTTPS.
-
-* Complete docs, including REST API docs.
-
 * More strict validation of user input, especially file uploads (max file size
   and contents).
 
@@ -28,9 +21,6 @@ grepping the source code for ``Todo``.
 
 * Have a look at supporting the `gVCF format <https://sites.google.com/site/gvcftools/)>`_.
 
-* Attach tags (e.g. 'exome', 'illumina', 'cancer'). Not sure if they should be
-  separate resources on their own, or just string arguments.
-
 * Possibility to contact submitter of an observation.
 
 * Have a maintenance and/or read-only mode, probably with HTTP redirects.
@@ -44,20 +34,10 @@ grepping the source code for ``Todo``.
   could have a check in sample activation, but would we really like to
   enforce this?
 
-* Enforce active property of sample. Changing anything means deactivating
-  (automatically or manually?) and activating can only be done if everything
-  is ok (no duplicated imports, everything has been imported, etc).
-  Also, should owners be allowed to delete their imports and samples?
-
-* Move region binning to its own package.
-
 * Fallback modes to accomodate browsing the API with a standard web browser,
   e.g., query string alternative to pagination with Accept-Range headers.
   Perhaps this can be optional and implemented by patching the Request object
   before it reaches the API code.
-
-* Implement Cross-origin resource sharing (CORS) to enable serving Aulë from
-  another domain.
 
 * We currently store variants as `(position, reference, observed)` and regions
   as `(begin, end)` where all positioning is one-based and inclusive. An
@@ -158,9 +138,6 @@ grepping the source code for ``Todo``.
   resource using `SingletonResource`.
 
 * See if we can easily compress with bgzip instead of regular gzip.
-
-* Move to `Celery 3.1
-  <http://docs.celeryproject.org/en/latest/whatsnew-3.1.html>`_.
 
 * Perhaps use `Factory Boy <http://factoryboy.readthedocs.org>`_ instead of
   `fixture <http://farmdev.com/projects/fixture/>`_. It looks like we don't
