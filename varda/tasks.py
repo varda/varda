@@ -21,6 +21,7 @@ import os
 import time
 import uuid
 
+import binning
 from celery import current_task, current_app, Task, states
 from celery.utils.log import get_task_logger
 from sqlalchemy import and_, or_
@@ -32,7 +33,6 @@ import vcf
 from . import db, celery
 from .models import (Annotation, Coverage, DataSource, DataUnavailable,
                      Observation, Sample, Region, Variation)
-from .region_binning import all_bins
 from .utils import (calculate_frequency, digest, NoGenotypesInRecord,
                     normalize_variant, normalize_chromosome, normalize_region,
                     read_genotype, ReferenceMismatch)
@@ -357,7 +357,7 @@ def annotate_regions(original_regions, annotated_variants,
         results = [[] for _ in queries]
 
         # Set of observations considered by all queries together.
-        bins = all_bins(begin, end)
+        bins = binning.contained_bins(begin - 1, end)
         observations = Observation.query.filter(
             Observation.chromosome == chromosome,
             Observation.position >= begin,

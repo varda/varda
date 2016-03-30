@@ -15,12 +15,12 @@ import collections
 import hashlib
 import itertools
 
+import binning
 from flask import current_app
 from sqlalchemy.sql import func
 
 from . import db, genome
 from .models import Coverage, DataSource, Observation, Region, Sample, Variation
-from .region_binning import all_bins
 
 
 class ReferenceMismatch(Exception):
@@ -368,7 +368,7 @@ def calculate_frequency(chromosome, position, reference, observed,
     zygosities = (None, 'homozygous', 'heterozygous')
 
     end_position = position + max(1, len(reference)) - 1
-    bins = all_bins(position, end_position)
+    bins = binning.containing_bins(position - 1, end_position)
 
     # Coverage over samples with coverage profile.
     coverage = Region.query.join(Coverage).filter(

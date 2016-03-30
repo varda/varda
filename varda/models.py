@@ -21,6 +21,7 @@ import sqlite3
 import uuid
 
 import bcrypt
+import binning
 from flask import current_app
 from sqlalchemy import event, Index, TypeDecorator
 from sqlalchemy.engine import Engine
@@ -29,7 +30,6 @@ import werkzeug
 
 from . import db
 from . import expressions
-from .region_binning import assign_bin
 
 
 # Todo: Use the types for which we have validators.
@@ -798,7 +798,8 @@ class Observation(db.Model):
     observed = db.Column(db.String(200))
 
     #: Bin index that can be used for faster range-limited querying. See the
-    #: :mod:`region_binning` module for more information.
+    #: `interval binning <https://github.com/martijnvermaat/interval-binning>`_
+    #: package for more information.
     #:
     #: .. note:: Bin indices are always calculated on non-empty ranges, so for
     #:     an insertion we (somewhat arbitrarily) choose the first base next
@@ -831,8 +832,9 @@ class Observation(db.Model):
         self.observed = observed
         # We choose the 'region' of the reference covered by an insertion to
         # be the base next to it.
-        self.bin = assign_bin(self.position,
-                              self.position + max(1, len(self.reference)) - 1)
+        self.bin = binning.assign_bin(
+            self.position - 1,
+            self.position + max(1, len(self.reference)) - 1)
         self.zygosity = zygosity
         self.support = support
 
@@ -896,7 +898,8 @@ class Region(db.Model):
     end = db.Column(db.Integer)
 
     #: Bin index that can be used for faster range-limited querying. See the
-    #: :mod:`region_binning` module for more information.
+    #: `interval binning <https://github.com/martijnvermaat/interval-binning>`_
+    #: package for more information.
     bin = db.Column(db.Integer)
 
     # Todo: Perhaps we might want to have a `support` column here similar to
@@ -915,7 +918,7 @@ class Region(db.Model):
         self.chromosome = chromosome
         self.begin = begin
         self.end = end
-        self.bin = assign_bin(self.begin, self.end)
+        self.bin = binning.assign_bin(self.begin - 1, self.end)
 
     @detached_session_fix
     def __repr__(self):
