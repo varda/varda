@@ -7,10 +7,10 @@ REST API variants resource.
 """
 
 
+import binning
 from flask import abort, g, jsonify
 
 from ...models import Observation, Sample, Variation
-from ...region_binning import all_bins
 from ...utils import (calculate_frequency, normalize_region, normalize_variant,
                       ReferenceMismatch)
 from ..errors import ValidationError
@@ -151,7 +151,7 @@ class VariantsResource(Resource):
                           for sample in query.samples}
 
         # Set of observations considered by all queries together.
-        bins = all_bins(begin_position, end_position)
+        bins = binning.contained_bins(begin_position - 1, end_position)
         observations = Observation.query.filter(
             Observation.chromosome == chromosome,
             Observation.position >= begin_position,

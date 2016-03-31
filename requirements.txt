@@ -16,3 +16,4 @@ semantic-version==2.2.2
 Flask-Testing==0.4.1
 fixture==1.5
 pyPEG2==2.15.1
+interval-binning==1.0.0
