@@ -55,9 +55,13 @@ Install `PostgreSQL`_ and add a user for Varda. Create a database
     $ createdb --encoding=UNICODE --owner=varda varda
 
 Also install some development libraries needed for building the ``psycopg2``
-Python package later::
+Python package later and add the package to the list of requirements::
 
     $ sudo apt-get install python-dev libpq-dev
+    $ echo psycopg2 >> requirements.txt
+
+This will make sure the Python PostgreSQL database adapter gets installed in
+the :ref:`install-virtualenv` section.
 
 .. seealso::
 
@@ -181,13 +185,14 @@ for the Varda user. For example::
     > create database varda;
     > grant all privileges on varda.* to varda@localhost identified by '*****';
 
-Also install some development libraries needed for building the
-``MySQL-python`` Python package later::
+Also install some development libraries needed for building the ``MySQL-python``
+Python package later and add the package to the list of requirements::
 
     $ sudo apt-get install python-dev libmysqlclient-dev
+    $ echo MySQL-python >> requirements.txt
 
-Substitute ``MySQL-python`` for ``psycopg2`` in ``requirements.txt`` before
-you use it in the :ref:`install-virtualenv` section.
+This will make sure the Python MySQL database adapter gets installed in the
+:ref:`install-virtualenv` section.
 
 .. seealso::
 
