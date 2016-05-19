@@ -15,6 +15,10 @@ clients for this interface are under development:
 * `Manwë`_ - Python client library and command line interface to Varda.
 * `Aulë`_ - Web interface to Varda.
 
+Please see the `tutorial
+<https://varda.readthedocs.io/en/latest/tutorial.html>`_ for how to get
+started with all of these components.
+
 
 Use cases
 ---------
