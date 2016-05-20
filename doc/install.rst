@@ -205,9 +205,7 @@ This will make sure the Python MySQL database adapter gets installed in the
 Database server: SQLite
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-You probably already have all you need for using `SQLite`_. You can remove the
-``psycopg2`` line in ``requirements.txt`` before you use it in the
-:ref:`install-virtualenv` section.
+You probably already have all you need for using `SQLite`_.
 
 .. seealso::
 

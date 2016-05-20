@@ -71,8 +71,10 @@ MAX_CONTENT_LENGTH
 
 CORS_ALLOW_ORIGIN
   A URI (or ``*``) that may access resources via `cross-origin resource
-  sharing (CORS) <>`_, used in the `Access-Control-Allow-Origin response
-  header <https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS#Access-Control-Allow-Origin>`_.
+  sharing (CORS)
+  <https://en.wikipedia.org/wiki/Cross-origin_resource_sharing>`_, used in the
+  `Access-Control-Allow-Origin response header
+  <https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS#Access-Control-Allow-Origin>`_.
 
   `Default value:` `None`
 

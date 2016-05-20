@@ -15,6 +15,10 @@ clients for this interface are under development:
 * `Manwë`_ - Python client library and command line interface to Varda.
 * `Aulë`_ - Web interface to Varda.
 
+Please see the `tutorial
+<https://varda.readthedocs.io/en/latest/tutorial.html>`_ for how to get
+started with all of these components.
+
 
 User documentation
 ------------------
@@ -41,6 +45,18 @@ Start here if you're responsible for getting Varda running on a system.
    upgrade
    config
    run
+
+
+Tutorial
+--------
+
+The tutorial shows you how to setup Varda with the `Aulë`_ web interface and
+`Manwë`_ command line client, and how to import and query an example dataset.
+
+.. toctree::
+   :maxdepth: 2
+
+   tutorial
 
 
 REST API documentation

@@ -7,6 +7,8 @@ REST API data sources model resource.
 """
 
 
+import os
+
 from flask import current_app, g, request, send_from_directory, url_for
 
 from ...models import DataSource, DATA_SOURCE_FILETYPES
@@ -177,6 +179,10 @@ class DataSourcesResource(ModelResource):
         .. note:: Requires having the `admin` role or being the owner of the
            data source.
         """
-        return send_from_directory(current_app.config['DATA_DIR'],
+        path = current_app.config['DATA_DIR']
+        if not os.path.isabs(path):
+            path = os.path.join(os.getcwd(), path)
+
+        return send_from_directory(path,
                                    data_source.filename,
                                    mimetype='application/x-gzip')
