@@ -33,6 +33,9 @@ something like this:
     GENOME = 'tests/data/hg19.fa'
     CORS_ALLOW_ORIGIN = '*'
 
+Remember to point the ``VARDA_SETTINGS`` environment variable to the
+configuration file before continuing.
+
 .. seealso::
 
    :ref:`config`
